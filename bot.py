@@ -1050,7 +1050,7 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
             if 'Invalid API Key' in str(data):
                 await context.bot.send_message(user_id, "❌ Verification failed.\nReason: API Key is invalid. Please contact support.")
             else:
-                await context.bot.send_message(user_id, f"❌ Verification failed.\nReason: Transaction details could not be fetched. Please wait a few minutes and try again. (API: {error_message})")
+                await context.bot.send_message(user_id, f"⏳ Verification pending.\nReason: Please wait a few minutes and try again.")
             return
         
         # --- Проверка деталей транзакции ---
