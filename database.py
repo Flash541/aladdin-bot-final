@@ -328,8 +328,19 @@
 import sqlite3
 from datetime import datetime, timedelta
 from typing import Literal
+import os
 
-DB_NAME = "aladdin_users.db"
+# DB_NAME = "aladdin_users.db"
+if os.getenv("RENDER"):
+    # На сервере Render мы храним базу в постоянной папке 'storage'
+    STORAGE_DIR = 'storage'
+    if not os.path.exists(STORAGE_DIR):
+        os.makedirs(STORAGE_DIR)
+    DB_NAME = os.path.join(STORAGE_DIR, "aladdin_users.db")
+else:
+    # Локально мы храним базу в той же папке, что и раньше
+    DB_NAME = "aladdin_users.db"
+    
 UserStatus = Literal["pending_payment", "active", "expired"]
 
 def initialize_db():
