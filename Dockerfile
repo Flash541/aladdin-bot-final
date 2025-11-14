@@ -21,3 +21,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Команда для запуска будет взята из Procfile или настроек Render
+CMD ["python3", "bot.py"]
