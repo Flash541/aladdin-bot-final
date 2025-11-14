@@ -1,25 +1,26 @@
-# Используем официальный образ Python
-FROM python:3.12-slim
+# 1. Используем полный, не "slim", образ Python 3.12
+FROM python:3.12
 
-# Устанавливаем рабочую директорию внутри контейнера
+# 2. Устанавливаем рабочую директорию
 WORKDIR /app
 
-# --- ГЛАВНЫЙ ШАГ: Устанавливаем Tesseract OCR ---
-# Новый, исправленный код
-RUN apt-get update && apt-get install -y \
+# 3. Обновляем список пакетов и устанавливаем системные зависимости
+#    - build-essential: нужен для компиляции некоторых пакетов
+#    - tesseract-ocr: сам движок OCR
+#    - libgl1-mesa-glx: графическая библиотека для OpenCV
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
     tesseract-ocr \
-    libtesseract-dev \
-    libgl1-mesa-glx \
-    && rm -rf /var/lib/apt/lists/*
+    libgl1-mesa-glx --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
-# Копируем файл с зависимостями Python
+# 4. Копируем requirements.txt и устанавливаем Python-библиотеки
 COPY requirements.txt .
-
-# Устанавливаем Python-библиотеки
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем весь остальной код нашего приложения
+# 5. Копируем весь остальной код приложения
 COPY . .
 
-# Команда для запуска будет взята из Procfile или настроек Render
+# 6. Команда по умолчанию для запуска
 CMD ["python3", "bot.py"]
