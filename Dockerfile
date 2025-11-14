@@ -1,19 +1,18 @@
-# 1. Используем полный, не "slim", образ Python 3.12
-FROM python:3.12
+# 1. Используем стабильный образ Debian Bullseye
+FROM python:3.12-bullseye
 
 # 2. Устанавливаем рабочую директорию
 WORKDIR /app
 
-# 3. Обновляем список пакетов и устанавливаем системные зависимости
-#    - build-essential: нужен для компиляции некоторых пакетов
-#    - tesseract-ocr: сам движок OCR
-#    - libgl1-mesa-glx: графическая библиотека для OpenCV
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
+# 3. Устанавливаем ВСЕ необходимые зависимости для OpenCV и Tesseract
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Зависимости для OpenCV
+    libgl1 \
+    libglib2.0-0 \
+    # Зависимости для Tesseract
     tesseract-ocr \
-    libgl1-mesa-glx --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
+    # Очистка
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 4. Копируем requirements.txt и устанавливаем Python-библиотеки
 COPY requirements.txt .
