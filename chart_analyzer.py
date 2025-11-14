@@ -238,7 +238,6 @@
 #     return ohlc_data
 
 
-
 # chart_analyzer.py (v6.1 - Fixed Ticker Parsing)
 import cv2
 import numpy as np
@@ -395,129 +394,6 @@ def find_candlesticks(image_path: str):
         x, y, w, h = cv2.boundingRect(cnt)
         if h > 5 and w > 1 and h / w > 1.2 and w < 30:
             candlesticks.append({"body_x": x, "body_y": y, "body_w": w, "body_h": h})
-    candlesticks.sort(key=lambda c: c["body_x"])
-    print(f"Found {len(candlesticks)} potential candlesticks.")
-    return candlesticks, ticker
-
-
-# def extract_ticker_basic(ocr_text: str) -> str | None:
-#     """Резервный метод OCR когда GPT недоступен"""
-#     crypto_pairs = {
-#         "BTC": ["BITCOIN", "BTC"],
-#         "ETH": ["ETHEREUM", "ETH"], 
-#         "SOL": ["SOLANA", "SOL"],
-#         "XRP": ["XRP"],
-#         "BNB": ["BNB", "BINANCE COIN"],
-#         "DOGE": ["DOGE", "DOGECOIN"],
-#         "AVAX": ["AVAX", "AVALANCHE"],
-#         "LINK": ["LINK", "CHAINLINK"],
-#         "MATIC": ["MATIC", "POLYGON"],
-#         "PEPE": ["PEPE"],
-#         "ADA": ["ADA", "CARDANO"],
-#         "DOT": ["DOT", "POLKADOT"]
-#     }
-    
-#     scores = {pair: 0 for pair in crypto_pairs.keys()}
-    
-#     for pair, keywords in crypto_pairs.items():
-#         for keyword in keywords:
-#             if keyword.upper() in ocr_text:
-#                 if len(keyword) > 3:
-#                     scores[pair] += 2
-#                 else:
-#                     scores[pair] += 1
-    
-#     max_score_pair = max(scores, key=scores.get)
-#     max_score = scores[max_score_pair]
-    
-#     if max_score < 1:
-#         return None
-        
-#     # Всегда используем USDT для Binance
-#     return f"{max_score_pair}USDT"
-
-def extract_ticker_from_image(image: np.ndarray) -> str | None:
-    """Основная функция извлечения тикера с GPT"""
-    try:
-        h, w, _ = image.shape
-        top_section = image[0:min(150, int(h * 0.15)), 0:w]
-        
-        # Получаем OCR текст разными методами для лучшего качества
-        texts = set()
-        for threshold_val in [100, 120, 150]:
-            gray_top = cv2.cvtColor(top_section, cv2.COLOR_BGR2GRAY)
-            _, binary_img = cv2.threshold(gray_top, threshold_val, 255, cv2.THRESH_BINARY)
-            text = pytesseract.image_to_string(binary_img, config='--psm 6')
-            texts.add(text.upper())
-
-        full_text = " ".join(texts)
-        print(f"OCR Raw Text: '{full_text.strip()}'")
-        
-        # Используем GPT для анализа
-        ticker = extract_ticker_with_gpt(full_text)
-        
-        if ticker:
-            print(f"Final ticker (GPT): {ticker}")
-        else:
-            print("No ticker identified")
-            
-        return ticker
-            
-    except Exception as e:
-        print(f"Error during OCR: {e}")
-        return None
-
-def find_candlesticks(image_path: str):
-    """Гибридный метод: ищет цвета и затем проверяет форму."""
-    print(f"Analyzing image: {image_path}")
-    image = cv2.imread(image_path)
-    if image is None: 
-        return [], None
-
-    ticker = extract_ticker_from_image(image)
-    
-    # Поиск свечей (оставляем твою проверенную логику)
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_red1 = np.array([0, 100, 100]); upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([160, 100, 100]); upper_red2 = np.array([180, 255, 255])
-    red_mask = cv2.bitwise_or(cv2.inRange(hsv, lower_red1, upper_red1), cv2.inRange(hsv, lower_red2, upper_red2))
-    
-    lower_green = np.array([40, 50, 50]); upper_green = np.array([80, 255, 255])
-    green_mask = cv2.inRange(hsv, lower_green, upper_green)
-    
-    combined_mask = cv2.bitwise_or(red_mask, green_mask)
-    
-    contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    candlesticks = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        
-        # Фильтруем по форме свечи
-        if h > 5 and w > 1 and h / w > 1.2 and w < 30:
-            center_x = x + w // 2
-            center_y = y + h // 2
-            
-            # Находим тени
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            _, thresh = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY_INV)
-            
-            col = thresh[:, center_x]
-            wick_points = np.where(col > 0)[0]
-            
-            high_y, low_y = y, y + h
-            if wick_points.size > 0:
-                high_y = min(y, wick_points.min())
-                low_y = max(y + h, wick_points.max())
-                
-            candle = {
-                "body_x": x, "body_y": y, "body_w": w, "body_h": h,
-                "color": "green" if green_mask[center_y, center_x] > 0 else "red",
-                "high": high_y,
-                "low": low_y
-            }
-            candlesticks.append(candle)
-            
     candlesticks.sort(key=lambda c: c["body_x"])
     print(f"Found {len(candlesticks)} potential candlesticks.")
     return candlesticks, ticker
