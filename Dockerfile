@@ -5,10 +5,11 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # --- ГЛАВНЫЙ ШАГ: Устанавливаем Tesseract OCR ---
-# Сначала обновляем список пакетов, затем устанавливаем Tesseract и его зависимости
+# Новый, исправленный код
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
+    libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем файл с зависимостями Python
