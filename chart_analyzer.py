@@ -341,7 +341,9 @@ def extract_ticker_with_gpt(image_path: str) -> str | None:
                     "content": [
                         {
                             "type": "text", 
-                            "text": "What is the cryptocurrency ticker symbol shown in this chart image? Respond with ONLY the ticker symbol (e.g., BTCUSDT, ETHUSD). If you are unsure, respond with 'UNKNOWN'."
+                            "text": "What is the cryptocurrency ticker symbol shown in this chart image? Respond with ONLY the ticker symbol which is availavble on Binance  (e.g., BTCUSDT, ETHUSD it will be ETHUSDT and etc). If you are unsure, respond with 'UNKNOWN'."
+            
+                        #     "text": "What is the cryptocurrency ticker symbol shown in this chart image? Respond with ONLY the ticker symbol (e.g., BTCUSDT, ETHUSD). If you are unsure, respond with 'UNKNOWN'."
                         },
                         {
                             "type": "image_url",
