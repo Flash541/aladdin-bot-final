@@ -3084,18 +3084,42 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Сообщаем пользователю, что начали анализ
         processing_message = await update.message.reply_text("📨 Chart received! Starting analysis...")
         
-        # Функция для обновления прогресса (вызывается из отдельного потока)
-        async def update_progress(message_text):
-            await processing_message.edit_text(message_text)
+        # Создаем очередь для прогресс-сообщений
+        progress_queue = asyncio.Queue()
+        
+        # Функция для обновления прогресса (будет запускаться параллельно)
+        async def progress_updater():
+            while True:
+                message_text = await progress_queue.get()
+                if message_text is None:  # Сигнал завершения
+                    break
+                await processing_message.edit_text(message_text)
+        
+        # Запускаем обновление прогресса в фоне
+        progress_task = asyncio.create_task(progress_updater())
+        
+        # Функция-колбэк для прогресса (вызывается из потока)
+        def progress_callback(message_text):
+            # Просто кладем сообщение в очередь, не создавая новых задач
+            try:
+                # Используем call_soon_threadsafe для потокобезопасности
+                asyncio.get_event_loop().call_soon_threadsafe(
+                    progress_queue.put_nowait, message_text
+                )
+            except:
+                pass  # Игнорируем ошибки, если цикл событий закрыт
         
         # --- ЗАПУСКАЕМ "ТЯЖЕЛУЮ" ФУНКЦИЮ В ОТДЕЛЬНОМ ПОТОКЕ ---
-        # С колбэком для прогресс-сообщений
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
             blocking_chart_analysis, 
             file_path, 
             risk_settings,
-            lambda msg: asyncio.create_task(update_progress(msg))
+            progress_callback
         )
+        
+        # Завершаем прогресс-апдейтер
+        await progress_queue.put(None)
+        await progress_task
         
         # --- Обрабатываем результат, который вернулся из потока ---
         if error_message:
@@ -3116,6 +3140,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred. Please try again with a different chart.")
+
 
 def main():
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
