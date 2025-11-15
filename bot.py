@@ -1154,6 +1154,36 @@ def format_plan_to_message(plan):
 
 # --- Enhanced Bot Command Handlers ---
 
+# async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user = update.effective_user
+    
+#     # Check for referral code in start parameter
+#     referrer_id = None
+#     if context.args and context.args[0].startswith('ref_'):
+#         code = context.args[0]
+#         referrer_id = get_user_by_referral_code(code)
+    
+#     add_user(user.id, user.username, referrer_id)
+#     status = get_user_status(user.id)
+
+#     if status == 'active':
+#         keyboard = [["Analyze Chart 📈", "Profile 👤", "Risk Settings ⚙️"]]
+#         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+#         await update.message.reply_text("Welcome back! Your subscription is active.", reply_markup=reply_markup)
+#     else:
+#         payment_message = (
+#             f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
+#             f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
+#             f"<code>{WALLET_ADDRESS}</code>\n\n"
+#             f"Then, paste the <b>Transaction Hash (TxID)</b> here to verify."
+#         )
+#         await update.message.reply_text(payment_message, parse_mode=ParseMode.HTML)
+
+# bot.py
+
+# Убедись, что вверху файла импортированы нужные классы
+# from telegram import ..., InlineKeyboardButton, InlineKeyboardMarkup, ...
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
@@ -1167,10 +1197,30 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = get_user_status(user.id)
 
     if status == 'active':
-        keyboard = [["Analyze Chart 📈", "Profile 👤", "Risk Settings ⚙️"]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Welcome back! Your subscription is active.", reply_markup=reply_markup)
-    else:
+        # --- ОСНОВНЫЕ КНОПКИ ВНИЗУ ---
+        main_keyboard = [["Analyze Chart 📈", "Profile 👤", "Risk Settings ⚙️"]]
+        main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+        
+        # --- КНОПКА-ССЫЛКА В САМОМ СООБЩЕНИИ ---
+        # Создаем Inline-кнопку, которая ведет на TradingView
+        inline_keyboard = [[
+            InlineKeyboardButton("View Charts 📊", url="https://www.tradingview.com/chart/")
+        ]]
+        inline_reply_markup = InlineKeyboardMarkup(inline_keyboard)
+        
+        await update.message.reply_text(
+            "Welcome back! Your subscription is active. Use the buttons below to start.",
+            # Прикрепляем Reply-клавиатуру (кнопки внизу)
+            reply_markup=main_reply_markup
+        )
+        # Отдельным сообщением отправляем кнопку-ссылку для наглядности
+        await update.message.reply_text(
+            "Or open a live chart:",
+            # Прикрепляем Inline-клавиатуру (кнопка в сообщении)
+            reply_markup=inline_reply_markup
+        )
+        
+    else: # Если подписка не активна
         payment_message = (
             f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
             f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
