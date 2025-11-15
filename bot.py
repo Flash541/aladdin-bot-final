@@ -2861,12 +2861,15 @@ async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT
     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
 # --- "ТЯЖЕЛАЯ" ФУНКЦИЯ ДЛЯ ОТДЕЛЬНОГО ПОТОКА ---
-def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
-    """Выполняет анализ графика в отдельном потоке (не блокирует бота)"""
+def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback=None) -> tuple:
+    """Выполняет анализ графика в отдельном потоке с прогресс-сообщениями"""
     print(f"Starting blocking analysis in a new thread for {file_path}")
     
     try:
         # Этап 1: Распознавание с помощью GPT-Vision
+        if progress_callback:
+            progress_callback("🔍 Analyzing chart with AI...")
+        
         candlesticks, ticker = find_candlesticks(file_path)
         
         df = None
@@ -2876,6 +2879,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
 
         # СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН GPT - получаем реальные данные
         if ticker:
+            if progress_callback:
+                progress_callback(f"✅ AI identified: {ticker}\n\nFetching live data...")
+            
             # Конвертируем тикер в формат Binance
             symbol_for_api = None
             possible_quotes = ["USDT", "BUSD", "TUSD", "USDC"]
@@ -2902,6 +2908,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
 
         # СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН или не удалось получить данные - используем CV
         if df is None or df.empty:
+            if progress_callback:
+                progress_callback("📈 Analyzing chart structure patterns...")
+            
             if candlesticks and len(candlesticks) >= 30:
                 ohlc_list = candlesticks_to_ohlc(candlesticks)
                 df = pd.DataFrame(ohlc_list)
@@ -2912,6 +2921,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
                 return None, None, f"❌ Sorry, I couldn't find enough candlesticks ({len(candlesticks)}) or recognize a ticker."
 
         # ФИНАЛЬНЫЙ АНАЛИЗ
+        if progress_callback:
+            progress_callback("🤖 Running impulse analysis engine...")
+        
         features = compute_features(df)
         trade_plan, analysis_context = generate_decisive_signal(
             features, 
@@ -2923,12 +2935,14 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
         if not trade_plan:
             return None, None, "❌ Sorry, I couldn't analyze this chart properly."
 
+        if progress_callback:
+            progress_callback("🎯 Generating trading plan...")
+        
         return trade_plan, analysis_context, None # Успех - error_message = None
 
     except Exception as e:
         print(f"Error in blocking_chart_analysis: {e}")
         return None, None, f"❌ An unexpected error occurred: {str(e)}"
-
 
 # async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #     """
@@ -3041,10 +3055,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
 #         print(f"Error in photo_handler: {e}")
 #         await processing_message.edit_text("❌ An unexpected error occurred. Please try again with a different chart.")
 
-
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    НЕБЛОКИРУЮЩАЯ ОБРАБОТКА ГРАФИКОВ - бот остается отзывчивым для других пользователей
+    НЕБЛОКИРУЮЩАЯ ОБРАБОТКА ГРАФИКОВ с прогресс-сообщениями
     """
     user = update.message.from_user
     user_id = user.id
@@ -3069,12 +3082,19 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await photo_file.download_to_drive(file_path)
         
         # Сообщаем пользователю, что начали анализ
-        processing_message = await update.message.reply_text("📨 Chart received! 🧞‍♂️ Your request is in the queue. Analysis has started...")
+        processing_message = await update.message.reply_text("📨 Chart received! Starting analysis...")
+        
+        # Функция для обновления прогресса (вызывается из отдельного потока)
+        async def update_progress(message_text):
+            await processing_message.edit_text(message_text)
         
         # --- ЗАПУСКАЕМ "ТЯЖЕЛУЮ" ФУНКЦИЮ В ОТДЕЛЬНОМ ПОТОКЕ ---
-        # Это НЕ блокирует бота для других пользователей!
+        # С колбэком для прогресс-сообщений
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, file_path, risk_settings
+            blocking_chart_analysis, 
+            file_path, 
+            risk_settings,
+            lambda msg: asyncio.create_task(update_progress(msg))
         )
         
         # --- Обрабатываем результат, который вернулся из потока ---
@@ -3096,7 +3116,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred. Please try again with a different chart.")
-
 
 def main():
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
