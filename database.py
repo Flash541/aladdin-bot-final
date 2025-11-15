@@ -619,5 +619,66 @@ def mark_tx_hash_as_used(tx_hash: str):
     conn.commit()
     conn.close()
 
+def get_admin_stats():
+    """Собирает общую статистику для админ-панели."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    total_users = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    active_users = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'").fetchone()[0]
+    pending_payment = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'pending_payment'").fetchone()[0]
+    total_tokens = cursor.execute("SELECT SUM(token_balance) FROM users").fetchone()[0] or 0
+    pending_withdrawals_count = cursor.execute("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").fetchone()[0]
+    pending_withdrawals_sum = cursor.execute("SELECT SUM(amount) FROM withdrawals WHERE status = 'pending'").fetchone()[0] or 0
+    
+    conn.close()
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "pending_payment": pending_payment,
+        "total_tokens": total_tokens,
+        "pending_withdrawals_count": pending_withdrawals_count,
+        "pending_withdrawals_sum": pending_withdrawals_sum
+    }
+
+def get_active_users_report(limit=20):
+    """Возвращает детальный отчет по активным пользователям."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT user_id, username, token_balance FROM users WHERE status = 'active' ORDER BY join_date DESC LIMIT ?", (limit,))
+    users = cursor.fetchall()
+    
+    report = []
+    for user in users:
+        user_id, username, token_balance = user
+        
+        # Считаем рефералов для каждого уровня
+        l1_count = cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (user_id,)).fetchone()[0]
+        
+        l1_ids = [row[0] for row in cursor.execute("SELECT user_id FROM users WHERE referrer_id = ?", (user_id,)).fetchall()]
+        l2_count = 0
+        if l1_ids:
+            l2_count = cursor.execute(f"SELECT COUNT(*) FROM users WHERE referrer_id IN ({','.join('?' for _ in l1_ids)})", l1_ids).fetchone()[0]
+
+        report.append({
+            "user_id": user_id,
+            "username": username,
+            "balance": token_balance,
+            "referrals": {"l1": l1_count, "l2": l2_count} # L3 для краткости опустим в отчете
+        })
+        
+    conn.close()
+    return report
+
+def get_pending_withdrawals():
+    """Возвращает список всех ожидающих вывода заявок."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT request_id, user_id, amount, wallet_address, request_date FROM withdrawals WHERE status = 'pending' ORDER BY request_id ASC")
+    withdrawals = cursor.fetchall()
+    conn.close()
+    return withdrawals
+
 # Initialize the database when module is imported
 initialize_db()
