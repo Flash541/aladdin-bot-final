@@ -2860,48 +2860,22 @@ async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT
     
     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
-async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    УМНАЯ ОБРАБОТКА ГРАФИКОВ С ИМПУЛЬСНЫМ АНАЛИЗОМ И ПРОВЕРКОЙ ПОДПИСКИ
-    """
-    user = update.message.from_user
-    user_id = user.id
-    
-    # Check subscription status with admin access
-    if not has_access(user_id):
-        await update.message.reply_text(
-            "❌ <b>Access Required</b>\n\n"
-            "Your access is not active. Please use the /start command to make a payment or use a promo code to activate full access.",
-            parse_mode=ParseMode.HTML
-        )
-        return
-    
-    # --- GET USER RISK SETTINGS ---
-    risk_settings = get_user_risk_settings(user_id)
-    
-    file_path = f'chart_for_{user.id}.jpg'
-    processing_message = await update.message.reply_text("📨 Chart received! Starting analysis...")
+# --- "ТЯЖЕЛАЯ" ФУНКЦИЯ ДЛЯ ОТДЕЛЬНОГО ПОТОКА ---
+def blocking_chart_analysis(file_path: str, risk_settings: dict) -> tuple:
+    """Выполняет анализ графика в отдельном потоке (не блокирует бота)"""
+    print(f"Starting blocking analysis in a new thread for {file_path}")
     
     try:
-        photo_file = await update.message.photo[-1].get_file()
-        await photo_file.download_to_drive(file_path)
-
-        # Этап 1: Анализ изображения с GPT
-        await processing_message.edit_text("🔍 Analyzing chart with AI...")
-        await simulate_thinking(3)
-        
+        # Этап 1: Распознавание с помощью GPT-Vision
         candlesticks, ticker = find_candlesticks(file_path)
         
-        df = None  # Инициализируем DataFrame
+        df = None
         symbol_for_analysis = "USER_CHART"
         timeframe_for_analysis = "Chart"
-        analysis_context = None  # Для хранения контекста анализа
+        analysis_context = None
 
         # СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН GPT - получаем реальные данные
         if ticker:
-            await processing_message.edit_text(f"✅ AI identified: <b>{ticker}</b>\n\nFetching live data...", parse_mode=ParseMode.HTML)
-            await simulate_thinking(2)
-            
             # Конвертируем тикер в формат Binance
             symbol_for_api = None
             possible_quotes = ["USDT", "BUSD", "TUSD", "USDC"]
@@ -2928,9 +2902,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН или не удалось получить данные - используем CV
         if df is None or df.empty:
-            await processing_message.edit_text("📈 Analyzing chart structure patterns...")
-            await simulate_thinking(3)
-            
             if candlesticks and len(candlesticks) >= 30:
                 ohlc_list = candlesticks_to_ohlc(candlesticks)
                 df = pd.DataFrame(ohlc_list)
@@ -2938,21 +2909,179 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 symbol_for_analysis = "USER_CHART"
                 timeframe_for_analysis = "Chart"
             else:
-                await processing_message.edit_text(f"❌ Sorry, I couldn't find enough candlesticks ({len(candlesticks)}) or recognize a ticker.")
-                return
+                return None, None, f"❌ Sorry, I couldn't find enough candlesticks ({len(candlesticks)}) or recognize a ticker."
 
-        # ФИНАЛЬНЫЙ АНАЛИЗ: ВСЕГДА ИСПОЛЬЗУЕМ РЕШИТЕЛЬНУЮ ФУНКЦИЮ
-        await processing_message.edit_text("🤖 Running impulse analysis engine...")
-        await simulate_thinking(4)
-        
+        # ФИНАЛЬНЫЙ АНАЛИЗ
         features = compute_features(df)
-        # !!! ВЫЗЫВАЕМ РЕШИТЕЛЬНУЮ ФУНКЦИЮ ВО ВСЕХ СЛУЧАЯХ !!!
-        trade_plan, analysis_context = generate_decisive_signal(features, symbol_ccxt=symbol_for_analysis, risk_settings=risk_settings, timeframe=timeframe_for_analysis)
+        trade_plan, analysis_context = generate_decisive_signal(
+            features, 
+            symbol_ccxt=symbol_for_analysis, 
+            risk_settings=risk_settings, 
+            timeframe=timeframe_for_analysis
+        )
 
         if not trade_plan:
-            await processing_message.edit_text("❌ Sorry, I couldn't analyze this chart properly.")
-            return
+            return None, None, "❌ Sorry, I couldn't analyze this chart properly."
 
+        return trade_plan, analysis_context, None # Успех - error_message = None
+
+    except Exception as e:
+        print(f"Error in blocking_chart_analysis: {e}")
+        return None, None, f"❌ An unexpected error occurred: {str(e)}"
+
+
+# async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """
+#     УМНАЯ ОБРАБОТКА ГРАФИКОВ С ИМПУЛЬСНЫМ АНАЛИЗОМ И ПРОВЕРКОЙ ПОДПИСКИ
+#     """
+#     user = update.message.from_user
+#     user_id = user.id
+    
+#     # Check subscription status with admin access
+#     if not has_access(user_id):
+#         await update.message.reply_text(
+#             "❌ <b>Access Required</b>\n\n"
+#             "Your access is not active. Please use the /start command to make a payment or use a promo code to activate full access.",
+#             parse_mode=ParseMode.HTML
+#         )
+#         return
+    
+#     # --- GET USER RISK SETTINGS ---
+#     risk_settings = get_user_risk_settings(user_id)
+    
+#     file_path = f'chart_for_{user.id}.jpg'
+#     processing_message = await update.message.reply_text("📨 Chart received! Starting analysis...")
+    
+#     try:
+#         photo_file = await update.message.photo[-1].get_file()
+#         await photo_file.download_to_drive(file_path)
+
+#         # Этап 1: Анализ изображения с GPT
+#         await processing_message.edit_text("🔍 Analyzing chart with AI...")
+#         await simulate_thinking(3)
+        
+#         candlesticks, ticker = find_candlesticks(file_path)
+        
+#         df = None  # Инициализируем DataFrame
+#         symbol_for_analysis = "USER_CHART"
+#         timeframe_for_analysis = "Chart"
+#         analysis_context = None  # Для хранения контекста анализа
+
+#         # СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН GPT - получаем реальные данные
+#         if ticker:
+#             await processing_message.edit_text(f"✅ AI identified: <b>{ticker}</b>\n\nFetching live data...", parse_mode=ParseMode.HTML)
+#             await simulate_thinking(2)
+            
+#             # Конвертируем тикер в формат Binance
+#             symbol_for_api = None
+#             possible_quotes = ["USDT", "BUSD", "TUSD", "USDC"]
+            
+#             for quote in possible_quotes:
+#                 if ticker.endswith(quote):
+#                     base = ticker[:-len(quote)]
+#                     symbol_for_api = f"{base}/{quote}"
+#                     break
+            
+#             # Если не нашли стандартную котируемую, используем USDT по умолчанию
+#             if not symbol_for_api:
+#                 if len(ticker) >= 7:
+#                     base = ticker[:-4]
+#                     quote = ticker[-4:]
+#                     symbol_for_api = f"{base}/{quote}"
+#                 else:
+#                     symbol_for_api = f"{ticker}/USDT"
+            
+#             print(f"Fetching data for: {symbol_for_api}")
+#             df = fetch_data(symbol=symbol_for_api, timeframe="15m")
+#             symbol_for_analysis = symbol_for_api
+#             timeframe_for_analysis = "15m"
+
+#         # СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН или не удалось получить данные - используем CV
+#         if df is None or df.empty:
+#             await processing_message.edit_text("📈 Analyzing chart structure patterns...")
+#             await simulate_thinking(3)
+            
+#             if candlesticks and len(candlesticks) >= 30:
+#                 ohlc_list = candlesticks_to_ohlc(candlesticks)
+#                 df = pd.DataFrame(ohlc_list)
+#                 df['volume'] = 1000  # Заглушка для объема
+#                 symbol_for_analysis = "USER_CHART"
+#                 timeframe_for_analysis = "Chart"
+#             else:
+#                 await processing_message.edit_text(f"❌ Sorry, I couldn't find enough candlesticks ({len(candlesticks)}) or recognize a ticker.")
+#                 return
+
+#         # ФИНАЛЬНЫЙ АНАЛИЗ: ВСЕГДА ИСПОЛЬЗУЕМ РЕШИТЕЛЬНУЮ ФУНКЦИЮ
+#         await processing_message.edit_text("🤖 Running impulse analysis engine...")
+#         await simulate_thinking(4)
+        
+#         features = compute_features(df)
+#         # !!! ВЫЗЫВАЕМ РЕШИТЕЛЬНУЮ ФУНКЦИЮ ВО ВСЕХ СЛУЧАЯХ !!!
+#         trade_plan, analysis_context = generate_decisive_signal(features, symbol_ccxt=symbol_for_analysis, risk_settings=risk_settings, timeframe=timeframe_for_analysis)
+
+#         if not trade_plan:
+#             await processing_message.edit_text("❌ Sorry, I couldn't analyze this chart properly.")
+#             return
+
+#         # Сохраняем контекст для будущего использования
+#         context.user_data['last_analysis_context'] = analysis_context
+        
+#         # Создаем кнопку для объяснения
+#         keyboard = [[InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")]]
+#         reply_markup = InlineKeyboardMarkup(keyboard)
+
+#         # ФИНАЛЬНЫЙ РЕЗУЛЬТАТ с кнопкой
+#         await processing_message.edit_text("🎯 Generating trading plan...")
+#         await simulate_thinking(2)
+        
+#         message = format_plan_to_message(trade_plan)
+#         await processing_message.edit_text(text=message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+
+#     except Exception as e:
+#         print(f"Error in photo_handler: {e}")
+#         await processing_message.edit_text("❌ An unexpected error occurred. Please try again with a different chart.")
+
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    НЕБЛОКИРУЮЩАЯ ОБРАБОТКА ГРАФИКОВ - бот остается отзывчивым для других пользователей
+    """
+    user = update.message.from_user
+    user_id = user.id
+    
+    # Check subscription status with admin access
+    if not has_access(user_id):
+        await update.message.reply_text(
+            "❌ <b>Access Required</b>\n\n"
+            "Your access is not active. Please use the /start command to make a payment or use a promo code to activate full access.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+    
+    # --- GET USER RISK SETTINGS ---
+    risk_settings = get_user_risk_settings(user_id)
+    
+    file_path = f'chart_for_{user.id}.jpg'
+    
+    try:
+        # Скачиваем фото
+        photo_file = await update.message.photo[-1].get_file()
+        await photo_file.download_to_drive(file_path)
+        
+        # Сообщаем пользователю, что начали анализ
+        processing_message = await update.message.reply_text("📨 Chart received! 🧞‍♂️ Your request is in the queue. Analysis has started...")
+        
+        # --- ЗАПУСКАЕМ "ТЯЖЕЛУЮ" ФУНКЦИЮ В ОТДЕЛЬНОМ ПОТОКЕ ---
+        # Это НЕ блокирует бота для других пользователей!
+        trade_plan, analysis_context, error_message = await asyncio.to_thread(
+            blocking_chart_analysis, file_path, risk_settings
+        )
+        
+        # --- Обрабатываем результат, который вернулся из потока ---
+        if error_message:
+            await processing_message.edit_text(error_message)
+            return
+            
         # Сохраняем контекст для будущего использования
         context.user_data['last_analysis_context'] = analysis_context
         
@@ -2961,15 +3090,13 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         # ФИНАЛЬНЫЙ РЕЗУЛЬТАТ с кнопкой
-        await processing_message.edit_text("🎯 Generating trading plan...")
-        await simulate_thinking(2)
-        
         message = format_plan_to_message(trade_plan)
         await processing_message.edit_text(text=message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
     except Exception as e:
         print(f"Error in photo_handler: {e}")
-        await processing_message.edit_text("❌ An unexpected error occurred. Please try again with a different chart.")
+        await update.message.reply_text("❌ An unexpected error occurred. Please try again with a different chart.")
+
 
 def main():
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
