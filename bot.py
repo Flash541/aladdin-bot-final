@@ -273,69 +273,64 @@ def format_plan_to_message(plan):
 #         print(f"Error in photo_handler: {e}")
 #         await update.message.reply_text("❌ An unexpected error occurred.")
 
+
+# --- ИСПРАВЛЕННАЯ "ТЯЖЕЛАЯ" ФУНКЦИЯ (с таймингами и фоллбэком по таймфрейму) ---
 def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
-    # Внутренняя функция для безопасного обновления сообщения из потока
     def update_progress(text):
         async def edit():
             try: await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
             except Exception as e: print(f"Progress update failed: {e}")
-        # Безопасно отправляем асинхронную задачу в основной поток
         future = asyncio.run_coroutine_threadsafe(edit(), loop)
-        future.result() # Ждем завершения
+        future.result()
 
     try:
-        update_progress("🔍 Analyzing chart with AI...")
+        update_progress("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
         time.sleep(5) # Имитация работы GPT-Vision
-        candlesticks, chart_info = find_candlesticks(file_path)
         
-        trade_plan, analysis_context = None, None
+        candlesticks, chart_info = find_candlesticks(file_path) # find_candlesticks теперь вызывает GPT
+        
+        df = None; trade_plan = None; analysis_context = None
         ticker = chart_info.get('ticker') if chart_info else None
         
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА IF/ELSE ---
-        
-        # СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН
+        # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
         if ticker:
-            timeframe = chart_info.get('timeframe', '15m')
-            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe}</b>\n\nFetching live data...")
+            timeframe_for_analysis = chart_info.get('timeframe', '15m')
+            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe_for_analysis}</b>\n\nFetching live data...")
             time.sleep(2)
             
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
-                if ticker.endswith(quote):
-                    base_currency = ticker[:-len(quote)]; break
+                if ticker.endswith(quote): base_currency = ticker[:-len(quote)]; break
             
             if base_currency:
                 symbol_for_api = f"{base_currency}/USDT" # Всегда используем USDT для Binance
-                df = fetch_data(symbol=symbol_for_api, timeframe=timeframe)
+                
+                # --- ИСПРАВЛЕНИЕ: Пробуем распознанный таймфрейм, если не сработало, фоллбэк на 15m ---
+                df = fetch_data(symbol=symbol_for_api, timeframe=timeframe_for_analysis)
+                if df.empty and timeframe_for_analysis != '15m':
+                    update_progress(f"⚠️ {timeframe_for_analysis} not available for {ticker}. Trying 15m...")
+                    time.sleep(1)
+                    timeframe_for_analysis = '15m'
+                    df = fetch_data(symbol=symbol_for_api, timeframe='15m')
                 
                 if df is not None and not df.empty:
                     update_progress("🤖 Running technical analysis...")
                     time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
-                        features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe
+                        features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe_for_analysis
                     )
-                else: # Если не удалось получить данные по найденному тикеру
-                    return None, None, f"❌ Found {ticker}, but couldn't fetch data from the exchange."
-            else: # Если тикер не похож на пару
-                return None, None, f"❌ AI recognized '{ticker}', but it's not a standard pair."
-
-        # СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН
-        else:
-            update_progress("📈 Ticker not recognized. Analyzing chart structure...")
-            time.sleep(3)
-            if candlesticks and len(candlesticks) >= 30:
-                ohlc_list = candlesticks_to_ohlc(candlesticks)
-                df = pd.DataFrame(ohlc_list); df['volume'] = 1000
-                features = compute_features(df)
-                trade_plan, analysis_context = generate_decisive_signal(
-                    features, symbol_ccxt="USER_CHART", risk_settings=risk_settings, timeframe="Chart"
-                )
+                else: # Если после фоллбэка df все равно пустой
+                    return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange (tried {timeframe_for_analysis})."
             else:
-                return None, None, "❌ Sorry, I couldn't recognize a ticker or enough candlesticks."
+                return None, None, f"❌ AI identified '{ticker}', but it's not a recognized trading pair. Please try another chart."
+
+        # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
+        else: # ticker is None
+            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
 
         if not trade_plan:
-            return None, None, "❌ Analysis did not produce a valid trade plan. The chart might be too ambiguous."
+            return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
 
         update_progress("🎯 Generating final report...")
         time.sleep(2)
@@ -343,10 +338,10 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
 
     except Exception as e:
         print(f"Error in blocking_chart_analysis: {e}")
-        return None, None, "❌ An unexpected error occurred during analysis."
+        return None, None, f"❌ An unexpected error occurred during the analysis: {str(e)}"
 
 
-# --- "ЛЕГКИЙ" ОБРАБОТЧИК ФОТО ---
+
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -393,6 +388,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
 
+        
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
