@@ -22,7 +22,7 @@ BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID"))  # Важно: конвертируем в int
 REFERRAL_REWARD = 24.5
-PAYMENT_AMOUNT = 1.5
+PAYMENT_AMOUNT = 49
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
 
 # Conversation states
@@ -389,9 +389,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔗 <b>Your Referral Link:</b>\n"
         f"<code>{referral_link}</code>\n\n"
         f"Invite friends and earn tokens!\n"
-        f"Level 1: 15 tokens\n"
-        f"Level 2: 10 tokens\n"
-        f"Level 3: 5 tokens"
+        f"Level 1: 25 tokens\n"
     )
     keyboard = [["Withdraw Tokens 💵", "Risk Settings ⚙️", "Back to Menu ↩️"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
