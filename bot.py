@@ -287,6 +287,18 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
 
+async def debug_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_USER_ID:
+        return
+
+    # Переключаем режим отладки
+    current_mode = context.user_data.get('debug_mode', False)
+    new_mode = not current_mode
+    context.user_data['debug_mode'] = new_mode
+    
+    await update.message.reply_text(f"Debug mode has been {'✅ ENABLED' if new_mode else '❌ DISABLED'}.")
+
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
     """Проверяет, активна ли подписка ИЛИ является ли пользователь админом."""
@@ -828,18 +840,6 @@ async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT
     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
 
-# --- НОВАЯ КОМАНДА ДЛЯ АДМИНА ---
-async def debug_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ADMIN_USER_ID:
-        return
-
-    # Переключаем режим отладки
-    current_mode = context.user_data.get('debug_mode', False)
-    new_mode = not current_mode
-    context.user_data['debug_mode'] = new_mode
-    
-    await update.message.reply_text(f"Debug mode has been {'✅ ENABLED' if new_mode else '❌ DISABLED'}.")
 
 
 def main():
