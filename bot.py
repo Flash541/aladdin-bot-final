@@ -171,110 +171,88 @@ def format_plan_to_message(plan):
     return message
 
 
-# bot.py
-
-# ... (todos os seus imports existentes no topo do arquivo) ...
-# import time
-# from telegram import ..., InlineKeyboardButton, InlineKeyboardMarkup
-
-# --- A FUNÇÃO "PESADA" QUE SERÁ EXECUTADA EM UMA THREAD SEPARADA ---
-def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
+def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback) -> tuple:
     """
-    Executa todas as operações demoradas: análise de imagem, busca de dados, cálculo de indicadores.
-    Chama a função interna `update_progress` para enviar atualizações de status para o Telegram.
+    Выполняет все "долгие" операции: анализ картинки, запрос к бирже, расчет индикаторов.
+    Эта функция НЕ асинхронная (обычный def), поэтому она может безопасно работать в другом потоке.
     """
-    # Função interna para enviar atualizações de progresso de forma segura entre threads
-    def update_progress(text):
-        async def edit():
-            try:
-                await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
-            except Exception as e:
-                # Ignora erros se a mensagem for a mesma (para evitar spam de logs)
-                if 'Message is not modified' not in str(e):
-                    print(f"LOG: Falha na atualização do progresso: {e}")
-        
-        # Envia a tarefa assíncrona para o loop de eventos principal de forma segura
-        future = asyncio.run_coroutine_threadsafe(edit(), loop)
-        try:
-            future.result(timeout=10) # Espera pela conclusão com um timeout
-        except Exception as e:
-            print(f"LOG: Timeout/erro no resultado futuro da atualização de progresso: {e}")
-
     try:
-        print("\n--- [START] BLOCKING ANALYSIS ---")
-        update_progress("🔍 Analisando o gráfico com IA (reconhecendo símbolo e timeframe)...")
-        time.sleep(5) # Simula o trabalho do GPT-Vision
+        print("\n--- [START] BLOCKING ANALYSIS in a separate thread ---")
+        if progress_callback:
+            progress_callback("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
+        time.sleep(5)  # Имитация работы GPT-Vision, БЕЗОПАСНА, т.к. в отдельном потоке
         
         candlesticks, chart_info = find_candlesticks(file_path)
         
-        print(f"LOG: Informação Bruta do GPT Vision: {chart_info}")
+        print(f"LOG: GPT Vision Raw Info: {chart_info}")
         
-        df = None
-        trade_plan = None
-        analysis_context = None
+        df = None; trade_plan = None; analysis_context = None
         ticker = chart_info.get('ticker') if chart_info else None
         
-        # --- CENÁRIO 1: SÍMBOLO RECONHECIDO ---
+        # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
         if ticker:
             display_timeframe = chart_info.get('timeframe', '15m')
-            fetch_timeframe = '15m' # Sempre usa 15m para confiabilidade da busca na Binance
+            fetch_timeframe = '15m'
             
-            print(f"LOG: Símbolo '{ticker}' e Timeframe '{display_timeframe}' identificados.")
-            update_progress(f"✅ IA identificou: <b>{ticker}</b> em <b>{display_timeframe}</b>\n\nBuscando dados de mercado...")
+            print(f"LOG: Ticker '{ticker}' and Timeframe '{display_timeframe}' identified.")
+            if progress_callback:
+                progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
             time.sleep(2)
             
-            base_currency = None
-            known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
+            base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
                 if ticker.endswith(quote):
-                    base_currency = ticker[:-len(quote)]
-                    break
+                    base_currency = ticker[:-len(quote)]; break
             
             if base_currency:
                 symbol_for_api = f"{base_currency}/USDT"
-                print(f"LOG: Símbolo formatado para a API: {symbol_for_api}, solicitando timeframe: {fetch_timeframe}")
+                print(f"LOG: Formatted symbol for API: {symbol_for_api}, requesting timeframe: {fetch_timeframe}")
                 
                 df = fetch_data(symbol=symbol_for_api, timeframe=fetch_timeframe)
                 
                 if df is not None and not df.empty:
-                    print(f"LOG: Buscou com sucesso {len(df)} candles para {symbol_for_api}.")
-                    update_progress("🤖 Executando motor de análise técnica...")
+                    print(f"LOG: Successfully fetched {len(df)} candles for {symbol_for_api}.")
+                    if progress_callback:
+                        progress_callback("🤖 Running technical analysis...")
                     time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, display_timeframe=display_timeframe
                     )
                 else:
-                    print(f"LOG: FALHA ao buscar dados para {symbol_for_api}.")
-                    return None, None, f"❌ Símbolo {ticker} encontrado, mas não foi possível buscar seus dados da exchange."
+                    print(f"LOG: FAILED to fetch data for {symbol_for_api}.")
+                    return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
             else:
-                print(f"LOG: Símbolo '{ticker}' foi identificado, mas não reconhecido como um par válido.")
-                ticker = None # Redefine para acionar o Cenário 2
+                print(f"LOG: Ticker '{ticker}' was identified, but not recognized as a valid pair.")
+                ticker = None # Сбрасываем, чтобы бот сообщил об ошибке
 
-        # --- CENÁRIO 2: SÍMBOLO NÃO RECONHECIDO ---
+        # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
         if ticker is None:
-            print("LOG: Símbolo não identificado pela IA.")
-            return None, None, "❌ Desculpe, a IA não conseguiu identificar um símbolo válido neste gráfico."
+            print("LOG: Ticker not identified by AI.")
+            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
 
         if not trade_plan:
-            print("LOG: O motor de análise não produziu um plano de negociação válido.")
-            return None, None, "❌ Desculpe, a análise não produziu um plano de negociação válido."
+            print("LOG: Analysis engine did not produce a valid trade plan.")
+            return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
 
-        print(f"LOG: Plano de negociação gerado com sucesso: {trade_plan.get('view')}")
-        update_progress("🎯 Gerando relatório final...")
+        print(f"LOG: Trade plan generated successfully: {trade_plan.get('view')}")
+        if progress_callback:
+            progress_callback("🎯 Generating final report...")
         time.sleep(1)
         print("--- [END] BLOCKING ANALYSIS ---")
         return trade_plan, analysis_context, None
 
     except Exception as e:
-        print(f"ERRO FATAL em blocking_chart_analysis: {e}")
-        return None, None, "❌ Ocorreu um erro inesperado durante a análise."
+        print(f"FATAL ERROR in blocking_chart_analysis: {e}")
+        return None, None, "❌ An unexpected error occurred during the analysis."
 
-# --- O MANIPULADOR "LEVE" QUE PERMANECE RESPONSIVO ---
+
+# --- "ЛЕГКИЙ" АСИНХРОННЫЙ ОБРАБОТЧИК, КОТОРЫЙ НЕ БЛОКИРУЕТСЯ ---
+# Эта версия использует твою рабочую архитектуру с asyncio.Queue
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
-        await update.message.reply_text("❌ Acesso Obrigatório. Por favor, use /start para ativar.")
+        await update.message.reply_text("❌ Access Required. Please use /start to activate.")
         return
         
     risk_settings = get_user_risk_settings(user_id)
@@ -284,20 +262,45 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_file = await update.message.photo[-1].get_file()
         await photo_file.download_to_drive(file_path)
         
-        processing_message = await update.message.reply_text("📨 Gráfico recebido! Seu pedido está na fila...")
+        processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
         
-        loop = asyncio.get_running_loop()
+        # 1. Создаем очередь для безопасного общения между потоками
+        progress_queue = asyncio.Queue()
         
-        # Delega a função "pesada" para uma thread separada
+        # 2. Создаем "слушателя" (progress_updater), который работает в основном потоке и обновляет сообщения
+        async def progress_updater():
+            while True:
+                message_text = await progress_queue.get()
+                if message_text is None:  # Сигнал к завершению
+                    break
+                try:
+                    await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    print(f"Progress update failed (this might be normal on the final step): {e}")
+        
+        # 3. Запускаем "слушателя" в фоне. Он не будет блокировать бота.
+        progress_task = asyncio.create_task(progress_updater())
+        
+        # 4. Создаем "отправщика" (progress_callback), который "тяжелая" функция будет вызывать из другого потока
+        def progress_callback(message_text):
+            try:
+                # Этот метод безопасен для потоков и не блокирует основной цикл
+                asyncio.get_running_loop().call_soon_threadsafe(
+                    progress_queue.put_nowait, message_text
+                )
+            except Exception as e:
+                print(f"Error putting message in progress queue: {e}")
+        
+        # 5. Отправляем "тяжелую" функцию на выполнение в отдельный поток, передав ей "отправщика"
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, 
-            file_path, 
-            risk_settings, 
-            processing_message, 
-            context.bot, 
-            loop
+            blocking_chart_analysis, file_path, risk_settings, progress_callback
         )
         
+        # 6. Когда "тяжелая" функция закончила, останавливаем "слушателя"
+        await progress_queue.put(None)
+        await progress_task
+        
+        # 7. Обрабатываем финальный результат
         if error_message:
             await processing_message.edit_text(error_message)
             return
@@ -306,23 +309,22 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         message_text = format_plan_to_message(trade_plan)
         
-        profile = get_user_profile(user_id)
-        referral_link = None
+        profile = get_user_profile(user_id); referral_link = None
         if profile and profile.get('ref_code'):
             bot_username = (await context.bot.get_me()).username
             referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
         
         keyboard = []
         if referral_link:
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Junte-se aqui)", url=referral_link)])
+            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
         
         reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
 
         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
     except Exception as e:
-        print(f"Erro em photo_handler: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro inesperado.")
+        print(f"Error in photo_handler: {e}")
+        await update.message.reply_text("❌ An unexpected error occurred.")
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
