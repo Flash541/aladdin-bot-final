@@ -396,7 +396,7 @@ def calculate_position_size(entry_price: float, stop_loss_price: float, account_
         "potential_loss_usd": f"${risk_amount_usd:,.2f}"
     }
 
-def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, timeframe="Chart"):
+def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, display_timeframe: str):
     """
     ФИНАЛЬНАЯ "РЕШИТЕЛЬНАЯ" ВЕРСИЯ. Понимает импульсы.
     Теперь возвращает (trade_plan, context) для LLM объяснений.
@@ -475,7 +475,8 @@ def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, timefram
     
     trade_plan = {
         "symbol": symbol_ccxt.replace("/", ""),
-        "timeframe": timeframe,
+        # "timeframe": timeframe,
+        "timeframe": display_timeframe,
         "view": view,
         "strategy": "Impulse Analysis",
         "entry_zone": [format_price(current_price * 0.999), format_price(current_price * 1.001)],
