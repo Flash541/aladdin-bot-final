@@ -601,26 +601,6 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
         trade_plan.update(risk_data)
         context['final_view'] = "short"
         context['reasoning'] = "Strong bearish confluence with multiple confirming indicators"
-    # else:
-    #     context['final_view'] = "neutral"
-        
-    #     # Собираем метрики в словарь
-    #     metrics = {
-    #         "Trend": 'Up' if is_trend_up else 'Down',
-    #         "RSI": f"{latest['RSI_14']:.2f}",
-    #         "Volume Z-Score": f"{latest.get('volume_z', 0):.2f}",
-    #         "Sentiment": f"{news_score:.2f}" if news_score != 0 else "N/A"
-    #     }
-        
-    #     trade_plan = {
-    #         "symbol": symbol_ccxt.replace("/", ""),
-    #         "timeframe": timeframe,
-    #         "view": "neutral",
-    #         "notes": f"No strong confluence of factors found (Score L:{long_score:.1f}/S:{short_score:.1f} vs Threshold:{CONFIDENCE_THRESHOLD}).",
-    #         "metrics": metrics # <-- НОВОЕ ПОЛЕ
-    #     }
-
-    # return trade_plan, context
     else: # Neutral
         # --- ИСПРАВЛЕНИЕ: Возвращаем СЫРЫЕ данные, а не HTML ---
         context['final_view'] = "neutral"
@@ -639,5 +619,10 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
             "notes": f"No strong confluence of factors found (Score L:{long_score:.1f}/S:{short_score:.1f} vs Threshold:{CONFIDENCE_THRESHOLD}).",
             "metrics": metrics # Передаем сырые метрики
         }
+    # --- НОВЫЙ ЛОГ ---
+    print("\n--- [CORE ANALYZER] Generated Trade Plan ---")
+    import json
+    print(json.dumps(trade_plan, indent=2))
+    print("------------------------------------------\n")
 
     return trade_plan, context

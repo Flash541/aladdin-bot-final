@@ -112,6 +112,10 @@ async def simulate_thinking(duration=2):
 
 # --- ИСПРАВЛЕННЫЙ ФОРМАТТЕР (ВОЗВРАЩАЕТ ТОЛЬКО ТЕКСТ) ---
 def format_plan_to_message(plan):
+    print("\n--- [FORMATTER] Received plan ---")
+    import json
+    print(json.dumps(plan, indent=2))
+    print("---------------------------------")
     symbol = plan.get('symbol', 'N/A')
     timeframe = plan.get('timeframe', 'N/A')
     view = plan.get('view', 'neutral')
@@ -127,6 +131,9 @@ def format_plan_to_message(plan):
         icon = "⚪️"; title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
         
         # --- ИСПРАВЛЕНИЕ: Форматируем HTML ТОЛЬКО ЗДЕСЬ ---
+        print("\n--- [FORMATTER] Generated HTML ---")
+        print(message)
+        print("----------------------------------\n")
         message = f"{icon} {title}\n\n<b>Rationale:</b>\n<i>{notes}</i>"
         
         metrics = plan.get('metrics')
@@ -158,6 +165,9 @@ def format_plan_to_message(plan):
                     f"  - Max Loss on this trade: <code>{potential_loss}</code>")
                     
     message += "\n\n<pre>⚠️ Not financial advice. DYOR.</pre>"
+    print("\n--- [FORMATTER] Generated HTML ---")
+    print(message)
+    print("----------------------------------\n")
     return message
 
 
@@ -269,9 +279,14 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         context.user_data['last_analysis_context'] = analysis_context
-        
+        print("\n--- [HANDLER] Plan to be formatted ---")
+        import json
+        print(json.dumps(trade_plan, indent=2))
+        print("--------------------------------------")
         message_text = format_plan_to_message(trade_plan)
-        
+        print("\n--- [HANDLER] Final HTML to be sent ---")
+        print(message_text)
+        print("-----------------------------------------")
         profile = get_user_profile(user_id); referral_link = None
         if profile and profile.get('ref_code'):
             bot_username = (await context.bot.get_me()).username
