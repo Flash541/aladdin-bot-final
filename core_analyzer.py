@@ -376,24 +376,68 @@ def compute_features(df):
         
     return df
 
-def calculate_position_size(entry_price: float, stop_loss_price: float, account_balance: float, risk_per_trade_pct: float) -> dict:
-    """Calculates position size based on user's risk settings."""
-    if entry_price is None or stop_loss_price is None: 
+# def calculate_position_size(entry_price: float, stop_loss_price: float, account_balance: float, target_price: float, risk_per_trade_pct: float) -> dict:
+#     """Calculates position size based on user's risk settings."""
+#     if entry_price is None or stop_loss_price is None: 
+#         return {}
+    
+#     risk_amount_usd = account_balance * (risk_per_trade_pct / 100.0)
+#     sl_distance = abs(entry_price - stop_loss_price)
+    
+#     if sl_distance == 0: 
+#         return {}
+    
+#     position_size_asset = risk_amount_usd / sl_distance
+#     position_size_usd = position_size_asset * entry_price
+
+#     reward_distance = abs(target_price - entry_price)
+#     r_multiple = reward_distance / sl_distance
+#     potential_profit_usd = risk_amount_usd * r_multiple
+    
+#     return {
+#         "position_size_asset": f"{position_size_asset:.4f}",
+#         "position_size_usd": f"${position_size_usd:,.2f}",
+#         "potential_loss_usd": f"${risk_amount_usd:,.2f}"
+#     }
+
+
+# core_analyzer.py
+
+def calculate_position_size(
+    entry_price: float, 
+    stop_loss_price: float, 
+    target_price: float, # <-- НОВЫЙ АРГУМЕНТ
+    account_balance: float, 
+    risk_per_trade_pct: float
+) -> dict:
+    """
+    Рассчитывает размер позиции, убыток и ПОТЕНЦИАЛЬНУЮ ПРИБЫЛЬ.
+    """
+    if any(v is None for v in [entry_price, stop_loss_price, target_price, account_balance, risk_per_trade_pct]):
         return {}
     
+    # Расчет риска (без изменений)
     risk_amount_usd = account_balance * (risk_per_trade_pct / 100.0)
     sl_distance = abs(entry_price - stop_loss_price)
+    if sl_distance == 0: return {}
     
-    if sl_distance == 0: 
-        return {}
-    
+    # Расчет размера позиции (без изменений)
     position_size_asset = risk_amount_usd / sl_distance
     position_size_usd = position_size_asset * entry_price
+    
+    # --- НОВЫЙ РАСЧЕТ: Потенциальная прибыль ---
+    tp_distance = abs(target_price - entry_price)
+    potential_profit_usd = position_size_asset * tp_distance
+    
+    # --- НОВЫЙ РАСЧЕТ: Соотношение Риск/Прибыль (R:R) ---
+    risk_reward_ratio = potential_profit_usd / risk_amount_usd if risk_amount_usd > 0 else 0
     
     return {
         "position_size_asset": f"{position_size_asset:.4f}",
         "position_size_usd": f"${position_size_usd:,.2f}",
-        "potential_loss_usd": f"${risk_amount_usd:,.2f}"
+        "potential_loss_usd": f"${risk_amount_usd:,.2f}",
+        "potential_profit_usd": f"${potential_profit_usd:,.2f}", # <-- НОВОЕ ПОЛЕ
+        "risk_reward_ratio": f"1:{risk_reward_ratio:.2f}" # <-- НОВОЕ ПОЛЕ
     }
 
 def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, display_timeframe: str):
@@ -471,7 +515,8 @@ def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, display_
         target1 = current_price - 2.2 * latest['ATR']
 
     # --- РАСЧЕТ РИСКА И ПОЗИЦИИ ---
-    risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+    # risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+    risk_data = calculate_position_size(current_price, stop, target1, risk_settings['balance'], risk_settings['risk_pct'])
     
     trade_plan = {
         "symbol": symbol_ccxt.replace("/", ""),
@@ -563,7 +608,8 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
         target1 = current_price + 2.2 * latest['ATR']
         
         # РАСЧЕТ РИСКА ДЛЯ LONG
-        risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+        # risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+        risk_data = calculate_position_size(current_price, stop, target1, risk_settings['balance'], risk_settings['risk_pct'])
         
         trade_plan = {
             "symbol": symbol_ccxt.replace("/", ""),
@@ -585,7 +631,8 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
         target1 = current_price - 2.2 * latest['ATR']
         
         # РАСЧЕТ РИСКА ДЛЯ SHORT
-        risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+        # risk_data = calculate_position_size(current_price, stop, risk_settings['balance'], risk_settings['risk_pct'])
+        risk_data = calculate_position_size(current_price, stop, target1, risk_settings['balance'], risk_settings['risk_pct'])
         
         trade_plan = {
             "symbol": symbol_ccxt.replace("/", ""),
