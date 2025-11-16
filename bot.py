@@ -287,17 +287,19 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("\n--- [HANDLER] Final HTML to be sent ---")
         print(message_text)
         print("-----------------------------------------")
-        profile = get_user_profile(user_id); referral_link = None
-        if profile and profile.get('ref_code'):
-            bot_username = (await context.bot.get_me()).username
-            referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+        # profile = get_user_profile(user_id); referral_link = None
+        # if profile and profile.get('ref_code'):
+        #     bot_username = (await context.bot.get_me()).username
+        #     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
         
-        keyboard = []
-        if referral_link:
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
-        # Кнопка Explain Factors, если она тебе понадобится в будущем
-        # keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
-        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        # keyboard = []
+        # if referral_link:
+        #     keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        # # Кнопка Explain Factors, если она тебе понадобится в будущем
+        # # keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
+        # reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        print("DEBUG: Skipping referral button generation for this test.")
+        reply_markup = None
 
         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
