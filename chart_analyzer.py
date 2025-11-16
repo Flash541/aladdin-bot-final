@@ -13,55 +13,6 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-# def extract_ticker_with_gpt(image_path: str) -> str | None:
-#     """Использует GPT-4 Vision для распознавания тикера на изображении."""
-#     if not client:
-#         print("WARNING: OpenAI API key not found. Cannot perform Vision analysis.")
-#         return None
-
-#     try:
-#         # Кодируем изображение в base64
-#         with open(image_path, "rb") as image_file:
-#             base64_image = base64.b64encode(image_file.read()).decode('utf-8')
-
-#         print("--- Sending image to GPT-4 Vision for ticker recognition ---")
-        
-#         response = client.chat.completions.create(
-#             model="gpt-4o", # Или "gpt-4-vision-preview"
-#             messages=[
-#                 {
-#                     "role": "user",
-#                     "content": [
-#                         {
-#                             "type": "text", 
-#                             "text": "What is the cryptocurrency ticker symbol shown in this chart image? Respond with ONLY the ticker symbol which is availavble on Binance  (e.g., BTCUSDT, ETHUSD it will be ETHUSDT and etc). If you are unsure, respond with 'UNKNOWN'."
-            
-#                         #     "text": "What is the cryptocurrency ticker symbol shown in this chart image? Respond with ONLY the ticker symbol (e.g., BTCUSDT, ETHUSD). If you are unsure, respond with 'UNKNOWN'."
-#                         },
-#                         {
-#                             "type": "image_url",
-#                             "image_url": {
-#                                 "url": f"data:image/jpeg;base64,{base64_image}"
-#                             }
-#                         }
-#                     ]
-#                 }
-#             ],
-#             max_tokens=10,
-#         )
-
-#         ticker = response.choices[0].message.content.strip().upper()
-        
-#         if "UNKNOWN" in ticker or len(ticker) < 4:
-#             print("GPT-4 Vision could not confidently identify a ticker.")
-#             return None
-            
-#         print(f"GPT-4 Vision identified ticker: {ticker}")
-#         return ticker
-#     except Exception as e:
-#         print(f"Error during GPT-4 Vision analysis: {e}")
-#         return None
-
 
 def analyze_chart_with_gpt(image_path: str) -> dict | None:
     """Использует GPT-4 Vision для распознавания тикера и таймфрейма."""

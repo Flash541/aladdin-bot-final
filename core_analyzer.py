@@ -601,34 +601,34 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
         trade_plan.update(risk_data)
         context['final_view'] = "short"
         context['reasoning'] = "Strong bearish confluence with multiple confirming indicators"
-    else:
-        # NEUTRAL случай
-        # notes_details = (
-        #     f"<b>Rationale:</b>\n"
-        #     f"No strong confluence of factors found (Long: {long_score:.1f}, Short: {short_score:.1f} vs Threshold: {CONFIDENCE_THRESHOLD}).\n\n"
-        #     f"<b>Current Key Metrics:</b>\n"
-        #     f"— Trend: <code>{'Up' if is_trend_up else 'Down'}</code>\n"
-        #     f"— RSI: <code>{latest['RSI']:.2f}</code>\n"
-        #     f"— Volume: <code>{latest['volume_z']:.2f}</code>\n"
-        #     f"— Market Sentiment: <code>{news_score:.2f}</code>\n\n"
-        #     f"<i>Waiting for a clearer setup.</i>"
-        # )
+    # else:
+    #     context['final_view'] = "neutral"
         
-        # trade_plan = {
-        #     "symbol": symbol_ccxt.replace("/", ""),
-        #     "timeframe": timeframe,
-        #     "view": "neutral",
-        #     "notes": notes_details
-        # }
-        # context['final_view'] = "neutral"
-        # context['reasoning'] = "Insufficient confluence for directional bias"
+    #     # Собираем метрики в словарь
+    #     metrics = {
+    #         "Trend": 'Up' if is_trend_up else 'Down',
+    #         "RSI": f"{latest['RSI_14']:.2f}",
+    #         "Volume Z-Score": f"{latest.get('volume_z', 0):.2f}",
+    #         "Sentiment": f"{news_score:.2f}" if news_score != 0 else "N/A"
+    #     }
+        
+    #     trade_plan = {
+    #         "symbol": symbol_ccxt.replace("/", ""),
+    #         "timeframe": timeframe,
+    #         "view": "neutral",
+    #         "notes": f"No strong confluence of factors found (Score L:{long_score:.1f}/S:{short_score:.1f} vs Threshold:{CONFIDENCE_THRESHOLD}).",
+    #         "metrics": metrics # <-- НОВОЕ ПОЛЕ
+    #     }
+
+    # return trade_plan, context
+    else: # Neutral
+        # --- ИСПРАВЛЕНИЕ: Возвращаем СЫРЫЕ данные, а не HTML ---
         context['final_view'] = "neutral"
         
-        # Собираем метрики в словарь
         metrics = {
             "Trend": 'Up' if is_trend_up else 'Down',
-            "RSI": f"{latest['RSI_14']:.2f}",
-            "Volume Z-Score": f"{latest.get('volume_z', 0):.2f}",
+            "RSI": f"{latest['RSI']:.2f}",
+            "Volume": f"{latest.get('volume_z', 0):.2f}",
             "Sentiment": f"{news_score:.2f}" if news_score != 0 else "N/A"
         }
         
@@ -637,8 +637,7 @@ def generate_signal(df, symbol_ccxt: str, news_score: float, risk_settings: dict
             "timeframe": timeframe,
             "view": "neutral",
             "notes": f"No strong confluence of factors found (Score L:{long_score:.1f}/S:{short_score:.1f} vs Threshold:{CONFIDENCE_THRESHOLD}).",
-            "metrics": metrics # <-- НОВОЕ ПОЛЕ
+            "metrics": metrics # Передаем сырые метрики
         }
 
     return trade_plan, context
-    

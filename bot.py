@@ -109,7 +109,7 @@ async def simulate_thinking(duration=2):
     """Задержка для естественности"""
     await asyncio.sleep(duration)
 
-    
+
 # --- ИСПРАВЛЕННЫЙ ФОРМАТТЕР (ВОЗВРАЩАЕТ ТОЛЬКО ТЕКСТ) ---
 def format_plan_to_message(plan):
     symbol = plan.get('symbol', 'N/A')
@@ -123,10 +123,12 @@ def format_plan_to_message(plan):
     elif view == 'short': 
         icon = "🔴"
         title = f"<b>Short Idea: ${symbol}</b> ({timeframe})"
-    else:
-        icon = "⚪️"
-        title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
-        message = f"{icon} {title}\n\n<i>{notes}</i>"
+    else: # neutral
+        icon = "⚪️"; title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
+        
+        # --- ИСПРАВЛЕНИЕ: Форматируем HTML ТОЛЬКО ЗДЕСЬ ---
+        message = f"{icon} {title}\n\n<b>Rationale:</b>\n<i>{notes}</i>"
+        
         metrics = plan.get('metrics')
         if metrics:
             metrics_text = "\n\n<b>Current Key Metrics:</b>\n"
@@ -138,9 +140,7 @@ def format_plan_to_message(plan):
         return message
 
     # Этот код выполняется ТОЛЬКО для long/short
-    entry_zone = plan.get('entry_zone', ['N/A'])
-    stop_loss = plan.get('stop', 'N/A')
-    targets = plan.get('targets', ['N/A'])
+    entry_zone = plan.get('entry_zone', ['N/A']); stop_loss = plan.get('stop', 'N/A'); targets = plan.get('targets', ['N/A'])
     
     message = (f"{icon} {title}\n\n"
                f"<b>🔹 Entry Zone:</b> <code>{entry_zone[0]} - {entry_zone[1]}</code>\n"
