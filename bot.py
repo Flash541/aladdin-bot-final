@@ -402,7 +402,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         inline_keyboard = []
         if referral_link:
-            inline_keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+            inline_keyboard.append([InlineKeyboardButton("Click here to subscribe", url=referral_link)])
         reply_markup_inline = InlineKeyboardMarkup(inline_keyboard) if inline_keyboard else None
         
         # 3. Удаляем "Processing..." и отправляем финальную карточку с Inline-кнопкой
