@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Application, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler, CallbackQueryHandler)
 from telegram.constants import ParseMode
+from telegram.ext import JobQueue
+
 
 from database import * # Import all our new DB functions including risk management and promocodes
 from chart_analyzer import find_candlesticks, candlesticks_to_ohlc
@@ -25,6 +27,8 @@ ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID"))  # Важно: конверти�
 REFERRAL_REWARD = 24.5
 PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
+ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(2)
+
 
 # Conversation states
 ASK_AMOUNT, ASK_WALLET = range(2)  # Withdrawal
@@ -326,159 +330,6 @@ def format_plan_to_message(plan):
 #         print(f"Error in photo_handler: {e}")
 #         await update.message.reply_text("❌ An unexpected error occurred.")
 
-
-def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback=None) -> tuple:
-    """Выполняет анализ графика в отдельном потоке"""
-    try:
-        print("\n--- [START] BLOCKING ANALYSIS ---")
-        if progress_callback:
-            progress_callback("🔍 Analyzing chart with AI...")
-        
-        candlesticks, chart_info = find_candlesticks(file_path)
-        
-        print(f"LOG: GPT Vision Raw Info: {chart_info}")
-        
-        df = None
-        trade_plan = None
-        analysis_context = None
-        ticker = chart_info.get('ticker') if chart_info else None
-        
-        # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
-        if ticker:
-            display_timeframe = chart_info.get('timeframe', '15m')
-            fetch_timeframe = '15m'
-            
-            print(f"LOG: Ticker '{ticker}' and Timeframe '{display_timeframe}' identified.")
-            if progress_callback:
-                progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
-            
-            base_currency = None
-            known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
-            for quote in known_quotes:
-                if ticker.endswith(quote):
-                    base_currency = ticker[:-len(quote)]
-                    break
-            
-            if base_currency:
-                symbol_for_api = f"{base_currency}/USDT"
-                print(f"LOG: Formatted symbol for API: {symbol_for_api}, requesting timeframe: {fetch_timeframe}")
-                
-                df = fetch_data(symbol=symbol_for_api, timeframe=fetch_timeframe)
-                
-                if df is not None and not df.empty:
-                    print(f"LOG: Successfully fetched {len(df)} candles for {symbol_for_api}.")
-                    if progress_callback:
-                        progress_callback("🤖 Running technical analysis...")
-                    
-                    features = compute_features(df)
-                    trade_plan, analysis_context = generate_decisive_signal(
-                        features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, display_timeframe=display_timeframe
-                    )
-                else:
-                    print(f"LOG: FAILED to fetch data for {symbol_for_api}.")
-                    return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
-            else:
-                print(f"LOG: Ticker '{ticker}' was identified, but not recognized as a valid pair.")
-                ticker = None
-
-        # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
-        if ticker is None:
-            print("LOG: Ticker not identified by AI.")
-            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
-
-        if not trade_plan:
-            print("LOG: Analysis engine did not produce a valid trade plan.")
-            return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
-
-        print(f"LOG: Trade plan generated successfully: {trade_plan.get('view')}")
-        if progress_callback:
-            progress_callback("🎯 Generating final report...")
-        
-        print("--- [END] BLOCKING ANALYSIS ---")
-        return trade_plan, analysis_context, None
-
-    except Exception as e:
-        print(f"FATAL ERROR in blocking_chart_analysis: {e}")
-        return None, None, "❌ An unexpected error occurred during the analysis."
-
-# --- ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ФОТО ---
-async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Access Required. Please use /start to activate.")
-        return
-        
-    risk_settings = get_user_risk_settings(user_id)
-    file_path = f'chart_for_{user_id}.jpg'
-    
-    try:
-        photo_file = await update.message.photo[-1].get_file()
-        await photo_file.download_to_drive(file_path)
-        
-        processing_message = await update.message.reply_text("📨 Chart received! Starting analysis...")
-        
-        # Создаем очередь для прогресс-сообщений
-        progress_queue = asyncio.Queue()
-        
-        # Функция для обновления прогресса
-        async def progress_updater():
-            while True:
-                message_text = await progress_queue.get()
-                if message_text is None:  # Сигнал завершения
-                    break
-                try:
-                    await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
-                except Exception as e:
-                    print(f"Progress update failed: {e}")
-        
-        # Запускаем обновление прогресса в фоне
-        progress_task = asyncio.create_task(progress_updater())
-        
-        # Функция-колбэк для прогресса (вызывается из потока)
-        def progress_callback(message_text):
-            try:
-                asyncio.get_running_loop().call_soon_threadsafe(
-                    progress_queue.put_nowait, message_text
-                )
-            except:
-                pass  # Игнорируем ошибки, если цикл событий закрыт
-        
-        # Запускаем анализ в отдельном потоке
-        trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, file_path, risk_settings, progress_callback
-        )
-        
-        # Завершаем прогресс-апдейтер
-        await progress_queue.put(None)
-        await progress_task
-        
-        if error_message:
-            await processing_message.edit_text(error_message)
-            return
-            
-        context.user_data['last_analysis_context'] = analysis_context
-        
-        message_text = format_plan_to_message(trade_plan)
-        
-        profile = get_user_profile(user_id)
-        referral_link = None
-        if profile and profile.get('ref_code'):
-            bot_username = (await context.bot.get_me()).username
-            referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
-        
-        # Создаем клавиатуру с ДВУМЯ кнопками
-        keyboard = []
-        if referral_link:
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
-        keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
-
-    except Exception as e:
-        print(f"Error in photo_handler: {e}")
-        await update.message.reply_text("❌ An unexpected error occurred.")
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
@@ -853,141 +704,264 @@ async def handle_admin_withdrawals(update: Update, context: ContextTypes.DEFAULT
 
 # --- PROMO CODE GENERATION CONVERSATION ---
 
+# async def generate_promos_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Начинает диалог генерации промокодов."""
+#     await update.message.reply_text("How many promo codes do you want to generate? (e.g., 10)", reply_markup=ReplyKeyboardRemove())
+#     return ASK_PROMO_COUNT
+
+# async def generate_promos_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Получает количество, генерирует и отправляет промокоды."""
+#     try:
+#         count = int(update.message.text)
+#         if not (0 < count <= 100): # Ограничим до 100 за раз
+#             raise ValueError
+#     except ValueError:
+#         await update.message.reply_text("Please enter a valid number between 1 and 100.")
+#         return ASK_PROMO_COUNT
+
+#     await update.message.reply_text(f"Generating {count} promo codes, please wait...")
+    
+#     new_codes = generate_promo_codes(count)
+    
+#     # Отправляем коды в текстовом файле, чтобы их было удобно копировать
+#     codes_text = "\n".join(new_codes)
+#     file_path = "promo_codes.txt"
+#     with open(file_path, "w") as f:
+#         f.write(codes_text)
+    
+#     await context.bot.send_document(
+#         chat_id=update.effective_chat.id,
+#         document=open(file_path, "rb"),
+#         caption=f"✅ Here are your {count} new promo codes."
+#     )
+#     os.remove(file_path) # Удаляем временный файл
+    
+#     # Возвращаем админ-клавиатуру
+#     keyboard = [["User Stats 👥", "Withdrawals 🏧"], ["Generate Promos 🎟️"], ["Back to Main Menu ⬅️"]]
+#     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+#     await update.message.reply_text("What would you like to do next?", reply_markup=reply_markup)
+    
+#     return ConversationHandler.END
+
+
+# --- НОВЫЙ ДИАЛОГ ГЕНЕРАЦИИ ПРОМОКОДОВ ---
 async def generate_promos_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начинает диалог генерации промокодов."""
-    await update.message.reply_text("How many promo codes do you want to generate? (e.g., 10)", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("How many promo codes do you want to generate? (e.g., 10)")
     return ASK_PROMO_COUNT
 
 async def generate_promos_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Получает количество, генерирует и отправляет промокоды."""
     try:
         count = int(update.message.text)
-        if not (0 < count <= 100): # Ограничим до 100 за раз
-            raise ValueError
+        if not (0 < count <= 100): raise ValueError
     except ValueError:
-        await update.message.reply_text("Please enter a valid number between 1 and 100.")
-        return ASK_PROMO_COUNT
+        await update.message.reply_text("Please enter a valid number between 1 and 100."); return ASK_PROMO_COUNT
 
-    await update.message.reply_text(f"Generating {count} promo codes, please wait...")
+    context.user_data['promo_count'] = count
     
-    new_codes = generate_promo_codes(count)
+    # Создаем кнопки для выбора срока действия
+    keyboard = [
+        ["1 day", "5 days"],
+        ["7 days", "30 days"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    await update.message.reply_text("Great. Now select the duration for these codes:", reply_markup=reply_markup)
+    return ASK_PROMO_DURATION
+
+
+async def generate_promos_duration(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    duration_map = {"1 day": 1, "5 days": 5, "7 days": 7, "30 days": 30}
+    duration_text = update.message.text
     
-    # Отправляем коды в текстовом файле, чтобы их было удобно копировать
+    if duration_text not in duration_map:
+        await update.message.reply_text("Please select a valid duration from the buttons."); return ASK_PROMO_DURATION
+
+    duration_days = duration_map[duration_text]
+    count = context.user_data['promo_count']
+    
+    await update.message.reply_text(f"Generating {count} promo codes for {duration_days} days...", reply_markup=ReplyKeyboardRemove())
+    
+    new_codes = generate_promo_codes(count, duration_days)
+    
     codes_text = "\n".join(new_codes)
-    file_path = "promo_codes.txt"
+    file_path = f"promo_codes_{count}_{duration_days}d.txt"
     with open(file_path, "w") as f:
         f.write(codes_text)
     
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
         document=open(file_path, "rb"),
-        caption=f"✅ Here are your {count} new promo codes."
+        caption=f"✅ Here are your {count} new promo codes, each valid for {duration_days} days."
     )
-    os.remove(file_path) # Удаляем временный файл
+    os.remove(file_path)
     
     # Возвращаем админ-клавиатуру
     keyboard = [["User Stats 👥", "Withdrawals 🏧"], ["Generate Promos 🎟️"], ["Back to Main Menu ⬅️"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("What would you like to do next?", reply_markup=reply_markup)
+    await update.message.reply_text("Promo codes generated. What would you like to do next?", reply_markup=reply_markup)
     
+    context.user_data.clear()
     return ConversationHandler.END
 
-# --- Enhanced Text & Button Handler ---
-
+# --- ОБНОВЛЕННЫЙ text_handler для активации по промокоду ---
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
 
-    # --- Сначала проверяем, не админ ли это и не в админ-панели ли он ---
+    # --- Админ-панель ---
     if user_id == ADMIN_USER_ID:
-        if text == "User Stats 👥":
-            await handle_admin_stats(update, context)
-            return
-        elif text == "Withdrawals 🏧":
-            await handle_admin_withdrawals(update, context)
-            return
-        elif text == "Generate Promos 🎟️":
-            await generate_promos_start(update, context)
-            return
+        if text == "User Stats 👥": await handle_admin_stats(update, context); return
+        elif text == "Withdrawals 🏧": await handle_admin_withdrawals(update, context); return
+        # Кнопка Generate Promos теперь запускает диалог, поэтому ее здесь нет
         elif text == "Back to Main Menu ⬅️":
-            # Возвращаем обычную клавиатуру
-            keyboard = [
-                ["Analyze Chart 📈", "View Chart 📊"],
-                ["Profile 👤", "Risk Settings ⚙️"]
-            ]
+            keyboard = [["Analyze Chart 📈", "View Chart 📊"], ["Profile 👤", "Risk Settings ⚙️"]]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
             await update.message.reply_text("Returned to main menu.", reply_markup=reply_markup)
             return
             
-    # --- ТЕПЕРЬ ПРОВЕРЯЕМ НА ПРОМОКОД ---
+    # --- ПРОВЕРКА НА ПРОМОКОД ---
     if text.upper().startswith("ALADDIN-"):
         if get_user_status(user_id) == 'active':
-            await update.message.reply_text("Your account is already active.")
-            return
+            await update.message.reply_text("Your account is already active."); return
 
         await update.message.reply_text("Checking your promo code...")
         
-        is_valid = validate_and_use_promo_code(text, user_id)
+        # validate_and_use... теперь возвращает срок действия или None
+        duration_days = validate_and_use_promo_code(text, user_id)
         
-        if is_valid:
-            # Активируем подписку и делаем все то же, что и при оплате
-            referrer_id = activate_user_subscription(user_id)
+        if duration_days:
+            # Активируем подписку на ПРАВИЛЬНЫЙ СРОК
+            referrer_id = activate_user_subscription(user_id, duration_days=duration_days)
             
-            # Начисляем реферальные бонусы, если есть реферер
+            # Начисляем реферальные бонусы, если есть реферер (одноуровневая система)
             if referrer_id:
-                referral_chain = get_referrer_chain(user_id, levels=3)
-                rewards = [15, 10, 5]
-                
-                for i, referrer_user_id in enumerate(referral_chain):
-                    if i < len(rewards):
-                        reward_amount = rewards[i]
-                        credit_referral_tokens(referrer_user_id, reward_amount)
-                        try:
-                            await context.bot.send_message(
-                                referrer_user_id, 
-                                f"🎉 Congratulations! You received {reward_amount} tokens from a level {i+1} referral."
-                            )
-                        except Exception as e:
-                            print(f"Could not notify referrer {referrer_user_id}: {e}")
+                credit_referral_tokens(referrer_id, REFERRAL_REWARD)
+                try:
+                    await context.bot.send_message(referrer_id, f"🎉 You received {REFERRAL_REWARD} tokens for a referral.")
+                except Exception as e:
+                    print(f"Could not notify referrer {referrer_id}: {e}")
             
-            keyboard = [
-                ["Analyze Chart 📈", "View Chart 📊"],
-                ["Profile 👤", "Risk Settings ⚙️"]
-            ]
+            keyboard = [["Analyze Chart 📈", "View Chart 📊"], ["Profile 👤", "Risk Settings ⚙️"]]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await update.message.reply_text("✅ Promo code accepted! Welcome to Aladdin. You now have full access.", reply_markup=reply_markup)
+            await update.message.reply_text(f"✅ Promo code accepted! Your access is active for {duration_days} days.", reply_markup=reply_markup)
         else:
             await update.message.reply_text("❌ This promo code is invalid or has already been used.")
         return
 
-    # Handle main menu buttons
-    if text == "Analyze Chart 📈": 
-        await analyze_chart_start(update, context)
-    elif text == "View Chart 📊":
-        await view_chart_command(update, context)
-    elif text == "Profile 👤": 
-        await profile_command(update, context)
-    elif text == "Risk Settings ⚙️":
-        await risk_command(update, context)
-    elif text == "Withdraw Tokens 💵":
-        await withdraw_start(update, context)
-    elif text == "Back to Menu ↩️":
-        keyboard = [
-            ["Analyze Chart 📈", "View Chart 📊"],
-            ["Profile 👤", "Risk Settings ⚙️"]
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Main menu:", reply_markup=reply_markup)
+    # --- Основные кнопки ---
+    if text == "Analyze Chart 📈": await analyze_chart_start(update, context)
+    elif text == "View Chart 📊": await view_chart_command(update, context)
+    elif text == "Profile 👤": await profile_command(update, context)
+    # Кнопки Risk, Withdraw, Back to Menu обрабатываются своими диалогами или как здесь
     
-    # Handle TxHash for payment
+    # --- Проверка на TxHash ---
     elif text.startswith("0x") and len(text) == 66:
-        if get_user_status(update.effective_user.id) == 'active':
-            await update.message.reply_text("Your account is already active.")
-            return
+        if get_user_status(user_id) == 'active':
+            await update.message.reply_text("Your account is already active."); return
         await update.message.reply_text("Verifying transaction, please wait...")
-        await verify_payment_and_activate(text, update.effective_user.id, context)
+        await verify_payment_and_activate(text, user_id, context)
     else:
-        await update.message.reply_text("Unknown command. Please use the buttons below.")
+        # Не реагируем на обычный текст, чтобы не спамить
+        # Можно раскомментировать, если нужно
+        # await update.message.reply_text("Unknown command. Please use the buttons.")
+        pass
+
+
+# --- Enhanced Text & Button Handler ---
+
+# async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     text = update.message.text
+#     user_id = update.effective_user.id
+
+#     # --- Сначала проверяем, не админ ли это и не в админ-панели ли он ---
+#     if user_id == ADMIN_USER_ID:
+#         if text == "User Stats 👥":
+#             await handle_admin_stats(update, context)
+#             return
+#         elif text == "Withdrawals 🏧":
+#             await handle_admin_withdrawals(update, context)
+#             return
+#         elif text == "Generate Promos 🎟️":
+#             await generate_promos_start(update, context)
+#             return
+#         elif text == "Back to Main Menu ⬅️":
+#             # Возвращаем обычную клавиатуру
+#             keyboard = [
+#                 ["Analyze Chart 📈", "View Chart 📊"],
+#                 ["Profile 👤", "Risk Settings ⚙️"]
+#             ]
+#             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+#             await update.message.reply_text("Returned to main menu.", reply_markup=reply_markup)
+#             return
+            
+#     # --- ТЕПЕРЬ ПРОВЕРЯЕМ НА ПРОМОКОД ---
+#     if text.upper().startswith("ALADDIN-"):
+#         if get_user_status(user_id) == 'active':
+#             await update.message.reply_text("Your account is already active.")
+#             return
+
+#         await update.message.reply_text("Checking your promo code...")
+        
+#         is_valid = validate_and_use_promo_code(text, user_id)
+        
+#         if is_valid:
+#             # Активируем подписку и делаем все то же, что и при оплате
+#             referrer_id = activate_user_subscription(user_id)
+            
+#             # Начисляем реферальные бонусы, если есть реферер
+#             if referrer_id:
+#                 referral_chain = get_referrer_chain(user_id, levels=3)
+#                 rewards = [15, 10, 5]
+                
+#                 for i, referrer_user_id in enumerate(referral_chain):
+#                     if i < len(rewards):
+#                         reward_amount = rewards[i]
+#                         credit_referral_tokens(referrer_user_id, reward_amount)
+#                         try:
+#                             await context.bot.send_message(
+#                                 referrer_user_id, 
+#                                 f"🎉 Congratulations! You received {reward_amount} tokens from a level {i+1} referral."
+#                             )
+#                         except Exception as e:
+#                             print(f"Could not notify referrer {referrer_user_id}: {e}")
+            
+#             keyboard = [
+#                 ["Analyze Chart 📈", "View Chart 📊"],
+#                 ["Profile 👤", "Risk Settings ⚙️"]
+#             ]
+#             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+#             await update.message.reply_text("✅ Promo code accepted! Welcome to Aladdin. You now have full access.", reply_markup=reply_markup)
+#         else:
+#             await update.message.reply_text("❌ This promo code is invalid or has already been used.")
+#         return
+
+#     # Handle main menu buttons
+#     if text == "Analyze Chart 📈": 
+#         await analyze_chart_start(update, context)
+#     elif text == "View Chart 📊":
+#         await view_chart_command(update, context)
+#     elif text == "Profile 👤": 
+#         await profile_command(update, context)
+#     elif text == "Risk Settings ⚙️":
+#         await risk_command(update, context)
+#     elif text == "Withdraw Tokens 💵":
+#         await withdraw_start(update, context)
+#     elif text == "Back to Menu ↩️":
+#         keyboard = [
+#             ["Analyze Chart 📈", "View Chart 📊"],
+#             ["Profile 👤", "Risk Settings ⚙️"]
+#         ]
+#         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+#         await update.message.reply_text("Main menu:", reply_markup=reply_markup)
+    
+#     # Handle TxHash for payment
+#     elif text.startswith("0x") and len(text) == 66:
+#         if get_user_status(update.effective_user.id) == 'active':
+#             await update.message.reply_text("Your account is already active.")
+#             return
+#         await update.message.reply_text("Verifying transaction, please wait...")
+#         await verify_payment_and_activate(text, update.effective_user.id, context)
+#     else:
+#         await update.message.reply_text("Unknown command. Please use the buttons below.")
 
 async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Enhanced chart analysis with subscription check"""
@@ -996,17 +970,40 @@ async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     await update.message.reply_text("I'm ready! Please send a clear screenshot of a candlestick chart.")
 
+# --- LLM Explanation Handler ---
 
+# async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Обрабатывает нажатие на кнопку 'Explain Factors'."""
+#     query = update.callback_query
+#     await query.answer()
+
+#     # Убираем кнопку, чтобы избежать повторных нажатий
+#     await query.edit_message_reply_markup(reply_markup=None)
+    
+#     analysis_context = context.user_data.get('last_analysis_context')
+#     if not analysis_context:
+#         await query.message.reply_text("Sorry, I couldn't find the context for this analysis. Please try again.")
+#         return
+
+#     await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
+    
+#     # Получаем объяснение от LLM
+#     explanation = get_explanation(analysis_context)
+    
+#     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
+
+
+# --- ОБРАБОТЧИК КНОПКИ "EXPLAIN" ---
 async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Убираем кнопку, чтобы избежать повторных нажатий
+    # Убираем все кнопки с исходного сообщения
     await query.edit_message_reply_markup(reply_markup=None)
     
     analysis_context = context.user_data.get('last_analysis_context')
     if not analysis_context:
-        await query.message.reply_text("Sorry, I couldn't find the context for this analysis. Please try again.")
+        await query.message.reply_text("Sorry, the context for this analysis has expired. Please run a new analysis.")
         return
 
     await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
@@ -1016,10 +1013,30 @@ async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT
     
     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
+
+# --- НОВАЯ ФОНОВАЯ ЗАДАЧА ДЛЯ ПРОВЕРКИ ПОДПИСОК ---
+async def daily_subscription_check(context: ContextTypes.DEFAULT_TYPE):
+    """Каждый день проверяет и деактивирует истекшие подписки."""
+    print("--- [SCHEDULER] Running daily subscription check ---")
+    expired_user_ids = check_and_expire_subscriptions()
+    
+    for user_id in expired_user_ids:
+        try:
+            await context.bot.send_message(
+                user_id,
+                "Your Aladdin subscription has expired. ⏳\n\nPlease use the /start command to renew your access."
+            )
+        except Exception as e:
+            print(f"Failed to notify expired user {user_id}: {e}")
+
+
+
 def main():
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-    
+    job_queue = application.job_queue
+    # Запускать каждый день в 00:05 по UTC
+    job_queue.run_daily(daily_subscription_check, time=datetime.strptime("00:05", "%H:%M").time())
     # Withdrawal conversation handler
     withdraw_conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^Withdraw Tokens 💵$'), withdraw_start)],
@@ -1048,6 +1065,7 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
+    
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("profile", profile_command))

@@ -67,6 +67,7 @@ def initialize_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
+            duration_days INTEGER,
             is_used INTEGER DEFAULT 0,
             used_by_user_id INTEGER,
             activation_date TEXT
@@ -114,46 +115,64 @@ def initialize_db():
         cursor.execute("SELECT token_balance FROM users LIMIT 1")
     except sqlite3.OperationalError:
         cursor.execute("ALTER TABLE users ADD COLUMN token_balance REAL DEFAULT 0")
-    
+    try:
+        cursor.execute("SELECT duration_days FROM promo_codes LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("ALTER TABLE promo_codes ADD COLUMN duration_days INTEGER DEFAULT 30")
+
     conn.commit()
     conn.close()
 
-def generate_promo_codes(count: int) -> list[str]:
-    """Генерирует N уникальных промокодов и сохраняет их в базу."""
+def generate_promo_codes(count: int, duration_days: int) -> list[str]:
+    """Генерирует N промокодов с указанным сроком действия."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     new_codes = []
     for _ in range(count):
-        # Генерируем код в формате "ALADDIN-XXXX-XXXX"
         code = f"ALADDIN-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
-        cursor.execute("INSERT OR IGNORE INTO promo_codes (code) VALUES (?)", (code,))
+        cursor.execute("INSERT OR IGNORE INTO promo_codes (code, duration_days) VALUES (?, ?)", (code, duration_days))
         new_codes.append(code)
     conn.commit()
     conn.close()
     return new_codes
 
-def validate_and_use_promo_code(code: str, user_id: int) -> bool:
-    """Проверяет промокод. Если он валидный и не использован, помечает его как использованный."""
+def validate_and_use_promo_code(code: str, user_id: int) -> int | None:
+    """Проверяет промокод. Если валидный, помечает как использованный и возвращает срок действия в днях."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Ищем код, который не был использован
-    cursor.execute("SELECT code FROM promo_codes WHERE code = ? AND is_used = 0", (code.upper(),))
+    cursor.execute("SELECT duration_days FROM promo_codes WHERE code = ? AND is_used = 0", (code.upper(),))
     result = cursor.fetchone()
     
     if not result:
-        conn.close()
-        return False # Код не найден или уже использован
-    
-    # Если код валидный, помечаем его как использованный
+        conn.close(); return None # Код не найден или уже использован
+        
+    duration = result[0]
     activation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute(
-        "UPDATE promo_codes SET is_used = 1, used_by_user_id = ?, activation_date = ? WHERE code = ?",
-        (user_id, activation_date, code.upper())
-    )
+    cursor.execute("UPDATE promo_codes SET is_used = 1, used_by_user_id = ?, activation_date = ? WHERE code = ?", (user_id, activation_date, code.upper()))
     conn.commit()
     conn.close()
-    return True
+    return duration
+
+def check_and_expire_subscriptions():
+    """Находит и деактивирует всех пользователей с истекшей подпиской."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Находим всех, у кого статус 'active' и дата истечения прошла
+    cursor.execute("SELECT user_id FROM users WHERE status = 'active' AND subscription_expiry < ?", (today_str,))
+    expired_users = [row[0] for row in cursor.fetchall()]
+    
+    if expired_users:
+        # Обновляем их статус на 'expired'
+        cursor.executemany("UPDATE users SET status = 'expired' WHERE user_id = ?", [(user_id,) for user_id in expired_users])
+        conn.commit()
+        print(f"Expired subscriptions for users: {expired_users}")
+        
+    conn.close()
+    return expired_users # Возвращаем список, чтобы бот мог отправить им уведомления
+
 
 def add_user(user_id: int, username: str = None, referrer_id: int = None):
     """Adds a new user or updates their referrer if they joined via a referral link."""
