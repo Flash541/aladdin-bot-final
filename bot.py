@@ -1062,6 +1062,7 @@ def main():
         entry_points=[MessageHandler(filters.Regex('^Generate Promos 🎟️$'), generate_promos_start)],
         states={
             ASK_PROMO_COUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_promos_count)],
+            ASK_PROMO_DURATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_promos_duration)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
