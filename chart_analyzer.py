@@ -39,7 +39,7 @@ def analyze_chart_with_gpt(image_path: str) -> dict | None:
                     "content": [
                         {
                             "type": "text", 
-                            "text": "Analyze this chart image and extract the ticker symbol  and the timeframe. For the timeframe, use formats like '15m', '1h', '4h', '1D'. For the ticker respond with ONLY the ticker symbol which is availavble on Binance  Respond with a JSON object containing 'ticker' and 'timeframe' keys."
+                            "text": "Analyze this chart image and extract the ticker symbol  and the timeframe. For the timeframe, use formats like '15m', '1h', '4h', '1D'. For the ticker respond with ONLY the ticker symbol which is availavble on Binance  Respond with a JSON object containing 'ticker' and 'timeframe' keys. And respond not immediatly but after 15 sec"
                         },
                         {
                             "type": "image_url",

@@ -325,14 +325,20 @@ def format_plan_to_message(plan):
 
 
 
-def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback) -> tuple:
-    """
-    Выполняет все "долгие" операции: анализ картинки, запрос к бирже, расчет индикаторов.
-    Вызывает progress_callback для обновления статуса в Telegram.
-    """
+def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
+    def update_progress(text):
+        async def edit():
+            try: await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
+            except Exception as e: print(f"Progress update failed: {e}")
+        future = asyncio.run_coroutine_threadsafe(edit(), loop)
+        try:
+            future.result(timeout=10) # Ждем, но с таймаутом
+        except Exception as e:
+            print(f"Future result timeout/error: {e}")
+
     try:
-        if progress_callback: progress_callback("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
-        time.sleep(5)  # Имитация работы GPT-Vision
+        update_progress("🔍 Analyzing chart with AI...")
+        # time.sleep(5)
         
         candlesticks, chart_info = find_candlesticks(file_path)
         
@@ -344,21 +350,24 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
         if ticker:
             display_timeframe = chart_info.get('timeframe', '15m')
             fetch_timeframe = '15m'
-
-            if progress_callback: progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
-            time.sleep(2)
             
-            base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
+            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
+            # time.sleep(2)
+            
+            base_currency = None
+            known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
-                if ticker.endswith(quote): base_currency = ticker[:-len(quote)]; break
+                if ticker.endswith(quote):
+                    base_currency = ticker[:-len(quote)]
+                    break
             
             if base_currency:
                 symbol_for_api = f"{base_currency}/USDT"
                 df = fetch_data(symbol=symbol_for_api, timeframe=fetch_timeframe)
                 
                 if df is not None and not df.empty:
-                    if progress_callback: progress_callback("🤖 Running technical analysis engine...")
-                    time.sleep(4)
+                    update_progress("🤖 Running technical analysis...")
+                    # time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, display_timeframe=display_timeframe
@@ -367,23 +376,22 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
                     return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
             else:
                 ticker = None
-        
+
         if ticker is None:
             return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
 
         if not trade_plan:
             return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
 
-        if progress_callback: progress_callback("🎯 Generating final report...")
-        time.sleep(2)
-        
+        update_progress("🎯 Generating final report...")
+        # time.sleep(2)
         return trade_plan, analysis_context, None
 
     except Exception as e:
         print(f"Error in blocking_chart_analysis: {e}")
         return None, None, "❌ An unexpected error occurred during the analysis."
 
-# --- "ЛЕГКИЙ" АСИНХРОННЫЙ ОБРАБОТЧИК ФОТО (ТВОЯ РАБОЧАЯ ВЕРСИЯ) ---
+# --- "ЛЕГКИЙ" АСИНХРОННЫЙ ОБРАБОТЧИК ФОТО ---
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -399,31 +407,11 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
         
-        progress_queue = asyncio.Queue()
-        
-        async def progress_updater():
-            while True:
-                message_text = await progress_queue.get()
-                if message_text is None: break
-                try:
-                    await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
-                except Exception as e:
-                    print(f"Progress update failed (might be normal on the final step): {e}")
-
-        progress_task = asyncio.create_task(progress_updater())
-        
-        def progress_callback(message_text):
-            try:
-                asyncio.get_running_loop().call_soon_threadsafe(progress_queue.put_nowait, message_text)
-            except Exception as e:
-                print(f"Error putting message in progress queue: {e}")
+        loop = asyncio.get_running_loop()
         
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, file_path, risk_settings, progress_callback
+            blocking_chart_analysis, file_path, risk_settings, processing_message, context.bot, loop
         )
-        
-        await progress_queue.put(None)
-        await progress_task
         
         if error_message:
             await processing_message.edit_text(error_message)
@@ -433,15 +421,20 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         message_text = format_plan_to_message(trade_plan)
         
-        profile = get_user_profile(user_id); referral_link = None
-        if profile and profile.get('ref_code'):
-            bot_username = (await context.bot.get_me()).username
-            referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
-        
+        # --- ЛОГИКА ДЛЯ КНОПОК ---
         keyboard = []
-        if referral_link:
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        
+        # 1. Добавляем кнопку "Explain Factors" всегда
         keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
+
+        # 2. Если сообщение НЕ переслано, добавляем реферальную кнопку
+        if not update.message.forward_date:
+            profile = get_user_profile(user_id)
+            if profile and profile.get('ref_code'):
+                bot_username = (await context.bot.get_me()).username
+                referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+                keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
@@ -449,7 +442,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
-
 
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
@@ -990,26 +982,26 @@ async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 #     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
-# --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "EXPLAIN" ---
+
+# --- ОБРАБОТЧИК КНОПКИ "EXPLAIN" ---
 async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_reply_markup(reply_markup=None) # Убираем кнопки
+
+    # Убираем все кнопки с исходного сообщения
+    await query.edit_message_reply_markup(reply_markup=None)
     
     analysis_context = context.user_data.get('last_analysis_context')
     if not analysis_context:
-        await query.message.reply_text("Sorry, I couldn't find the context for this analysis. Please try analyzing again.")
+        await query.message.reply_text("Sorry, the context for this analysis has expired. Please run a new analysis.")
         return
 
     await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
     
-    # Делегируем тяжелый вызов LLM в отдельный поток
-    explanation = await asyncio.to_thread(get_explanation, analysis_context)
+    # Получаем объяснение от LLM
+    explanation = get_explanation(analysis_context)
     
     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
-
-
-
 
 def main():
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
