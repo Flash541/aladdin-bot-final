@@ -253,6 +253,85 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
 
 
 
+# async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = update.effective_user.id
+#     if not has_access(user_id):
+#         await update.message.reply_text("❌ Access Required. Please use /start to activate.")
+#         return
+        
+#     risk_settings = get_user_risk_settings(user_id)
+#     file_path = f'chart_for_{user_id}.jpg'
+    
+#     try:
+#         photo_file = await update.message.photo[-1].get_file()
+#         await photo_file.download_to_drive(file_path)
+        
+#         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
+        
+#         # 1. Создаем очередь для безопасного общения между потоками
+#         progress_queue = asyncio.Queue()
+        
+#         # 2. Создаем "слушателя" (progress_updater), который работает в основном потоке и обновляет сообщения
+#         async def progress_updater():
+#             while True:
+#                 message_text = await progress_queue.get()
+#                 if message_text is None:  # Сигнал к завершению
+#                     break
+#                 try:
+#                     await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
+#                 except Exception as e:
+#                     print(f"Progress update failed (this might be normal on the final step): {e}")
+        
+#         # 3. Запускаем "слушателя" в фоне. Он не будет блокировать бота.
+#         progress_task = asyncio.create_task(progress_updater())
+        
+#         # 4. Создаем "отправщика" (progress_callback), который "тяжелая" функция будет вызывать из другого потока
+#         def progress_callback(message_text):
+#             try:
+#                 # Этот метод безопасен для потоков и не блокирует основной цикл
+#                 asyncio.get_running_loop().call_soon_threadsafe(
+#                     progress_queue.put_nowait, message_text
+#                 )
+#             except Exception as e:
+#                 print(f"Error putting message in progress queue: {e}")
+        
+#         # 5. Отправляем "тяжелую" функцию на выполнение в отдельный поток, передав ей "отправщика"
+#         trade_plan, analysis_context, error_message = await asyncio.to_thread(
+#             blocking_chart_analysis, file_path, risk_settings, progress_callback
+#         )
+        
+#         # 6. Когда "тяжелая" функция закончила, останавливаем "слушателя"
+#         await progress_queue.put(None)
+#         await progress_task
+        
+#         # 7. Обрабатываем финальный результат
+#         if error_message:
+#             await processing_message.edit_text(error_message)
+#             return
+            
+#         context.user_data['last_analysis_context'] = analysis_context
+        
+#         message_text = format_plan_to_message(trade_plan)
+        
+#         profile = get_user_profile(user_id); referral_link = None
+#         if profile and profile.get('ref_code'):
+#             bot_username = (await context.bot.get_me()).username
+#             referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+        
+#         keyboard = []
+#         if referral_link:
+#             keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        
+#         reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+
+#         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+
+#     except Exception as e:
+#         print(f"Error in photo_handler: {e}")
+#         await update.message.reply_text("❌ An unexpected error occurred.")
+
+
+# --- ФИНАЛЬНАЯ ВЕРСИЯ "ЛЕГКОГО" ОБРАБОТЧИКА ---
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -268,43 +347,28 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
         
-        # 1. Создаем очередь для безопасного общения между потоками
         progress_queue = asyncio.Queue()
         
-        # 2. Создаем "слушателя" (progress_updater), который работает в основном потоке и обновляет сообщения
         async def progress_updater():
             while True:
                 message_text = await progress_queue.get()
-                if message_text is None:  # Сигнал к завершению
-                    break
-                try:
-                    await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
-                except Exception as e:
-                    print(f"Progress update failed (this might be normal on the final step): {e}")
+                if message_text is None: break
+                try: await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
+                except Exception as e: print(f"Progress update failed: {e}")
         
-        # 3. Запускаем "слушателя" в фоне. Он не будет блокировать бота.
         progress_task = asyncio.create_task(progress_updater())
         
-        # 4. Создаем "отправщика" (progress_callback), который "тяжелая" функция будет вызывать из другого потока
         def progress_callback(message_text):
-            try:
-                # Этот метод безопасен для потоков и не блокирует основной цикл
-                asyncio.get_running_loop().call_soon_threadsafe(
-                    progress_queue.put_nowait, message_text
-                )
-            except Exception as e:
-                print(f"Error putting message in progress queue: {e}")
+            try: asyncio.get_running_loop().call_soon_threadsafe(progress_queue.put_nowait, message_text)
+            except: pass
         
-        # 5. Отправляем "тяжелую" функцию на выполнение в отдельный поток, передав ей "отправщика"
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
             blocking_chart_analysis, file_path, risk_settings, progress_callback
         )
         
-        # 6. Когда "тяжелая" функция закончила, останавливаем "слушателя"
         await progress_queue.put(None)
         await progress_task
         
-        # 7. Обрабатываем финальный результат
         if error_message:
             await processing_message.edit_text(error_message)
             return
@@ -313,22 +377,28 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         message_text = format_plan_to_message(trade_plan)
         
-        profile = get_user_profile(user_id); referral_link = None
-        if profile and profile.get('ref_code'):
-            bot_username = (await context.bot.get_me()).username
-            referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+        # --- НОВАЯ УМНАЯ ЛОГИКА ДЛЯ КНОПОК ---
+        keyboard = [
+            # Кнопка Explain Factors добавляется всегда
+            [InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")]
+        ]
         
-        keyboard = []
-        if referral_link:
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        # Кнопка с реферальной ссылкой добавляется, ТОЛЬКО ЕСЛИ сообщение не переслано
+        if not update.message.forward_date:
+            profile = get_user_profile(user_id)
+            if profile and profile.get('ref_code'):
+                bot_username = (await context.bot.get_me()).username
+                referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+                keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
         
-        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
+
 
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
@@ -430,9 +500,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Get automatic position size calculations\n"
             "• Manage your risk per trade\n\n"
             "<b>Referral System:</b>\n"
-            "• Earn 15 tokens for Level 1 referrals\n"
-            "• Earn 10 tokens for Level 2 referrals\n"
-            "• Earn 5 tokens for Level 3 referrals\n"
+            "• Earn 25 tokens for Level 1 referrals\n"
             "• Withdraw tokens to your wallet\n\n"
             "<b>Available Commands:</b>\n"
             "/start - Restart the bot\n"
@@ -674,7 +742,7 @@ async def handle_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
         report_text += (
             f"👤 <b>User:</b> <code>{user['user_id']}</code> (@{user['username']})\n"
             f"   - Balance: <b>{user['balance']:.2f}</b> Tokens\n"
-            f"   - Referrals: L1: <b>{user['referrals']['l1']}</b>, L2: <b>{user['referrals']['l2']}</b>\n"
+            f"   - Referrals: L1: <b>{user['referrals']['l1']}</b>\n"
             f"--------------------\n"
         )
     
@@ -970,48 +1038,33 @@ async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     await update.message.reply_text("I'm ready! Please send a clear screenshot of a candlestick chart.")
 
-# --- LLM Explanation Handler ---
 
-# async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     """Обрабатывает нажатие на кнопку 'Explain Factors'."""
-#     query = update.callback_query
-#     await query.answer()
-
-#     # Убираем кнопку, чтобы избежать повторных нажатий
-#     await query.edit_message_reply_markup(reply_markup=None)
-    
-#     analysis_context = context.user_data.get('last_analysis_context')
-#     if not analysis_context:
-#         await query.message.reply_text("Sorry, I couldn't find the context for this analysis. Please try again.")
-#         return
-
-#     await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
-    
-#     # Получаем объяснение от LLM
-#     explanation = get_explanation(analysis_context)
-    
-#     await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
-
-
-# --- ОБРАБОТЧИК КНОПКИ "EXPLAIN" ---
+# --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "EXPLAIN" ---
 async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Убираем все кнопки с исходного сообщения
-    await query.edit_message_reply_markup(reply_markup=None)
+    # Убираем все кнопки с исходного сообщения, чтобы избежать повторных нажатий
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception as e:
+        print(f"Could not remove keyboard: {e}") # Игнорируем ошибку, если не удалось
     
     analysis_context = context.user_data.get('last_analysis_context')
     if not analysis_context:
         await query.message.reply_text("Sorry, the context for this analysis has expired. Please run a new analysis.")
         return
 
-    await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
+    # Отправляем новое сообщение "думаю..."
+    thinking_message = await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
     
     # Получаем объяснение от LLM
     explanation = get_explanation(analysis_context)
     
-    await query.message.reply_text(explanation, parse_mode=ParseMode.MARKDOWN)
+    # Редактируем сообщение "думаю..." на финальный ответ
+    await thinking_message.edit_text(explanation, parse_mode=ParseMode.MARKDOWN)
+
+
 
 
 # --- НОВАЯ ФОНОВАЯ ЗАДАЧА ДЛЯ ПРОВЕРКИ ПОДПИСОК ---
