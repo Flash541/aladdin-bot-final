@@ -273,28 +273,27 @@ def format_plan_to_message(plan):
 #         print(f"Error in photo_handler: {e}")
 #         await update.message.reply_text("❌ An unexpected error occurred.")
 
-
-# bot.py
-
-# --- ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ "ТЯЖЕЛАЯ" ФУНКЦИЯ ---
 def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
+    # Внутренняя функция для безопасного обновления сообщения из потока
     def update_progress(text):
         async def edit():
             try: await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
             except Exception as e: print(f"Progress update failed: {e}")
+        # Безопасно отправляем асинхронную задачу в основной поток
         future = asyncio.run_coroutine_threadsafe(edit(), loop)
-        future.result()
+        future.result() # Ждем завершения
 
     try:
-        update_progress("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
-        time.sleep(5)
-        
+        update_progress("🔍 Analyzing chart with AI...")
+        time.sleep(5) # Имитация работы GPT-Vision
         candlesticks, chart_info = find_candlesticks(file_path)
         
-        df = None; trade_plan = None; analysis_context = None
+        trade_plan, analysis_context = None, None
         ticker = chart_info.get('ticker') if chart_info else None
         
-        # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА IF/ELSE ---
+        
+        # СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН
         if ticker:
             timeframe = chart_info.get('timeframe', '15m')
             update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe}</b>\n\nFetching live data...")
@@ -303,8 +302,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
                 if ticker.endswith(quote):
-                    base_currency = ticker[:-len(quote)]
-                    break
+                    base_currency = ticker[:-len(quote)]; break
             
             if base_currency:
                 symbol_for_api = f"{base_currency}/USDT" # Всегда используем USDT для Binance
@@ -317,18 +315,27 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
                     trade_plan, analysis_context = generate_decisive_signal(
                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe
                     )
-                else:
-                    return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
-            else:
-                ticker = None # Сбрасываем, если тикер не похож на пару (например, "BINANCE")
+                else: # Если не удалось получить данные по найденному тикеру
+                    return None, None, f"❌ Found {ticker}, but couldn't fetch data from the exchange."
+            else: # Если тикер не похож на пару
+                return None, None, f"❌ AI recognized '{ticker}', but it's not a standard pair."
 
-        # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
-        if ticker is None:
-            # Этот фоллбэк сейчас менее важен, но пусть будет
-            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
+        # СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН
+        else:
+            update_progress("📈 Ticker not recognized. Analyzing chart structure...")
+            time.sleep(3)
+            if candlesticks and len(candlesticks) >= 30:
+                ohlc_list = candlesticks_to_ohlc(candlesticks)
+                df = pd.DataFrame(ohlc_list); df['volume'] = 1000
+                features = compute_features(df)
+                trade_plan, analysis_context = generate_decisive_signal(
+                    features, symbol_ccxt="USER_CHART", risk_settings=risk_settings, timeframe="Chart"
+                )
+            else:
+                return None, None, "❌ Sorry, I couldn't recognize a ticker or enough candlesticks."
 
         if not trade_plan:
-            return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
+            return None, None, "❌ Analysis did not produce a valid trade plan. The chart might be too ambiguous."
 
         update_progress("🎯 Generating final report...")
         time.sleep(2)
@@ -336,9 +343,10 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
 
     except Exception as e:
         print(f"Error in blocking_chart_analysis: {e}")
-        return None, None, "❌ An unexpected error occurred during the analysis."
+        return None, None, "❌ An unexpected error occurred during analysis."
 
-# --- ФИНАЛЬНЫЙ ИСПРАВЛЕННЫЙ "ЛЕГКИЙ" ОБРАБОТЧИК ---
+
+# --- "ЛЕГКИЙ" ОБРАБОТЧИК ФОТО ---
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -384,6 +392,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
+
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
