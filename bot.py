@@ -390,34 +390,35 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         context.user_data['last_analysis_context'] = analysis_context
         
+        # 1. Формируем текст анализа
         message_text = format_plan_to_message(trade_plan)
         
-        # profile = get_user_profile(user_id); referral_link = None
-        # if profile and profile.get('ref_code'):
-        #     bot_username = (await context.bot.get_me()).username
-        #     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
-        
-        # keyboard = []
-        # if referral_link:
-        #     keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
-        
-        # reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
-
-        # await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
-        keyboard = [
-        # Ряд 1: Кнопка Explain Factors
-        [InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")]
-        ]
+        # 2. Формируем Inline-кнопку с реферальной ссылкой
         profile = get_user_profile(user_id)
+        referral_link = None
         if profile and profile.get('ref_code'):
             bot_username = (await context.bot.get_me()).username
             referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
-            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        inline_keyboard = []
+        if referral_link:
+            inline_keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        reply_markup_inline = InlineKeyboardMarkup(inline_keyboard) if inline_keyboard else None
+        
+        # 3. Удаляем "Processing..." и отправляем финальную карточку с Inline-кнопкой
+        await processing_message.delete()
+        await update.message.reply_text(
+            text=message_text, 
+            parse_mode=ParseMode.HTML, 
+            reply_markup=reply_markup_inline
+        )
+        
+        # 4. СРАЗУ ПОСЛЕ ЭТОГО отправляем новую клавиатуру с действиями
+        reply_keyboard = [["Explain Analysis 🔬", "Back to Main Menu ⬅️"]]
+        reply_markup_reply = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True)
+        
+        await update.message.reply_text("What would you like to do next?", reply_markup=reply_markup_reply)
 
-        await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
-        
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
@@ -941,8 +942,38 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "Analyze Chart 📈": await analyze_chart_start(update, context)
     elif text == "View Chart 📊": await view_chart_command(update, context)
     elif text == "Profile 👤": await profile_command(update, context)
+    elif text == "Risk Settings ⚙️":
+        # Эта кнопка запускает диалог, который обрабатывается ConversationHandler'ом
+        await risk_command(update, context)
+    elif text == "Withdraw Tokens 💵":
+        # Эта кнопка запускает диалог, который обрабатывается ConversationHandler'ом
+        await withdraw_start(update, context)
+    elif text == "Back to Menu ↩️":
+        keyboard = [
+            ["Analyze Chart 📈", "View Chart 📊"],
+            ["Profile 👤", "Risk Settings ⚙️"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Main menu:", reply_markup=reply_markup)
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     # Кнопки Risk, Withdraw, Back to Menu обрабатываются своими диалогами или как здесь
-    
+        # --- НОВЫЙ БЛОК ДЛЯ КНОПКИ EXPLAIN ---
+    elif text == "Explain Analysis 🔬":
+        # Возвращаем пользователя в основное меню
+        keyboard = [["Analyze Chart 📈", "View Chart 📊"], ["Profile 👤", "Risk Settings ⚙️"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Getting explanation...", reply_markup=reply_markup)
+
+        # Вызываем тот же код, что был в explain_analysis_handler
+        analysis_context = context.user_data.get('last_analysis_context')
+        if not analysis_context:
+            await update.message.reply_text("Sorry, the context for this analysis has expired.")
+            return
+
+        thinking_message = await update.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
+        explanation = get_explanation(analysis_context)
+        await thinking_message.edit_text(explanation, parse_mode=ParseMode.MARKDOWN)
+    # --- КОНЕЦ НОВОГО БЛОКА ---
     # --- Проверка на TxHash ---
     elif text.startswith("0x") and len(text) == 66:
         if get_user_status(user_id) == 'active':
