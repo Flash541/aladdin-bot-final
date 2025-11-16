@@ -170,24 +170,13 @@ def format_plan_to_message(plan):
     print("----------------------------------\n")
     return message
 
-
-# --- "ТЯЖЕЛАЯ" ФУНКЦИЯ С ДЕТАЛЬНЫМИ ЛОГАМИ ---
-def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
-    # Эта внутренняя функция для обновления прогресса остается без изменений
-    def update_progress(text):
-        async def edit():
-            try: await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
-            except Exception as e: print(f"LOG: Progress update failed: {e}")
-        future = asyncio.run_coroutine_threadsafe(edit(), loop)
-        try:
-            future.result(timeout=5) # Добавляем таймаут на всякий случай
-        except Exception as e:
-            print(f"LOG: Future result timeout/error: {e}")
-
+# --- ИСПРАВЛЕННАЯ "ТЯЖЕЛАЯ" ФУНКЦИЯ ---
+def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback=None) -> tuple:
     try:
         print("\n--- [START] BLOCKING ANALYSIS ---")
-        update_progress("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
-        time.sleep(5)
+        if progress_callback:
+            progress_callback("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
+        time.sleep(2)
         
         candlesticks, chart_info = find_candlesticks(file_path)
         
@@ -203,7 +192,8 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
             fetch_timeframe = '15m'
             
             print(f"LOG: Ticker '{ticker}' and Timeframe '{display_timeframe}' identified.")
-            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
+            if progress_callback:
+                progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
             time.sleep(2)
             
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
@@ -219,8 +209,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
                 
                 if df is not None and not df.empty:
                     print(f"LOG: Successfully fetched {len(df)} candles for {symbol_for_api}.")
-                    update_progress("🤖 Running technical analysis...")
-                    time.sleep(4)
+                    if progress_callback:
+                        progress_callback("🤖 Running technical analysis...")
+                    time.sleep(2)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, display_timeframe=display_timeframe
@@ -242,8 +233,9 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
             return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
 
         print(f"LOG: Trade plan generated successfully: {trade_plan.get('view')}")
-        update_progress("🎯 Generating final report...")
-        time.sleep(2)
+        if progress_callback:
+            progress_callback("🎯 Generating final report...")
+        time.sleep(1)
         print("--- [END] BLOCKING ANALYSIS ---")
         return trade_plan, analysis_context, None
 
@@ -251,8 +243,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
         print(f"FATAL ERROR in blocking_chart_analysis: {e}")
         return None, None, "❌ An unexpected error occurred during the analysis."
 
-
-# --- "ЛЕГКИЙ" ОБРАБОТЧИК (изменений почти нет, но привожу для полноты) ---
+# --- ИСПРАВЛЕННЫЙ "ЛЕГКИЙ" ОБРАБОТЧИК ---
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -268,46 +259,65 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
         
-        loop = asyncio.get_running_loop()
+        # Создаем очередь для прогресс-сообщений
+        progress_queue = asyncio.Queue()
         
+        # Функция для обновления прогресса
+        async def progress_updater():
+            while True:
+                message_text = await progress_queue.get()
+                if message_text is None:  # Сигнал завершения
+                    break
+                try:
+                    await processing_message.edit_text(message_text, parse_mode=ParseMode.HTML)
+                except Exception as e:
+                    print(f"Progress update failed: {e}")
+        
+        # Запускаем обновление прогресса в фоне
+        progress_task = asyncio.create_task(progress_updater())
+        
+        # Функция-колбэк для прогресса (вызывается из потока)
+        def progress_callback(message_text):
+            try:
+                asyncio.get_event_loop().call_soon_threadsafe(
+                    progress_queue.put_nowait, message_text
+                )
+            except:
+                pass  # Игнорируем ошибки, если цикл событий закрыт
+        
+        # Запускаем анализ в отдельном потоке
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, file_path, risk_settings, processing_message, context.bot, loop
+            blocking_chart_analysis, file_path, risk_settings, progress_callback
         )
+        
+        # Завершаем прогресс-апдейтер
+        await progress_queue.put(None)
+        await progress_task
         
         if error_message:
             await processing_message.edit_text(error_message)
             return
             
         context.user_data['last_analysis_context'] = analysis_context
-        print("\n--- [HANDLER] Plan to be formatted ---")
-        import json
-        print(json.dumps(trade_plan, indent=2))
-        print("--------------------------------------")
-        message_text = format_plan_to_message(trade_plan)
-        print("\n--- [HANDLER] Final HTML to be sent ---")
-        print(message_text)
-        print("-----------------------------------------")
-        # profile = get_user_profile(user_id); referral_link = None
-        # if profile and profile.get('ref_code'):
-        #     bot_username = (await context.bot.get_me()).username
-        #     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
         
-        # keyboard = []
-        # if referral_link:
-        #     keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
-        # # Кнопка Explain Factors, если она тебе понадобится в будущем
-        # # keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
-        # reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
-        print("DEBUG: Skipping referral button generation for this test.")
-        reply_markup = None
+        message_text = format_plan_to_message(trade_plan)
+        
+        profile = get_user_profile(user_id); referral_link = None
+        if profile and profile.get('ref_code'):
+            bot_username = (await context.bot.get_me()).username
+            referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+        
+        keyboard = []
+        if referral_link:
+            keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
 
         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
-
-
 
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
