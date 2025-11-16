@@ -185,7 +185,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
         print("\n--- [START] BLOCKING ANALYSIS in a separate thread ---")
         if progress_callback:
             progress_callback("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
-        time.sleep(5)
+        # time.sleep(5)
         
         candlesticks, chart_info = find_candlesticks(file_path)
         
@@ -202,7 +202,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
             print(f"LOG: Ticker '{ticker}' and Timeframe '{display_timeframe}' identified.")
             if progress_callback:
                 progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
-            time.sleep(2)
+            # time.sleep(2)
             
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
@@ -219,7 +219,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
                     print(f"LOG: Successfully fetched {len(df)} candles for {symbol_for_api}.")
                     if progress_callback:
                         progress_callback("🤖 Running technical analysis...")
-                    time.sleep(4)
+                    # time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, display_timeframe=display_timeframe
@@ -243,7 +243,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
         print(f"LOG: Trade plan generated successfully: {trade_plan.get('view')}")
         if progress_callback:
             progress_callback("🎯 Generating final report...")
-        time.sleep(1)
+        # time.sleep(1)
         print("--- [END] BLOCKING ANALYSIS ---")
         return trade_plan, analysis_context, None
 
