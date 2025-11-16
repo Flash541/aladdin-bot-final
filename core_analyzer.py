@@ -426,7 +426,7 @@ def generate_decisive_signal(df, symbol_ccxt: str, risk_settings: dict, display_
         long_factors.append(f"Strong Momentum (RSI > 52)")
     if latest['RSI'] < 48:
         short_score += 1
-        short_factors.append(f"Weak Momentum (RSI < 48)")
+        short_factors.append(f"Weak Momentum (RSI less)")
         
     # 3. Фактор Объема
     volume_z = latest.get('volume_z', 0)
