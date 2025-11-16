@@ -125,6 +125,7 @@ def format_plan_to_message(plan):
         title = f"<b>Short Idea: ${symbol}</b> ({timeframe})"
     else:
         icon = "⚪️"
+        title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
         message = f"{icon} {title}\n\n<i>{notes}</i>" # Основная причина
         metrics = plan.get('metrics')
         if metrics:
@@ -289,7 +290,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ An unexpected error occurred.")
 
 
-        
+
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
     """Проверяет, активна ли подписка ИЛИ является ли пользователь админом."""
