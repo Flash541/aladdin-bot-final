@@ -151,7 +151,7 @@ def find_candlesticks(image_path: str):
             candlesticks.append({"body_x": x, "body_y": y, "body_w": w, "body_h": h})
     candlesticks.sort(key=lambda c: c["body_x"])
     print(f"Found {len(candlesticks)} potential candlesticks.")
-    return candlesticks, ticker
+    return candlesticks, chart_info
 
 def candlesticks_to_ohlc(candlesticks: list):
     if not candlesticks: 

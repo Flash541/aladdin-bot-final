@@ -150,6 +150,133 @@ def format_plan_to_message(plan):
     message += "\n\n<pre>⚠️ Not financial advice. DYOR.</pre>"
     return message
 
+# def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
+#     def update_progress(text):
+#         async def edit():
+#             try: await message_to_edit.edit_text(text, parse_mode=ParseMode.HTML)
+#             except Exception as e: print(f"Progress update failed: {e}")
+#         future = asyncio.run_coroutine_threadsafe(edit(), loop)
+#         future.result()
+
+#     try:
+#         update_progress("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
+#         time.sleep(5) # GPT-4 Vision может думать дольше
+        
+#         # --- ИЗМЕНЕНИЕ: find_candlesticks теперь возвращает словарь ---
+#         candlesticks, chart_info = find_candlesticks(file_path)
+        
+#         df = None
+#         trade_plan = None
+#         analysis_context = None
+        
+#         ticker = chart_info.get('ticker') if chart_info else None
+#         timeframe_for_analysis = chart_info.get('timeframe', '15m') if chart_info else '15m'
+        
+#         # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
+#         if ticker:
+#             update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe_for_analysis}</b>\n\nFetching live data...")
+#             time.sleep(2)
+            
+#             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
+#             for quote in known_quotes:
+#                 if ticker.endswith(quote): base_currency = ticker[:-len(quote)]; break
+            
+#             if base_currency:
+#                 symbol_for_api = f"{base_currency}/USDT"
+                
+#                 # --- ИЗМЕНЕНИЕ: Используем распознанный таймфрейм ---
+#                 df = fetch_data(symbol=symbol_for_api, timeframe=timeframe_for_analysis)
+                
+#                 if df is not None and not df.empty:
+#                     update_progress("🤖 Running technical analysis...")
+#                     time.sleep(4)
+#                     features = compute_features(df)
+#                     trade_plan, analysis_context = generate_decisive_signal(
+#                         features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe_for_analysis
+#                     )
+#                 else:
+#                     return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
+#             else:
+#                 ticker = None # Сбрасываем, если тикер не похож на пару
+
+#         # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
+#         if ticker is None:
+#             # Этот фоллбэк на анализ по структуре теперь менее важен, но пусть останется
+#             update_progress("📈 Ticker not recognized. Analyzing chart structure only...")
+#             time.sleep(3)
+#             if candlesticks and len(candlesticks) >= 30:
+#                 ohlc_list = candlesticks_to_ohlc(candlesticks)
+#                 df = pd.DataFrame(ohlc_list); df['volume'] = 1000
+#                 features = compute_features(df)
+#                 trade_plan, analysis_context = generate_decisive_signal(
+#                     features, symbol_ccxt="USER_CHART", risk_settings=risk_settings, timeframe="Chart"
+#                 )
+#             else:
+#                 return None, None, "❌ Sorry, I couldn't recognize a valid ticker or enough candlesticks."
+
+#         if not trade_plan:
+#             return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
+
+#         update_progress("🎯 Generating final report...")
+#         time.sleep(2)
+#         return trade_plan, analysis_context, None
+
+#     except Exception as e:
+#         print(f"Error in blocking_chart_analysis: {e}")
+#         return None, None, "❌ An unexpected error occurred during the analysis."
+
+
+# # --- ФИНАЛЬНЫЙ "ЛЕГКИЙ" ОБРАБОТЧИК ---
+# async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = update.effective_user.id
+#     if not has_access(user_id):
+#         await update.message.reply_text("❌ Access Required. Please use /start to activate.")
+#         return
+        
+#     risk_settings = get_user_risk_settings(user_id)
+#     file_path = f'chart_for_{user_id}.jpg'
+    
+#     try:
+#         photo_file = await update.message.photo[-1].get_file()
+#         await photo_file.download_to_drive(file_path)
+        
+#         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
+        
+#         loop = asyncio.get_running_loop()
+        
+#         trade_plan, analysis_context, error_message = await asyncio.to_thread(
+#             blocking_chart_analysis, file_path, risk_settings, processing_message, context.bot, loop
+#         )
+        
+#         if error_message:
+#             await processing_message.edit_text(error_message)
+#             return
+            
+#         context.user_data['last_analysis_context'] = analysis_context
+        
+#         message_text = format_plan_to_message(trade_plan)
+        
+#         profile = get_user_profile(user_id); referral_link = None
+#         if profile and profile.get('ref_code'):
+#             bot_username = (await context.bot.get_me()).username
+#             referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
+        
+#         keyboard = []
+#         if referral_link:
+#             keyboard.append([InlineKeyboardButton("Powered by Aladdin 🧞‍♂️ (Join Here)", url=referral_link)])
+#         keyboard.append([InlineKeyboardButton("Explain Factors 🔬", callback_data="explain_analysis")])
+#         reply_markup = InlineKeyboardMarkup(keyboard)
+
+#         await processing_message.edit_text(text=message_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+
+#     except Exception as e:
+#         print(f"Error in photo_handler: {e}")
+#         await update.message.reply_text("❌ An unexpected error occurred.")
+
+
+# bot.py
+
+# --- ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ "ТЯЖЕЛАЯ" ФУНКЦИЯ ---
 def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
     def update_progress(text):
         async def edit():
@@ -160,59 +287,45 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
 
     try:
         update_progress("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
-        time.sleep(5) # GPT-4 Vision может думать дольше
+        time.sleep(5)
         
-        # --- ИЗМЕНЕНИЕ: find_candlesticks теперь возвращает словарь ---
         candlesticks, chart_info = find_candlesticks(file_path)
         
-        df = None
-        trade_plan = None
-        analysis_context = None
-        
+        df = None; trade_plan = None; analysis_context = None
         ticker = chart_info.get('ticker') if chart_info else None
-        timeframe_for_analysis = chart_info.get('timeframe', '15m') if chart_info else '15m'
         
         # --- СЦЕНАРИЙ 1: ТИКЕР НАЙДЕН ---
         if ticker:
-            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe_for_analysis}</b>\n\nFetching live data...")
+            timeframe = chart_info.get('timeframe', '15m')
+            update_progress(f"✅ AI identified: <b>{ticker}</b> at <b>{timeframe}</b>\n\nFetching live data...")
             time.sleep(2)
             
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
             for quote in known_quotes:
-                if ticker.endswith(quote): base_currency = ticker[:-len(quote)]; break
+                if ticker.endswith(quote):
+                    base_currency = ticker[:-len(quote)]
+                    break
             
             if base_currency:
-                symbol_for_api = f"{base_currency}/USDT"
-                
-                # --- ИЗМЕНЕНИЕ: Используем распознанный таймфрейм ---
-                df = fetch_data(symbol=symbol_for_api, timeframe=timeframe_for_analysis)
+                symbol_for_api = f"{base_currency}/USDT" # Всегда используем USDT для Binance
+                df = fetch_data(symbol=symbol_for_api, timeframe=timeframe)
                 
                 if df is not None and not df.empty:
                     update_progress("🤖 Running technical analysis...")
                     time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
-                        features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe_for_analysis
+                        features, symbol_ccxt=symbol_for_api, risk_settings=risk_settings, timeframe=timeframe
                     )
                 else:
                     return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
             else:
-                ticker = None # Сбрасываем, если тикер не похож на пару
+                ticker = None # Сбрасываем, если тикер не похож на пару (например, "BINANCE")
 
         # --- СЦЕНАРИЙ 2: ТИКЕР НЕ НАЙДЕН ---
         if ticker is None:
-            # Этот фоллбэк на анализ по структуре теперь менее важен, но пусть останется
-            update_progress("📈 Ticker not recognized. Analyzing chart structure only...")
-            time.sleep(3)
-            if candlesticks and len(candlesticks) >= 30:
-                ohlc_list = candlesticks_to_ohlc(candlesticks)
-                df = pd.DataFrame(ohlc_list); df['volume'] = 1000
-                features = compute_features(df)
-                trade_plan, analysis_context = generate_decisive_signal(
-                    features, symbol_ccxt="USER_CHART", risk_settings=risk_settings, timeframe="Chart"
-                )
-            else:
-                return None, None, "❌ Sorry, I couldn't recognize a valid ticker or enough candlesticks."
+            # Этот фоллбэк сейчас менее важен, но пусть будет
+            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
 
         if not trade_plan:
             return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
@@ -225,8 +338,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit
         print(f"Error in blocking_chart_analysis: {e}")
         return None, None, "❌ An unexpected error occurred during the analysis."
 
-
-# --- ФИНАЛЬНЫЙ "ЛЕГКИЙ" ОБРАБОТЧИК ---
+# --- ФИНАЛЬНЫЙ ИСПРАВЛЕННЫЙ "ЛЕГКИЙ" ОБРАБОТЧИК ---
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not has_access(user_id):
@@ -272,6 +384,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error in photo_handler: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
+
 # --- ФУНКЦИЯ ПРОВЕРКИ ДОСТУПА С УЧЕТОМ АДМИНА ---
 def has_access(user_id: int) -> bool:
     """Проверяет, активна ли подписка ИЛИ является ли пользователь админом."""
