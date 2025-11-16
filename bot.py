@@ -126,7 +126,7 @@ def format_plan_to_message(plan):
     else:
         icon = "⚪️"
         title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
-        message = f"{icon} {title}\n\n<i>{notes}</i>" # Основная причина
+        message = f"{icon} {title}\n\n<i>{notes}</i>"
         metrics = plan.get('metrics')
         if metrics:
             metrics_text = "\n\n<b>Current Key Metrics:</b>\n"
@@ -135,8 +135,9 @@ def format_plan_to_message(plan):
             message += metrics_text
         
         message += "\n<i>Waiting for a clearer setup.</i>"
-        return message # Возвращаем готовый HTML
-        
+        return message
+
+    # Этот код выполняется ТОЛЬКО для long/short
     entry_zone = plan.get('entry_zone', ['N/A'])
     stop_loss = plan.get('stop', 'N/A')
     targets = plan.get('targets', ['N/A'])
@@ -158,7 +159,7 @@ def format_plan_to_message(plan):
                     
     message += "\n\n<pre>⚠️ Not financial advice. DYOR.</pre>"
     return message
-# bot.py
+
 
 # --- "ТЯЖЕЛАЯ" ФУНКЦИЯ С ДЕТАЛЬНЫМИ ЛОГАМИ ---
 def blocking_chart_analysis(file_path: str, risk_settings: dict, message_to_edit, bot_instance, loop) -> tuple:
