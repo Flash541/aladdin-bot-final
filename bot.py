@@ -627,7 +627,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔗 <b>Your Referral Link:</b>\n"
         f"<code>{referral_link}</code>\n\n"
         f"Invite friends and earn tokens!\n"
-        f"Level 1: 25 tokens\n"
+        f"Level 1: 24.5 tokens\n"
     )
     keyboard = [["Withdraw Tokens 💵", "Risk Settings ⚙️", "Back to Menu ↩️"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

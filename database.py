@@ -1,34 +1,153 @@
-# database.py (v6 - With Promocodes and Risk Management)
+# # database.py (v6 - With Promocodes and Risk Management)
+# import sqlite3
+# import uuid
+# from datetime import datetime, timedelta
+# from typing import Literal
+# import os
+
+# # --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
+# # Render автоматически предоставляет абсолютный путь к диску в переменной RENDER_DISK_PATH
+# # Мы будем использовать его. Если его нет (локальный запуск), используем текущую папку.
+# RENDER_DISK_PATH = os.getenv("RENDER_DISK_PATH")
+
+# if RENDER_DISK_PATH:
+#     # На сервере Render мы храним базу в корне постоянного диска.
+#     # Render сам создает эту папку, нам не нужно ее проверять или создавать.
+#     DB_NAME = os.path.join(RENDER_DISK_PATH, "aladdin_users.db")
+# else:
+#     # Локально мы храним базу в той же папке, что и раньше.
+#     DB_NAME = "aladdin_users.db"
+
+# print(f"Database path set to: {DB_NAME}") # Добавим лог для отладки
+
+# UserStatus = Literal["pending_payment", "active", "expired"]
+
+
+# def initialize_db():
+#     """Initializes the database with the complete schema including risk management and promo codes."""
+#     conn = sqlite3.connect(DB_NAME)
+#     cursor = conn.cursor()
+    
+#     # Create the main users table with all necessary columns
+#     cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS users (
+#             user_id INTEGER PRIMARY KEY,
+#             username TEXT,
+#             join_date TEXT,
+#             status TEXT DEFAULT 'pending_payment',
+#             subscription_expiry TEXT,
+#             referrer_id INTEGER,
+#             referral_code TEXT UNIQUE,
+#             token_balance REAL DEFAULT 0,
+#             account_balance REAL DEFAULT 1000.0,
+#             risk_per_trade_pct REAL DEFAULT 1.0
+#         )
+#     """)
+    
+#     # Create the used transaction hashes table
+#     cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS used_tx_hashes (
+#             tx_hash TEXT PRIMARY KEY
+#         )
+#     """)
+    
+#     # Create the withdrawal requests table
+#     cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS withdrawals (
+#             request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+#             user_id INTEGER,
+#             amount REAL,
+#             wallet_address TEXT,
+#             request_date TEXT,
+#             status TEXT DEFAULT 'pending'
+#         )
+#     """)
+    
+#     # --- НОВАЯ ТАБЛИЦА ДЛЯ ПРОМОКОДОВ ---
+#     cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS promo_codes (
+#             code TEXT PRIMARY KEY,
+#             duration_days INTEGER,
+#             is_used INTEGER DEFAULT 0,
+#             used_by_user_id INTEGER,
+#             activation_date TEXT
+#         )
+#     """)
+    
+#     # --- Migration Logic for new columns ---
+#     try:
+#         cursor.execute("SELECT account_balance FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN account_balance REAL DEFAULT 1000.0")
+    
+#     try:
+#         cursor.execute("SELECT risk_per_trade_pct FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN risk_per_trade_pct REAL DEFAULT 1.0")
+    
+#     # Existing migration logic for other columns
+#     try:
+#         cursor.execute("SELECT username FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN username TEXT")
+    
+#     try:
+#         cursor.execute("SELECT join_date FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN join_date TEXT")
+    
+#     try:
+#         cursor.execute("SELECT subscription_expiry FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN subscription_expiry TEXT")
+    
+#     try:
+#         cursor.execute("SELECT referrer_id FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN referrer_id INTEGER")
+    
+#     try:
+#         cursor.execute("SELECT referral_code FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN referral_code TEXT UNIQUE")
+    
+#     try:
+#         cursor.execute("SELECT token_balance FROM users LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE users ADD COLUMN token_balance REAL DEFAULT 0")
+#     try:
+#         cursor.execute("SELECT duration_days FROM promo_codes LIMIT 1")
+#     except sqlite3.OperationalError:
+#         cursor.execute("ALTER TABLE promo_codes ADD COLUMN duration_days INTEGER DEFAULT 30")
+
+#     conn.commit()
+#     conn.close()
+
+
+# database.py (v-FINAL - Correct Path & Clean Init)
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from typing import Literal
 import os
 
-# --- ГЛАВНОЕ ИСПРАВЛЕНИЕ ---
-# Render автоматически предоставляет абсолютный путь к диску в переменной RENDER_DISK_PATH
-# Мы будем использовать его. Если его нет (локальный запуск), используем текущую папку.
+# --- ПРАВИЛЬНЫЙ ПУТЬ К ДИСКУ RENDER ---
 RENDER_DISK_PATH = os.getenv("RENDER_DISK_PATH")
-
 if RENDER_DISK_PATH:
-    # На сервере Render мы храним базу в корне постоянного диска.
-    # Render сам создает эту папку, нам не нужно ее проверять или создавать.
     DB_NAME = os.path.join(RENDER_DISK_PATH, "aladdin_users.db")
 else:
-    # Локально мы храним базу в той же папке, что и раньше.
     DB_NAME = "aladdin_users.db"
-
-print(f"Database path set to: {DB_NAME}") # Добавим лог для отладки
+print(f"Database path set to: {DB_NAME}")
 
 UserStatus = Literal["pending_payment", "active", "expired"]
 
-
+# --- ЧИСТАЯ И НАДЕЖНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ---
 def initialize_db():
-    """Initializes the database with the complete schema including risk management and promo codes."""
+    """Создает все таблицы с правильной структурой, если их еще не существует."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Create the main users table with all necessary columns
+    # Таблица пользователей со всеми колонками
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -44,14 +163,14 @@ def initialize_db():
         )
     """)
     
-    # Create the used transaction hashes table
+    # Таблица использованных хэшей
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS used_tx_hashes (
             tx_hash TEXT PRIMARY KEY
         )
     """)
     
-    # Create the withdrawal requests table
+    # Таблица заявок на вывод
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS withdrawals (
             request_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +182,7 @@ def initialize_db():
         )
     """)
     
-    # --- НОВАЯ ТАБЛИЦА ДЛЯ ПРОМОКОДОВ ---
+    # Таблица промокодов
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS promo_codes (
             code TEXT PRIMARY KEY,
@@ -74,54 +193,9 @@ def initialize_db():
         )
     """)
     
-    # --- Migration Logic for new columns ---
-    try:
-        cursor.execute("SELECT account_balance FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN account_balance REAL DEFAULT 1000.0")
-    
-    try:
-        cursor.execute("SELECT risk_per_trade_pct FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN risk_per_trade_pct REAL DEFAULT 1.0")
-    
-    # Existing migration logic for other columns
-    try:
-        cursor.execute("SELECT username FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN username TEXT")
-    
-    try:
-        cursor.execute("SELECT join_date FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN join_date TEXT")
-    
-    try:
-        cursor.execute("SELECT subscription_expiry FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN subscription_expiry TEXT")
-    
-    try:
-        cursor.execute("SELECT referrer_id FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN referrer_id INTEGER")
-    
-    try:
-        cursor.execute("SELECT referral_code FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN referral_code TEXT UNIQUE")
-    
-    try:
-        cursor.execute("SELECT token_balance FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE users ADD COLUMN token_balance REAL DEFAULT 0")
-    try:
-        cursor.execute("SELECT duration_days FROM promo_codes LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE promo_codes ADD COLUMN duration_days INTEGER DEFAULT 30")
-
     conn.commit()
     conn.close()
+    print("Database initialized successfully with all tables.")
 
 def generate_promo_codes(count: int, duration_days: int) -> list[str]:
     """Генерирует N промокодов с указанным сроком действия."""
@@ -172,7 +246,6 @@ def check_and_expire_subscriptions():
         
     conn.close()
     return expired_users # Возвращаем список, чтобы бот мог отправить им уведомления
-
 
 def add_user(user_id: int, username: str = None, referrer_id: int = None):
     """Adds a new user or updates their referrer if they joined via a referral link."""
@@ -303,25 +376,6 @@ def credit_referral_tokens(user_id: int, amount: float):
     conn.commit()
     conn.close()
     print(f"Credited {amount} tokens to user {user_id}.")
-
-# def get_referrer_chain(user_id: int, levels: int = 3) -> list:
-#     """Gets the chain of referrers up to N levels."""
-#     chain = []
-#     current_id = user_id
-#     conn = sqlite3.connect(DB_NAME)
-#     cursor = conn.cursor()
-    
-#     for _ in range(levels):
-#         cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (current_id,))
-#         result = cursor.fetchone()
-#         if result and result[0]:
-#             chain.append(result[0])
-#             current_id = result[0]
-#         else:
-#             break
-            
-#     conn.close()
-#     return chain
 
 def get_referrer(user_id: int) -> int | None:
     """Gets the direct referrer (level 1) for a user."""
