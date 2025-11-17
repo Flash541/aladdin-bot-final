@@ -123,79 +123,60 @@
 #     conn.commit()
 #     conn.close()
 
-
-# database.py (v-FINAL - Correct Path & Clean Init)
+# database.py (v-FINAL - Explicit DB_PATH)
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from typing import Literal
 import os
 
-# --- ПРАВИЛЬНЫЙ ПУТЬ К ДИСКУ RENDER ---
-RENDER_DISK_PATH = os.getenv("RENDER_DISK_PATH")
-if RENDER_DISK_PATH:
-    DB_NAME = os.path.join(RENDER_DISK_PATH, "aladdin_users.db")
+# --- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ДЛЯ RENDER ---
+# 1. Мы создаем переменную окружения `DB_PATH` в панели управления Render.
+# 2. Ее значение - это полный путь к файлу на постоянном диске.
+# 3. Этот код будет использовать этот путь, если он задан.
+# 4. Если переменной нет (при локальном запуске), он создаст файл в текущей папке.
+
+DB_PATH = os.getenv("DB_PATH")
+
+if DB_PATH:
+    # Мы на сервере. Убедимся, что директория для базы данных существует.
+    db_dir = os.path.dirname(DB_PATH)
+    os.makedirs(db_dir, exist_ok=True)
+    DB_NAME = DB_PATH
 else:
+    # Мы запускаем бота локально.
     DB_NAME = "aladdin_users.db"
-print(f"Database path set to: {DB_NAME}")
+
+print(f"✅ Database path is set to: {DB_NAME}")
 
 UserStatus = Literal["pending_payment", "active", "expired"]
 
-# --- ЧИСТАЯ И НАДЕЖНАЯ ФУНКЦИЯ ИНИЦИАЛИЗАЦИИ ---
 def initialize_db():
     """Создает все таблицы с правильной структурой, если их еще не существует."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Таблица пользователей со всеми колонками
+    # Таблица пользователей
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            join_date TEXT,
-            status TEXT DEFAULT 'pending_payment',
-            subscription_expiry TEXT,
-            referrer_id INTEGER,
-            referral_code TEXT UNIQUE,
-            token_balance REAL DEFAULT 0,
-            account_balance REAL DEFAULT 1000.0,
+            user_id INTEGER PRIMARY KEY, username TEXT, join_date TEXT,
+            status TEXT DEFAULT 'pending_payment', subscription_expiry TEXT,
+            referrer_id INTEGER, referral_code TEXT UNIQUE,
+            token_balance REAL DEFAULT 0, account_balance REAL DEFAULT 1000.0,
             risk_per_trade_pct REAL DEFAULT 1.0
         )
     """)
-    
-    # Таблица использованных хэшей
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS used_tx_hashes (
-            tx_hash TEXT PRIMARY KEY
-        )
-    """)
-    
-    # Таблица заявок на вывод
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS withdrawals (
-            request_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            amount REAL,
-            wallet_address TEXT,
-            request_date TEXT,
-            status TEXT DEFAULT 'pending'
-        )
-    """)
-    
+    # Таблица хэшей
+    cursor.execute("CREATE TABLE IF NOT EXISTS used_tx_hashes (tx_hash TEXT PRIMARY KEY)")
+    # Таблица выводов
+    cursor.execute("CREATE TABLE IF NOT EXISTS withdrawals (request_id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, wallet_address TEXT, request_date TEXT, status TEXT DEFAULT 'pending')")
     # Таблица промокодов
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS promo_codes (
-            code TEXT PRIMARY KEY,
-            duration_days INTEGER,
-            is_used INTEGER DEFAULT 0,
-            used_by_user_id INTEGER,
-            activation_date TEXT
-        )
-    """)
+    cursor.execute("CREATE TABLE IF NOT EXISTS promo_codes (code TEXT PRIMARY KEY, duration_days INTEGER, is_used INTEGER DEFAULT 0, used_by_user_id INTEGER, activation_date TEXT)")
     
     conn.commit()
     conn.close()
-    print("Database initialized successfully with all tables.")
+    print("✅ Database initialized successfully.")
+
 
 def generate_promo_codes(count: int, duration_days: int) -> list[str]:
     """Генерирует N промокодов с указанным сроком действия."""
