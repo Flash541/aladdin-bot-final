@@ -598,7 +598,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
             f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
             f"<i>⬇️⬇️⬇️ Tap the address to copy it ⬇️⬇️⬇️</i>\n\n"
-            f"<code>{WALLET_ADDRESS}</code>\n\n"
+            # f"<code>{WALLET_ADDRESS}</code>\n\n"
+            f"<b><code>{WALLET_ADDRESS}</code></b>\n\n"
             f"Then, paste the <b>Transaction Hash (TxID)</b> here to verify.\n\n"
             f"<i>Alternatively, you can use a promo code if you have one!</i>"
         )
