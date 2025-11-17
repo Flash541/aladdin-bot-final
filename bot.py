@@ -986,8 +986,8 @@ async def generate_promos_count(update: Update, context: ContextTypes.DEFAULT_TY
     
     # Создаем кнопки для выбора срока действия
     keyboard = [
-        ["1 day", "5 days"],
-        ["7 days", "30 days"]
+        ["1 day", "7 days"],
+        ["15 days", "30 days"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     await update.message.reply_text("Great. Now select the duration for these codes:", reply_markup=reply_markup)
@@ -995,7 +995,7 @@ async def generate_promos_count(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def generate_promos_duration(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    duration_map = {"1 day": 1, "5 days": 5, "7 days": 7, "30 days": 30}
+    duration_map = {"1 day": 1, "7 days": 7, "15 days": 15, "30 days": 30}
     duration_text = update.message.text
     
     if duration_text not in duration_map:
@@ -1055,16 +1055,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         duration_days = validate_and_use_promo_code(text, user_id)
         
         if duration_days:
-            # Активируем подписку на ПРАВИЛЬНЫЙ СРОК
-            referrer_id = activate_user_subscription(user_id, duration_days=duration_days)
-            
-            # Начисляем реферальные бонусы, если есть реферер (одноуровневая система)
-            if referrer_id:
-                credit_referral_tokens(referrer_id, REFERRAL_REWARD)
-                try:
-                    await context.bot.send_message(referrer_id, f"🎉 You received {REFERRAL_REWARD} tokens for a referral.")
-                except Exception as e:
-                    print(f"Could not notify referrer {referrer_id}: {e}")
+            activate_user_subscription(user_id, duration_days=duration_days)
             
             keyboard = [["Analyze Chart 📈", "View Chart 📊"], ["Profile 👤", "Risk Settings ⚙️"]]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
