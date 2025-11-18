@@ -1074,7 +1074,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "Withdraw Tokens 💵":
         # Эта кнопка запускает диалог, который обрабатывается ConversationHandler'ом
         await withdraw_start(update, context)
-    elif text == "Back to Menu ↩️":
+    # elif text == "Back to Menu ↩️":
+    elif text in ("Back to Menu ↩️", "Back to Main Menu ⬅️"):
         keyboard = [
             ["Analyze Chart 📈", "View Chart 📊"],
             ["Profile 👤", "Risk Settings ⚙️"]
