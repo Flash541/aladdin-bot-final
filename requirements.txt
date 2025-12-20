@@ -8,4 +8,7 @@ scikit-image
 pytesseract
 openai
 requests
-gunicorn
+binance-futures-connector
+pybit
+websocket-client
+cryptography
