@@ -11,9 +11,9 @@ from telegram.ext import (Application, CommandHandler, ContextTypes, MessageHand
 from telegram.constants import ParseMode
 from telegram.ext import JobQueue
 from telegram import InputMediaPhoto
-from database import set_copytrading_status 
-
 from database import * 
+from database import set_copytrading_status 
+from database import check_analysis_limit
 from chart_analyzer import find_candlesticks, candlesticks_to_ohlc
 from core_analyzer import fetch_data, compute_features, generate_decisive_signal, generate_signal
 from llm_explainer import get_explanation
@@ -30,11 +30,11 @@ USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
 ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(2)
 ASK_BROADCAST_MESSAGE, CONFIRM_BROADCAST = range(9, 11)
 
+
 ASK_AMOUNT, ASK_WALLET = range(2)  
 ASK_BALANCE, ASK_RISK_PCT = range(2, 4)  
 ASK_PROMO_COUNT = range(4, 5)  
-ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 9)
-
+ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
 
 
 
@@ -384,14 +384,66 @@ async def broadcast_send_message(update: Update, context: ContextTypes.DEFAULT_T
     return ConversationHandler.END
 
 
-async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not has_access(user_id):
-        await update.message.reply_text("❌ Access Required. Please use /start to activate.")
-        return
+# async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_id = update.effective_user.id
+#     if not has_access(user_id):
+#         await update.message.reply_text("❌ Access Required. Please use /start to activate.")
+#         return
         
+#     risk_settings = get_user_risk_settings(user_id)
+#     # Создаем уникальное имя файла, чтобы избежать конфликтов при одновременной обработке
+#     timestamp = int(time.time())
+#     file_path = f'chart_{user_id}_{timestamp}.jpg'
+    
+#     try:
+#         photo_file = await update.message.photo[-1].get_file()
+#         await photo_file.download_to_drive(file_path)
+        
+#         # 1. Отправляем пользователю моментальный ответ
+#         processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
+        
+#         # 2. Запускаем "тяжелую" задачу в ФОНЕ, не дожидаясь ее завершения
+#         asyncio.create_task(
+#             run_analysis_in_background(
+#                 update=update,
+#                 context=context,
+#                 user_id=user_id,
+#                 processing_message=processing_message,
+#                 file_path=file_path,
+#                 risk_settings=risk_settings
+#             )
+#         )
+#         # `photo_handler` завершает свою работу здесь, и бот готов принимать новые команды
+
+#     except Exception as e:
+#         print(f"Error in initial photo_handler for user {user_id}: {e}")
+#         await update.message.reply_text("❌ An error occurred while receiving your chart.")
+#         # Если файл был создан, но задача не запустилась, удаляем его
+#         if os.path.exists(file_path):
+#             os.remove(file_path)
+
+
+async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    НОВЫЙ ОБРАБОТЧИК: Неблокирующий анализ + Проверка лимитов (5 раз в день).
+    """
+    user_id = update.effective_user.id
+    
+    # 1. ПРОВЕРКА ЛИМИТА (ГЛАВНОЕ ИЗМЕНЕНИЕ)
+    # Если лимит исчерпан, check_analysis_limit вернет False
+    if not check_analysis_limit(user_id, limit=5):
+        await update.message.reply_text(
+            "⛔ <b>Daily Limit Reached</b>\n\n"
+            "You have used your <b>5 free chart analyses</b> for today.\n"
+            "Please come back tomorrow (UTC time) to analyze more charts.",
+            parse_mode=ParseMode.HTML
+        )
+        return
+
+    # 2. Получаем настройки риска
     risk_settings = get_user_risk_settings(user_id)
-    # Создаем уникальное имя файла, чтобы избежать конфликтов при одновременной обработке
+    
+    # 3. Создаем уникальное имя файла
     timestamp = int(time.time())
     file_path = f'chart_{user_id}_{timestamp}.jpg'
     
@@ -399,10 +451,11 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo_file = await update.message.photo[-1].get_file()
         await photo_file.download_to_drive(file_path)
         
-        # 1. Отправляем пользователю моментальный ответ
-        processing_message = await update.message.reply_text("📨 Chart received! Your request is in the queue...")
+        # 4. Отправляем пользователю моментальный ответ
+        processing_message = await update.message.reply_text("📨 Chart received! Analysis in queue (Limit: -1)...")
         
-        # 2. Запускаем "тяжелую" задачу в ФОНЕ, не дожидаясь ее завершения
+        # 5. Запускаем "тяжелую" задачу в ФОНЕ через create_task
+        # Это гарантирует, что бот не зависнет для других юзеров
         asyncio.create_task(
             run_analysis_in_background(
                 update=update,
@@ -413,7 +466,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 risk_settings=risk_settings
             )
         )
-        # `photo_handler` завершает свою работу здесь, и бот готов принимать новые команды
 
     except Exception as e:
         print(f"Error in initial photo_handler for user {user_id}: {e}")
@@ -445,68 +497,54 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         referrer_id = get_user_by_referral_code(code)
     
     add_user(user.id, user.username, referrer_id)
-    status = get_user_status(user.id)
+    # status = get_user_status(user.id)
 
-    if status == 'active':
-        # --- ОСНОВНЫЕ КНОПКИ ВНИЗУ С VIEW CHART ---
-        # main_keyboard = [
-        #     ["Analyze Chart 📈", "View Chart 📊"],
-        #     ["Profile 👤", "Risk Settings ⚙️"]
-        # ]
-        main_keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"], # Copy Trade теперь здесь
+    # if status == 'active':
+    #     # --- ОСНОВНЫЕ КНОПКИ ВНИЗУ С VIEW CHART ---
+    #     # main_keyboard = [
+    #     #     ["Analyze Chart 📈", "View Chart 📊"],
+    #     #     ["Profile 👤", "Risk Settings ⚙️"]
+    #     # ]
+    #     main_keyboard = [
+    #     ["Analyze Chart 📈", "Copy Trade 🚀"], # Copy Trade теперь здесь
+    #     ["View Chart 📊", "Profile 👤"],
+    #     ["Risk Settings ⚙️"]
+    #     ]
+
+    #     main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+        
+    #     await update.message.reply_text(
+    #         "Welcome back! Your subscription is active. Use the buttons below to start.",
+    #         reply_markup=main_reply_markup
+    #     )
+        
+    # else: # Если подписка не активна
+    #     payment_message = (
+    #         f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
+    #         f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
+    #         f"<i>⬇️⬇️⬇️ Tap the address to copy it ⬇️⬇️⬇️</i>\n\n"
+    #         # f"<code>{WALLET_ADDRESS}</code>\n\n"
+    #         f"<b><code>{WALLET_ADDRESS}</code></b>\n\n"
+    #         f"Then, paste the <b>Transaction Hash (TxID)</b> here to verify.\n\n"
+    #         f"<i>Alternatively, you can use a promo code if you have one!</i>"
+    #     )
+    #     await update.message.reply_text(payment_message, parse_mode=ParseMode.HTML)
+
+    main_keyboard = [
+        ["Analyze Chart 📈", "Copy Trade 🚀"],
         ["View Chart 📊", "Profile 👤"],
         ["Risk Settings ⚙️"]
-        ]
+    ]
+    reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+    
+    await update.message.reply_text(
+        "Welcome back to Aladdin! 🧞‍♂️\n\n"
+        "You have <b>5 free chart analyses</b> per day.\n"
+        "Copy Trading requires a token balance for fees.",
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
 
-        main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
-        
-        await update.message.reply_text(
-            "Welcome back! Your subscription is active. Use the buttons below to start.",
-            reply_markup=main_reply_markup
-        )
-        
-    else: # Если подписка не активна
-        payment_message = (
-            f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
-            f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
-            f"<i>⬇️⬇️⬇️ Tap the address to copy it ⬇️⬇️⬇️</i>\n\n"
-            # f"<code>{WALLET_ADDRESS}</code>\n\n"
-            f"<b><code>{WALLET_ADDRESS}</code></b>\n\n"
-            f"Then, paste the <b>Transaction Hash (TxID)</b> here to verify.\n\n"
-            f"<i>Alternatively, you can use a promo code if you have one!</i>"
-        )
-        await update.message.reply_text(payment_message, parse_mode=ParseMode.HTML)
-
-# async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     user_id = update.effective_user.id
-#     profile = get_user_profile(user_id)
-    
-#     if not profile:
-#         await update.message.reply_text("Couldn't find your profile. Please /start the bot.")
-#         return
-        
-#     bot_username = (await context.bot.get_me()).username
-#     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
-    
-#     status_emoji = "✅ Active" if profile['status'] == 'active' else "⏳ Pending Payment"
-#     expiry_text = f"Expires on: {profile['expiry']}" if profile['expiry'] else "N/A"
-    
-#     profile_text = (
-#         f"👤 <b>Your Profile</b>\n\n"
-#         f"<b>Status:</b> {status_emoji}\n"
-#         f"<b>Subscription:</b> {expiry_text}\n"
-#         f"<b>Token Balance:</b> {profile['balance']:.2f} Tokens\n"
-#         f"<b>Trading Balance:</b> ${profile['account_balance']:,.2f}\n"
-#         f"<b>Risk per Trade:</b> {profile['risk_pct']}%\n\n"
-#         f"🔗 <b>Your Referral Link:</b>\n"
-#         f"<code>{referral_link}</code>\n\n"
-#         f"Invite friends and earn tokens!\n"
-#         f"Level 1: 24.5 tokens\n"
-#     )
-#     keyboard = [["Withdraw Tokens 💵", "Risk Settings ⚙️", "Back to Menu ↩️"]]
-#     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-#     await update.message.reply_text(profile_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -738,59 +776,238 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начинает диалог подключения к бирже."""
-    if not has_access(update.effective_user.id):
-        await update.message.reply_text("❌ Access Required. Please use /start to activate.")
-        return ConversationHandler.END
+# async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Начинает диалог подключения к бирже."""
+#     if not has_access(update.effective_user.id):
+#         await update.message.reply_text("❌ Access Required. Please use /start to activate.")
+#         return ConversationHandler.END
 
-    keyboard = [["Binance", "Bybit"], ["MEXC", "BingX"], ["Back to Main Menu ⬅️"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+#     keyboard = [["Binance", "Bybit"], ["MEXC", "BingX"], ["Back to Main Menu ⬅️"]]
+#     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     
+#     await update.message.reply_text(
+#         "⚙️ <b>Exchange Setup</b>\n\n"
+#         "Select the exchange you want to connect.\n"
+#         "Make sure your API keys have <b>Futures Trading</b> permissions enabled.",
+#         reply_markup=reply_markup,
+#         parse_mode=ParseMode.HTML
+#     )
+#     return ASK_EXCHANGE
+
+async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Сразу спрашиваем стратегию
+    keyboard = [["Ratner (Futures)", "CGT Robot (Spot)"], ["Cancel"]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     await update.message.reply_text(
-        "⚙️ <b>Exchange Setup</b>\n\n"
-        "Select the exchange you want to connect.\n"
-        "Make sure your API keys have <b>Futures Trading</b> permissions enabled.",
+        "🤖 <b>Select Trading Strategy</b>\n\n"
+        "<b>Ratner:</b> Futures trading (Binance, Bybit, etc.)\n"
+        "<b>CGT Robot:</b> Spot trading (OKX Only)",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
-    return ASK_EXCHANGE
+    return ASK_STRATEGY
+
+async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    choice = update.message.text
+    
+    if choice == "Ratner (Futures)":
+        context.user_data['strategy'] = 'ratner'
+        # Показываем биржи для Ратнера
+        keyboard = [["Binance", "Bybit"], ["BingX", "MEXC"], ["Back to Main Menu ⬅️"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        await update.message.reply_text("Select Futures Exchange:", reply_markup=reply_markup)
+        return ASK_EXCHANGE
+
+    elif choice == "CGT Robot (Spot)":
+        context.user_data['strategy'] = 'cgt'
+        # Показываем ТОЛЬКО OKX
+        keyboard = [["OKX"], ["Back to Main Menu ⬅️"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        await update.message.reply_text("Select Spot Exchange:", reply_markup=reply_markup)
+        return ASK_EXCHANGE
+
+    else:
+        await update.message.reply_text("Please select a valid strategy.")
+        return ASK_STRATEGY
+
+# async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Сохраняет биржу, отправляет инструкцию (ссылка + фото) и просит API Key."""
+#     exchange_name = update.message.text
+#     # Добавляем OKX или другие, если нужно
+#     supported_exchanges = ["Binance", "Bybit", "BingX", "MEXC"]
+    
+#     if exchange_name not in supported_exchanges:
+#         await update.message.reply_text("Invalid selection. Please choose an exchange from the list.")
+#         return ASK_EXCHANGE
+    
+#     context.user_data['exchange_name'] = exchange_name.lower()
+    
+#     # 1. Отправляем ссылку на API Management
+#     links = {
+#         "Binance": "https://www.binance.com/en/my/settings/api-management",
+#         "Bybit": "https://www.bybit.com/app/user/api-management",
+#         "BingX": "https://www.bingx.com/en-us/account/api/",
+#         "MEXC": "https://www.mexc.com/user/openapi" 
+#     }
+    
+#     link = links.get(exchange_name, "")
+    
+#     msg_text = (
+#         f"🔶 <b>{exchange_name} Configuration</b>\n\n"
+#         f"👉 <b>Step 1:</b> Go to API Management:\n{link}\n"
+#         f"<i>(Login if required)</i>\n\n"
+#         f"👉 <b>Step 2:</b> Create new API Keys.\n"
+#         f"⚠️ <b>IMPORTANT:</b> Enable <b>'Futures Trading'</b> permission.\n"
+#         f"❌ <b>DO NOT</b> enable 'Withdrawals'.\n\n"
+#         f"👉 <b>Step 3:</b> See the screenshots below for guidance 👇"
+#     )
+    
+#     await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+    
+#     try:
+#         folder_path = os.path.join("instructions", f"{exchange_name.lower()}_pic")
+#         if os.path.exists(folder_path):
+#             files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+#             files.sort()
+#             if files:
+#                 media_group = []
+#                 for file_name in files[:10]:
+#                     file_path_img = os.path.join(folder_path, file_name)
+#                     media_group.append(InputMediaPhoto(open(file_path_img, "rb")))
+#                 if media_group:
+#                     await update.message.reply_media_group(media=media_group)
+#     except Exception as e:
+#         print(f"Error sending instructions: {e}")
+
+#     # --- ВАЖНОЕ ИЗМЕНЕНИЕ: Клавиатура с кнопкой "Назад" для следующего шага ---
+#     keyboard = [["Back to Main Menu ⬅️"]]
+#     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+#     await update.message.reply_text(
+#         "🔑 <b>Enter API Key</b>\n\n"
+#         "Please paste your <b>API Key</b> below:",
+#         reply_markup=reply_markup,
+#         parse_mode=ParseMode.HTML
+#     )
+#     return ASK_API_KEY
+
+# async def ask_api_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Сохраняет API Key и запрашивает Secret Key."""
+#     api_key = update.message.text.strip()
+    
+#     # Валидация (Красивая ошибка)
+#     if len(api_key) < 10: 
+#         await update.message.reply_text(
+#             "❌ <b>Invalid API Key</b>\n\n"
+#             "The key you entered seems too short. Please check and try again.",
+#             parse_mode=ParseMode.HTML
+#         )
+#         return ASK_API_KEY
+
+#     context.user_data['api_key'] = api_key
+    
+#     # Клавиатура с кнопкой "Назад"
+#     keyboard = [["Back to Main Menu ⬅️"]]
+#     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+#     await update.message.reply_text(
+#         "🔒 <b>Enter Secret Key</b>\n\n"
+#         "Great! Now please paste your <b>Secret Key</b>:",
+#         reply_markup=reply_markup,
+#         parse_mode=ParseMode.HTML
+#     )
+#     return ASK_SECRET_KEY
+
+
+# async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Сохраняет ключи в базу данных и завершает диалог."""
+#     secret_key = update.message.text.strip()
+    
+#     # Валидация (Красивая ошибка)
+#     if len(secret_key) < 10:
+#         await update.message.reply_text(
+#             "❌ <b>Invalid Secret Key</b>\n\n"
+#             "The secret key seems too short. Please check and try again.",
+#             parse_mode=ParseMode.HTML
+#         )
+#         return ASK_SECRET_KEY
+
+#     user_id = update.effective_user.id
+#     exchange = context.user_data['exchange_name']
+#     api_key = context.user_data['api_key']
+    
+#     # Сохраняем
+#     save_user_api_keys(user_id, exchange, api_key, secret_key)
+    
+#     context.user_data.clear()
+    
+#     # Возвращаем основное меню
+#     main_keyboard = [
+#         ["Analyze Chart 📈", "Copy Trade 🚀"],
+#         ["View Chart 📊", "Profile 👤"],
+#         ["Risk Settings ⚙️"]
+#     ]
+#     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+    
+#     await update.message.reply_text(
+#         f"✅ <b>Connected Successfully!</b>\n\n"
+#         f"Your <b>{exchange.capitalize()}</b> account is now linked.\n"
+#         "Aladdin will now automatically copy trades to your account according to your risk settings.",
+#         reply_markup=reply_markup,
+#         parse_mode=ParseMode.HTML
+#     )
+#     return ConversationHandler.END
+
+
 
 async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет биржу, отправляет инструкцию (ссылка + фото) и просит API Key."""
+    """Шаг 3: Проверка биржи, Инструкции (Фото + Ссылка) и запрос API Key."""
     exchange_name = update.message.text
-    # Добавляем OKX или другие, если нужно
-    supported_exchanges = ["Binance", "Bybit", "BingX", "MEXC"]
+    strategy = context.user_data.get('strategy', 'ratner')
     
-    if exchange_name not in supported_exchanges:
-        await update.message.reply_text("Invalid selection. Please choose an exchange from the list.")
+    if exchange_name == "Back to Main Menu ⬅️":
+        return await cancel(update, context)
+
+    # Валидация бирж
+    valid_ratner = ["Binance", "Bybit", "BingX", "MEXC"]
+    valid_cgt = ["OKX"]
+    
+    if strategy == 'ratner' and exchange_name not in valid_ratner:
+        await update.message.reply_text(f"For Ratner strategy, please choose: {', '.join(valid_ratner)}")
+        return ASK_EXCHANGE
+        
+    if strategy == 'cgt' and exchange_name not in valid_cgt:
+        await update.message.reply_text("For CGT Robot, only OKX is supported.")
         return ASK_EXCHANGE
     
     context.user_data['exchange_name'] = exchange_name.lower()
     
-    # 1. Отправляем ссылку на API Management
+    # Ссылки (добавил OKX)
     links = {
         "Binance": "https://www.binance.com/en/my/settings/api-management",
         "Bybit": "https://www.bybit.com/app/user/api-management",
         "BingX": "https://www.bingx.com/en-us/account/api/",
-        "MEXC": "https://www.mexc.com/user/openapi" 
+        "MEXC": "https://www.mexc.com/user/openapi",
+        "OKX": "https://www.okx.com/account/my-api"
     }
-    
     link = links.get(exchange_name, "")
     
+    # Текст инструкции
     msg_text = (
         f"🔶 <b>{exchange_name} Configuration</b>\n\n"
         f"👉 <b>Step 1:</b> Go to API Management:\n{link}\n"
         f"<i>(Login if required)</i>\n\n"
         f"👉 <b>Step 2:</b> Create new API Keys.\n"
-        f"⚠️ <b>IMPORTANT:</b> Enable <b>'Futures Trading'</b> permission.\n"
+        f"⚠️ <b>IMPORTANT:</b> Enable <b>'{'Spot' if strategy == 'cgt' else 'Futures'} Trading'</b> permission.\n"
         f"❌ <b>DO NOT</b> enable 'Withdrawals'.\n\n"
         f"👉 <b>Step 3:</b> See the screenshots below for guidance 👇"
     )
     
     await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     
+    # Отправка ФОТО (Твой код)
     try:
+        # Для OKX убедись, что папка называется okx_pic
         folder_path = os.path.join("instructions", f"{exchange_name.lower()}_pic")
         if os.path.exists(folder_path):
             files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -805,7 +1022,7 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error sending instructions: {e}")
 
-    # --- ВАЖНОЕ ИЗМЕНЕНИЕ: Клавиатура с кнопкой "Назад" для следующего шага ---
+    # Клавиатура "Назад"
     keyboard = [["Back to Main Menu ⬅️"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
@@ -818,56 +1035,52 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ASK_API_KEY
 
 async def ask_api_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет API Key и запрашивает Secret Key."""
+    """Шаг 4: Получение API Key."""
     api_key = update.message.text.strip()
     
-    # Валидация (Красивая ошибка)
+    if api_key == "Back to Main Menu ⬅️":
+        return await cancel(update, context)
+        
     if len(api_key) < 10: 
-        await update.message.reply_text(
-            "❌ <b>Invalid API Key</b>\n\n"
-            "The key you entered seems too short. Please check and try again.",
-            parse_mode=ParseMode.HTML
-        )
+        await update.message.reply_text("❌ <b>Invalid API Key</b>\nTry again.", parse_mode=ParseMode.HTML)
         return ASK_API_KEY
 
     context.user_data['api_key'] = api_key
     
-    # Клавиатура с кнопкой "Назад"
     keyboard = [["Back to Main Menu ⬅️"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
         "🔒 <b>Enter Secret Key</b>\n\n"
-        "Great! Now please paste your <b>Secret Key</b>:",
+        "Now paste your <b>Secret Key</b>:",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
     return ASK_SECRET_KEY
 
-
 async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет ключи в базу данных и завершает диалог."""
+    """Шаг 5: Сохранение всего (Ключи + Стратегия)."""
     secret_key = update.message.text.strip()
     
-    # Валидация (Красивая ошибка)
+    if secret_key == "Back to Main Menu ⬅️":
+        return await cancel(update, context)
+
     if len(secret_key) < 10:
-        await update.message.reply_text(
-            "❌ <b>Invalid Secret Key</b>\n\n"
-            "The secret key seems too short. Please check and try again.",
-            parse_mode=ParseMode.HTML
-        )
+        await update.message.reply_text("❌ <b>Invalid Secret Key</b>\nTry again.", parse_mode=ParseMode.HTML)
         return ASK_SECRET_KEY
 
     user_id = update.effective_user.id
     exchange = context.user_data['exchange_name']
     api_key = context.user_data['api_key']
+    strategy = context.user_data.get('strategy', 'ratner') # Получаем стратегию
     
-    # Сохраняем
+    # 1. Сохраняем ключи
     save_user_api_keys(user_id, exchange, api_key, secret_key)
+    # 2. Сохраняем стратегию
+    set_user_strategy(user_id, strategy)
     
     context.user_data.clear()
     
-    # Возвращаем основное меню
     main_keyboard = [
         ["Analyze Chart 📈", "Copy Trade 🚀"],
         ["View Chart 📊", "Profile 👤"],
@@ -877,12 +1090,16 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         f"✅ <b>Connected Successfully!</b>\n\n"
-        f"Your <b>{exchange.capitalize()}</b> account is now linked.\n"
-        "Aladdin will now automatically copy trades to your account according to your risk settings.",
+        f"Exchange: <b>{exchange.capitalize()}</b>\n"
+        f"Strategy: <b>{strategy.upper()}</b>\n\n"
+        "Aladdin is now ready to copy trades according to your strategy.",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
     return ConversationHandler.END
+
+
+
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -1550,6 +1767,7 @@ def main():
                 MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel), # Обработка кнопки Назад
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_secret_key)
             ],
+            ASK_STRATEGY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_strategy)],
         },
         # fallbacks обрабатывают команды типа /cancel, но лучше добавить кнопку и сюда
         fallbacks=[

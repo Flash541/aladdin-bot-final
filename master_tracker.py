@@ -66,7 +66,7 @@ def start_binance_listener():
             time.sleep(10)
 
 
-            
+
 # ==========================================
 # 2. СЛУШАТЕЛЬ BYBIT
 # ==========================================
@@ -236,6 +236,65 @@ def start_bingx_listener():
         time.sleep(5)
 
 # ==========================================
+# 4. СЛУШАТЕЛЬ OKX (SPOT POLLING)
+# ==========================================
+def start_okx_listener():
+    key = os.getenv("OKX_MASTER_KEY")
+    secret = os.getenv("OKX_MASTER_SECRET")
+    password = os.getenv("OKX_MASTER_PASSWORD")
+    
+    if not key: 
+        print("ℹ️ OKX Listener skipped (No keys).")
+        return
+
+    print("🎧 Starting OKX Listener (Spot)...")
+
+    # Инициализация CCXT
+    okx = ccxt.okx({
+        'apiKey': key,
+        'secret': secret,
+        'password': password,
+        'options': {'defaultType': 'spot'}
+    })
+
+    last_processed_ids = set()
+
+    while True:
+        try:
+            # Опрашиваем последние сделки/ордера каждые 2 секунды
+            # fetch_open_orders или fetch_closed_orders
+            orders = okx.fetch_orders(limit=5) 
+            
+            for order in orders:
+                oid = order['id']
+                # Если ордер новый и исполнен
+                if order['status'] == 'closed' and oid not in last_processed_ids:
+                    last_processed_ids.add(oid)
+                    
+                    # Чтобы список не рос бесконечно
+                    if len(last_processed_ids) > 100: last_processed_ids.clear()
+
+                    # Нормализация
+                    event_queue.put({
+                        'master_exchange': 'okx', # Метка биржи
+                        's': order['symbol'],     # ETH/USDT
+                        'S': order['side'].upper(), # BUY/SELL
+                        'o': 'MARKET',            # Spot обычно маркет
+                        'X': 'FILLED',
+                        'q': float(order['amount']),
+                        'p': float(order['average'] or order['price'] or 0),
+                        'ap': float(order['average'] or 0),
+                        'ot': 'SPOT'              # Метка типа
+                    })
+                    print(f"🚀 OKX Signal: {order['side']} {order['symbol']}")
+
+            time.sleep(2) # Пауза между опросами
+
+        except Exception as e:
+            print(f"❌ OKX Error: {e}")
+            time.sleep(5)
+
+# ==========================================
 # MAIN
 # ==========================================
 def main():
@@ -255,6 +314,9 @@ def main():
         
     if os.getenv("BINGX_MASTER_KEY") and len(os.getenv("BINGX_MASTER_KEY")) > 10:
         threading.Thread(target=start_bingx_listener, daemon=True).start()
+
+    if os.getenv("OKX_MASTER_KEY") and len(os.getenv("OKX_MASTER_KEY")) > 10:
+        threading.Thread(target=start_okx_listener, daemon=True).start()
 
     try:
         while True: time.sleep(1)

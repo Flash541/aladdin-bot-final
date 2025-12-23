@@ -37,6 +37,9 @@ class TradeCopier:
         # Binance
         key_b = os.getenv("BINANCE_MASTER_KEY")
         sec_b = os.getenv("BINANCE_MASTER_SECRET")
+        key_o = os.getenv("OKX_MASTER_KEY")
+        sec_o = os.getenv("OKX_MASTER_SECRET")
+        pass_o = os.getenv("OKX_MASTER_PASSWORD")
         if key_b:
             self.masters['binance'] = UMFutures(
                 key=key_b, 
@@ -44,7 +47,14 @@ class TradeCopier:
                 base_url="https://fapi.binance.com" # <--- БЫЛ testnet, СТАЛ fapi (Реал)
             )
             print("✅ Master [binance] initialized (REAL).")
-
+        if key_o:
+            try:
+                self.masters['okx'] = ccxt.okx({
+                    'apiKey': key_o, 'secret': sec_o, 'password': pass_o,
+                    'options': {'defaultType': 'spot'}
+                })
+                print("✅ Master [okx] initialized.")
+            except: pass
         # Остальные через CCXT
         for name in ['bybit', 'bingx']:
             key = os.getenv(f"{name.upper()}_MASTER_KEY")
@@ -91,7 +101,22 @@ class TradeCopier:
         orig_type = event_data.get('ot')
         qty = float(event_data.get('q', 0))
         price = float(event_data.get('ap', 0)) or float(event_data.get('p', 0))
+        if master_exchange == 'okx':
+            if status == 'FILLED':
+                # Для Spot стратегии нет понятия "закрытие позиции", есть просто BUY и SELL.
+                # Но мы можем использовать логику "Продать всё" если сигнал SELL.
+                
+                master_bal = self._get_master_balance('okx')
+                # Для Spot баланс может быть в монете, но мы считаем ratio от USDT
+                if master_bal == 0: master_bal = 1000.0 # Fallback
+                
+                trade_cost = qty * price
+                ratio = trade_cost / master_bal
+                ratio = min(ratio, 0.99)
 
+                print(f"\n🚀 [QUEUE] SIGNAL (OKX SPOT): {side} {symbol} | Ratio: {ratio*100:.2f}%")
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor)
+            return # Выходим, чтобы не попасть в фьючерсную логику
         if status in ['FILLED', 'PARTIALLY_FILLED']:
             # ЗАКРЫТИЕ (SL/TP)
             if orig_type in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:

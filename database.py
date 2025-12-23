@@ -87,7 +87,7 @@ def initialize_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             join_date TEXT,
-            status TEXT DEFAULT 'pending_payment',
+            status TEXT DEFAULT 'active',
             subscription_expiry TEXT,
             referrer_id INTEGER,
             referral_code TEXT UNIQUE,
@@ -98,7 +98,11 @@ def initialize_db():
             risk_per_trade_pct REAL DEFAULT 1.0,
             exchange_name TEXT,
             api_key_public TEXT,
-            api_secret_encrypted TEXT
+            api_secret_encrypted TEXT,
+                   
+            selected_strategy TEXT DEFAULT 'ratner', -- ratner или cgt
+            daily_analysis_count INTEGER DEFAULT 0,
+            last_analysis_date TEXT
         )
     """)
     
@@ -126,12 +130,77 @@ def initialize_db():
     except: pass
     try: cursor.execute("ALTER TABLE copied_trades ADD COLUMN open_date TEXT")
     except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN selected_strategy TEXT DEFAULT 'ratner'")
+    except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN daily_analysis_count INTEGER DEFAULT 0")
+    except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN last_analysis_date TEXT")
+    except: pass
 
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully (WAL Mode ON).")
 
 # --- ФУНКЦИИ КОПИ-ТРЕЙДИНГА (БЕЗОПАСНЫЕ) ---
+
+def check_analysis_limit(user_id: int, limit: int = 5) -> bool:
+    """Проверяет и обновляет дневной лимит анализов."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    cursor.execute("SELECT daily_analysis_count, last_analysis_date FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    
+    current_count = 0
+    last_date = ""
+    
+    if row:
+        current_count = row[0] if row[0] else 0
+        last_date = row[1] if row[1] else ""
+    
+    # Если наступил новый день, сбрасываем счетчик
+    if last_date != today:
+        cursor.execute("UPDATE users SET daily_analysis_count = 1, last_analysis_date = ? WHERE user_id = ?", (today, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    
+    # Если день тот же, проверяем лимит
+    if current_count < limit:
+        cursor.execute("UPDATE users SET daily_analysis_count = daily_analysis_count + 1 WHERE user_id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        return True
+    else:
+        conn.close()
+        return False
+
+def set_user_strategy(user_id: int, strategy: str):
+    """Сохраняет выбранную стратегию (ratner или cgt)."""
+    execute_write_query("UPDATE users SET selected_strategy = ? WHERE user_id = ?", (strategy, user_id))
+
+def get_user_strategy(user_id: int):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT selected_strategy FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return res[0] if res else 'ratner'
+
+# Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
+def get_users_for_copytrade(strategy: str = None) -> list:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    if strategy:
+        cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != '' AND is_copytrading_enabled = 1 AND selected_strategy = ?", (strategy,))
+    else:
+        cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != '' AND is_copytrading_enabled = 1")
+    user_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return user_ids
+
 
 def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
     encrypted_secret = encrypt_data(secret_key)
