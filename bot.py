@@ -1626,12 +1626,19 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #     else:
 #         await update.message.reply_text("Unknown command. Please use the buttons below.")
 
+# async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Enhanced chart analysis with subscription check"""
+#     if not has_access(update.effective_user.id):
+#         await update.message.reply_text("❌ Access Required. Please use /start to activate your subscription.")
+#         return
+#     await update.message.reply_text("I'm ready! Please send a clear screenshot of a candlestick chart.")
+
 async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Enhanced chart analysis with subscription check"""
-    if not has_access(update.effective_user.id):
-        await update.message.reply_text("❌ Access Required. Please use /start to activate your subscription.")
-        return
-    await update.message.reply_text("I'm ready! Please send a clear screenshot of a candlestick chart.")
+    await update.message.reply_text(
+        "I'm ready! Please send a clear screenshot of a candlestick chart.\n\n"
+        "<i>Remember: You have a daily limit of 5 free analyses.</i>",
+        parse_mode=ParseMode.HTML
+    )
 
 
 # --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ "EXPLAIN" ---
