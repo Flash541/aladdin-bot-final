@@ -99,6 +99,7 @@ def initialize_db():
             exchange_name TEXT,
             api_key_public TEXT,
             api_secret_encrypted TEXT,
+            api_passphrase_encrypted TEXT,
                    
             selected_strategy TEXT DEFAULT 'ratner', -- ratner или cgt
             daily_analysis_count INTEGER DEFAULT 0,
@@ -135,6 +136,8 @@ def initialize_db():
     try: cursor.execute("ALTER TABLE users ADD COLUMN daily_analysis_count INTEGER DEFAULT 0")
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN last_analysis_date TEXT")
+    except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN api_passphrase_encrypted TEXT")
     except: pass
 
     conn.commit()
@@ -202,14 +205,27 @@ def get_users_for_copytrade(strategy: str = None) -> list:
     return user_ids
 
 
-def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
+# def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
+#     encrypted_secret = encrypt_data(secret_key)
+#     execute_write_query("""
+#         UPDATE users 
+#         SET exchange_name = ?, api_key_public = ?, api_secret_encrypted = ?
+#         WHERE user_id = ?
+#     """, (exchange, public_key, encrypted_secret, user_id))
+#     print(f"🔐 API keys for user {user_id} saved.")
+
+def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str, passphrase: str = None):
+    """Шифрует Secret и Passphrase (если есть) и сохраняет."""
     encrypted_secret = encrypt_data(secret_key)
+    encrypted_passphrase = encrypt_data(passphrase) if passphrase else None
+    
     execute_write_query("""
         UPDATE users 
-        SET exchange_name = ?, api_key_public = ?, api_secret_encrypted = ?
+        SET exchange_name = ?, api_key_public = ?, api_secret_encrypted = ?, api_passphrase_encrypted = ?
         WHERE user_id = ?
-    """, (exchange, public_key, encrypted_secret, user_id))
+    """, (exchange, public_key, encrypted_secret, encrypted_passphrase, user_id))
     print(f"🔐 API keys for user {user_id} saved.")
+
 
 # database.py
 
@@ -221,17 +237,38 @@ def get_referral_counts(user_id: int) -> dict:
     l1_count = len(l1_ids)
     return {"l1": l1_count}
 
+# def get_user_decrypted_keys(user_id: int):
+#     conn = sqlite3.connect(DB_NAME)
+#     cursor = conn.cursor()
+#     cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted FROM users WHERE user_id = ?", (user_id,))
+#     result = cursor.fetchone()
+#     conn.close()
+    
+#     if not result or not result[2]: return None
+#     exchange, public, encrypted_secret = result
+#     decrypted_secret = decrypt_data(encrypted_secret)
+#     return {"exchange": exchange, "apiKey": public, "secret": decrypted_secret}
+
+
 def get_user_decrypted_keys(user_id: int):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
     
     if not result or not result[2]: return None
-    exchange, public, encrypted_secret = result
+    
+    exchange, public, encrypted_secret, encrypted_pass = result
     decrypted_secret = decrypt_data(encrypted_secret)
-    return {"exchange": exchange, "apiKey": public, "secret": decrypted_secret}
+    decrypted_pass = decrypt_data(encrypted_pass) if encrypted_pass else None
+    
+    return {
+        "exchange": exchange,
+        "apiKey": public,
+        "secret": decrypted_secret,
+        "password": decrypted_pass # ccxt использует поле 'password' для passphrase
+    }
 
 # def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quantity: float):
 #     """

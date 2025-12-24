@@ -277,6 +277,7 @@ def start_okx_listener():
                     # Нормализация
                     event_queue.put({
                         'master_exchange': 'okx', # Метка биржи
+                        'strategy': 'cgt',        
                         's': order['symbol'],     # ETH/USDT
                         'S': order['side'].upper(), # BUY/SELL
                         'o': 'MARKET',            # Spot обычно маркет

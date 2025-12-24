@@ -34,7 +34,8 @@ ASK_BROADCAST_MESSAGE, CONFIRM_BROADCAST = range(9, 11)
 ASK_AMOUNT, ASK_WALLET = range(2)  
 ASK_BALANCE, ASK_RISK_PCT = range(2, 4)  
 ASK_PROMO_COUNT = range(4, 5)  
-ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
+# ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
+ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE = range(6, 11)
 
 
 
@@ -1058,8 +1059,52 @@ async def ask_api_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ASK_SECRET_KEY
 
+# async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Шаг 5: Сохранение всего (Ключи + Стратегия)."""
+#     secret_key = update.message.text.strip()
+    
+#     if secret_key == "Back to Main Menu ⬅️":
+#         return await cancel(update, context)
+
+#     if len(secret_key) < 10:
+#         await update.message.reply_text("❌ <b>Invalid Secret Key</b>\nTry again.", parse_mode=ParseMode.HTML)
+#         return ASK_SECRET_KEY
+
+#     user_id = update.effective_user.id
+#     exchange = context.user_data['exchange_name']
+#     api_key = context.user_data['api_key']
+#     strategy = context.user_data.get('strategy', 'ratner') # Получаем стратегию
+    
+#     # 1. Сохраняем ключи
+#     save_user_api_keys(user_id, exchange, api_key, secret_key)
+#     # 2. Сохраняем стратегию
+#     set_user_strategy(user_id, strategy)
+    
+#     context.user_data.clear()
+    
+#     main_keyboard = [
+#         ["Analyze Chart 📈", "Copy Trade 🚀"],
+#         ["View Chart 📊", "Profile 👤"],
+#         ["Risk Settings ⚙️"]
+#     ]
+#     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+    
+#     await update.message.reply_text(
+#         f"✅ <b>Connected Successfully!</b>\n\n"
+#         f"Exchange: <b>{exchange.capitalize()}</b>\n"
+#         f"Strategy: <b>{strategy.upper()}</b>\n\n"
+#         "Aladdin is now ready to copy trades according to your strategy.",
+#         reply_markup=reply_markup,
+#         parse_mode=ParseMode.HTML
+#     )
+#     return ConversationHandler.END
+
 async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Шаг 5: Сохранение всего (Ключи + Стратегия)."""
+    """
+    Получает Secret Key. 
+    Если биржа OKX -> запрашивает Passphrase. 
+    Если другая -> сохраняет и завершает.
+    """
     secret_key = update.message.text.strip()
     
     if secret_key == "Back to Main Menu ⬅️":
@@ -1069,13 +1114,49 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ <b>Invalid Secret Key</b>\nTry again.", parse_mode=ParseMode.HTML)
         return ASK_SECRET_KEY
 
+    # Сохраняем секрет во временное хранилище
+    context.user_data['secret_key'] = secret_key
+    exchange = context.user_data['exchange_name']
+
+    # --- РАЗВИЛКА ДЛЯ OKX ---
+    if exchange == 'okx':
+        keyboard = [["Back to Main Menu ⬅️"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(
+            "🔐 <b>Enter Passphrase</b>\n\n"
+            "OKX requires a <b>Passphrase</b> (password) that you set when creating the API key.\n"
+            "Please enter it below:",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
+        )
+        return ASK_PASSPHRASE
+    
+    # Для остальных бирж (Binance, Bybit, etc.) сохраняем сразу
+    return await save_and_finish(update, context)
+
+async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Получает Passphrase (только для OKX) и сохраняет."""
+    passphrase = update.message.text.strip()
+    
+    if passphrase == "Back to Main Menu ⬅️":
+        return await cancel(update, context)
+    
+    context.user_data['passphrase'] = passphrase
+    return await save_and_finish(update, context)
+
+async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Вспомогательная функция для финального сохранения данных в БД."""
     user_id = update.effective_user.id
     exchange = context.user_data['exchange_name']
     api_key = context.user_data['api_key']
-    strategy = context.user_data.get('strategy', 'ratner') # Получаем стратегию
+    secret_key = context.user_data['secret_key']
+    passphrase = context.user_data.get('passphrase') # Будет None для не-OKX
+    strategy = context.user_data.get('strategy', 'ratner')
+
+    # 1. Сохраняем ключи (включая passphrase, если есть)
+    # Убедись, что твоя функция save_user_api_keys в database.py принимает 5 аргументов!
+    save_user_api_keys(user_id, exchange, api_key, secret_key, passphrase)
     
-    # 1. Сохраняем ключи
-    save_user_api_keys(user_id, exchange, api_key, secret_key)
     # 2. Сохраняем стратегию
     set_user_strategy(user_id, strategy)
     
@@ -1097,9 +1178,6 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.HTML
     )
     return ConversationHandler.END
-
-
-
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -1775,6 +1853,10 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_secret_key)
             ],
             ASK_STRATEGY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_strategy)],
+            ASK_PASSPHRASE: [
+                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_passphrase)
+            ],
         },
         # fallbacks обрабатывают команды типа /cancel, но лучше добавить кнопку и сюда
         fallbacks=[
