@@ -374,13 +374,6 @@ def set_copytrading_status(user_id: int, is_enabled: bool):
     status = "ENABLED" if is_enabled else "DISABLED"
     print(f"COPY TRADING for user {user_id} has been {status}.")
 
-def get_users_for_copytrade() -> list:
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != '' AND is_copytrading_enabled = 1")
-    user_ids = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return user_ids
 
 # database.py
 

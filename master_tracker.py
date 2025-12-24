@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 from queue import Queue
 from dotenv import load_dotenv
 from telegram import Bot
+import ccxt 
 
 # --- Библиотеки бирж ---
 from binance.um_futures import UMFutures
@@ -263,7 +264,8 @@ def start_okx_listener():
         try:
             # Опрашиваем последние сделки/ордера каждые 2 секунды
             # fetch_open_orders или fetch_closed_orders
-            orders = okx.fetch_orders(limit=5) 
+            # orders = okx.fetch_orders(limit=5) 
+            orders = okx.fetch_closed_orders(limit=5)
             
             for order in orders:
                 oid = order['id']
@@ -308,7 +310,7 @@ def main():
     threading.Thread(target=copier.start_consuming, args=(event_queue,), daemon=True).start()
     print("✅ Worker Thread: RUNNING")
 
-    threading.Thread(target=start_binance_listener, daemon=True).start()
+    #threading.Thread(target=start_binance_listener, daemon=True).start()
     
     if os.getenv("BYBIT_MASTER_KEY") and len(os.getenv("BYBIT_MASTER_KEY")) > 10:
         threading.Thread(target=start_bybit_listener, daemon=True).start()
