@@ -43,6 +43,7 @@ def start_binance_listener():
             if message.get('e') == 'ORDER_TRADE_UPDATE':
                 order_data = message.get('o', {})
                 order_data['master_exchange'] = 'binance'
+                order_data['ro'] = order_data.get('R', False) 
                 event_queue.put(order_data)
         except: pass
 
@@ -92,6 +93,7 @@ def start_bybit_listener():
                         'q': float(order['qty']),
                         'p': float(order['price'] or 0),
                         'ap': float(order['avgPrice'] or 0),
+                        'ro': order.get('reduceOnly', False),
                         'ot': 'LIMIT'
                     }
                     if order.get('stopOrderType'): norm['ot'] = 'STOP_MARKET'
@@ -176,7 +178,8 @@ def start_bingx_listener():
                         "q": float(order["q"]),
                         "p": float(order.get("p", 0)),
                         "ap": float(order.get("ap") or order.get("p") or 0),
-                        "ot": orig_type
+                        "ot": orig_type,
+                        'ro': order.get('reduceOnly', False)
                     })
                     print(f"🚀 BingX Signal: {symbol} ({status})")
 
@@ -250,52 +253,65 @@ def start_okx_listener():
 
     print("🎧 Starting OKX Listener (Spot)...")
 
-    # Инициализация CCXT
-    okx = ccxt.okx({
-        'apiKey': key,
-        'secret': secret,
-        'password': password,
-        'options': {'defaultType': 'spot'}
-    })
+    try:
+        okx = ccxt.okx({
+            'apiKey': key,
+            'secret': secret,
+            'password': password,
+            'options': {'defaultType': 'spot'}
+        })
+    except Exception as e:
+        print(f"❌ OKX Init Error: {e}")
+        return
 
     last_processed_ids = set()
 
+    # --- ЭТАП 1: ПРОГРЕВ (ЗАПОМИНАЕМ СТАРЫЕ, НО НЕ КОПИРУЕМ) ---
+    print("⏳ OKX: Fetching history to sync...")
+    try:
+        initial_orders = okx.fetch_closed_orders(limit=10)
+        for order in initial_orders:
+            last_processed_ids.add(order['id'])
+        print(f"✅ OKX Synced. Ignoring {len(last_processed_ids)} historical orders.")
+    except Exception as e:
+        print(f"⚠️ OKX History sync failed: {e}")
+
+    # --- ЭТАП 2: РАБОТА (ЛОВИМ ТОЛЬКО НОВЫЕ) ---
     while True:
         try:
-            # Опрашиваем последние сделки/ордера каждые 2 секунды
-            # fetch_open_orders или fetch_closed_orders
-            # orders = okx.fetch_orders(limit=5) 
-            orders = okx.fetch_closed_orders(limit=5)
+            orders = okx.fetch_closed_orders(limit=5) 
             
             for order in orders:
                 oid = order['id']
-                # Если ордер новый и исполнен
+                
+                # Если ордер НОВЫЙ (его нет в списке, который мы составили при старте)
                 if order['status'] == 'closed' and oid not in last_processed_ids:
                     last_processed_ids.add(oid)
                     
-                    # Чтобы список не рос бесконечно
                     if len(last_processed_ids) > 100: last_processed_ids.clear()
 
-                    # Нормализация
-                    event_queue.put({
-                        'master_exchange': 'okx', # Метка биржи
-                        'strategy': 'cgt',        
-                        's': order['symbol'],     # ETH/USDT
-                        'S': order['side'].upper(), # BUY/SELL
-                        'o': 'MARKET',            # Spot обычно маркет
-                        'X': 'FILLED',
-                        'q': float(order['amount']),
-                        'p': float(order['average'] or order['price'] or 0),
-                        'ap': float(order['average'] or 0),
-                        'ot': 'SPOT'              # Метка типа
-                    })
-                    print(f"🚀 OKX Signal: {order['side']} {order['symbol']}")
+                    if float(order['filled']) > 0:
+                        event_queue.put({
+                            'master_exchange': 'okx', 
+                            'strategy': 'cgt',        
+                            's': order['symbol'],     
+                            'S': order['side'].upper(), 
+                            'o': 'MARKET',            
+                            'X': 'FILLED',
+                            'q': float(order['amount']),
+                            'p': float(order['average'] or order['price'] or 0),
+                            'ap': float(order['average'] or 0),
+                            'ot': 'SPOT',
+                            'ro': False              
+                        })
+                        print(f"🚀 OKX Signal: {order['side']} {order['symbol']}")
 
-            time.sleep(2) # Пауза между опросами
+            time.sleep(2)
 
         except Exception as e:
-            print(f"❌ OKX Error: {e}")
+            # print(f"❌ OKX Error: {e}") # Можно скрыть, чтобы не спамило при плохом интернете
             time.sleep(5)
+
 
 # ==========================================
 # MAIN
