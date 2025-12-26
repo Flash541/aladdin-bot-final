@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import pandas as pd
 import requests
@@ -33,16 +34,52 @@ ASK_BROADCAST_MESSAGE, CONFIRM_BROADCAST = range(9, 11)
 
 ASK_AMOUNT, ASK_WALLET = range(2)  
 ASK_BALANCE, ASK_RISK_PCT = range(2, 4)  
-ASK_PROMO_COUNT = range(4, 5)  
+ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(4, 6)
+SELECT_LANG = 12
 # ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
 ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE = range(6, 11)
 
 
+# --- LOCALIZATION HELPER ---
+def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
+    """Retrieves translated text for a user."""
+    from database import get_user_language
+    if not lang:
+        lang = get_user_language(user_id)
+    
+    try:
+        file_path = os.path.join("locales", f"{lang}.json")
+        if not os.path.exists(file_path):
+            file_path = os.path.join("locales", "en.json")
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            translations = json.load(f)
+            
+        text = translations.get(key, translations.get(key, key))
+        return text.format(**kwargs) if kwargs else text
+    except Exception as e:
+        print(f"Error in get_text: {e}")
+        return key
+
+def get_all_translations(key: str) -> list:
+    """Returns all possible translations for a key (used for button matching)."""
+    variants = []
+    for lang in ['en', 'ru', 'uk']:
+        try:
+            file_path = os.path.join("locales", f"{lang}.json")
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    translations = json.load(f)
+                    val = translations.get(key)
+                    if val: variants.append(val)
+        except:
+            pass
+    return list(set(variants))
 
 async def verify_payment_and_activate(tx_hash: str, user_id: int, context: ContextTypes.DEFAULT_TYPE):
 
     if is_tx_hash_used(tx_hash):
-        await context.bot.send_message(user_id, "❌ Verification failed.\nReason: This transaction has already been used.")
+        await context.bot.send_message(user_id, get_text(user_id, "err_tx_used"))
         return
 
     url = f"https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionByHash&txhash={tx_hash}&apikey={BSCSCAN_API_KEY}"
@@ -55,7 +92,7 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
         print(f"DEBUG: Etherscan V2 API Response: {data}")
 
         if "result" not in data:
-            await context.bot.send_message(user_id, "❌ Verification failed.\nReason: Invalid response from blockchain explorer.")
+            await context.bot.send_message(user_id, get_text(user_id, "err_invalid_api"))
             return
             
         tx = data.get("result")
@@ -63,21 +100,21 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
         if not isinstance(tx, dict) or not tx:
             error_message = data.get('message', 'Transaction not found or API error.')
             if 'Invalid API Key' in str(data):
-                await context.bot.send_message(user_id, "❌ Verification failed.\nReason: API Key is invalid. Please contact support.")
+                await context.bot.send_message(user_id, get_text(user_id, "err_api_key_invalid"))
             else:
-                await context.bot.send_message(user_id, "⏳ Verification pending.\nReason: Please wait a few minutes and try again.")
+                await context.bot.send_message(user_id, get_text(user_id, "msg_verification_pending"))
             return
         
         contract_address = tx.get('to', '').lower()
         tx_input = tx.get('input', '')
         if contract_address != USDT_CONTRACT_ADDRESS.lower() or len(tx_input) < 138:
-            await context.bot.send_message(user_id, "❌ Verification failed.\nReason: Payment was not made in USDT (BEP-20)."); return
+            await context.bot.send_message(user_id, get_text(user_id, "err_not_usdt")); return
         to_address_in_data = tx_input[34:74]
         if WALLET_ADDRESS[2:].lower() not in to_address_in_data.lower():
-            await context.bot.send_message(user_id, "❌ Verification failed.\nReason: Payment sent to wrong address."); return
+            await context.bot.send_message(user_id, get_text(user_id, "err_wrong_address")); return
         amount_token = int(tx_input[74:138], 16) / (10**18)
         if not (PAYMENT_AMOUNT <= amount_token < PAYMENT_AMOUNT + 0.1):
-            await context.bot.send_message(user_id, f"❌ Verification failed.\nReason: Incorrect amount. Expected {PAYMENT_AMOUNT}, received {amount_token:.4f} USDT."); return
+            await context.bot.send_message(user_id, get_text(user_id, "err_incorrect_amount", expected=PAYMENT_AMOUNT, received=amount_token)); return
             
         activate_user_subscription(user_id)
         mark_tx_hash_as_used(tx_hash)
@@ -90,7 +127,7 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
     ]
         main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
         
-        await context.bot.send_message(user_id, "✅ Payment successful! Welcome to Aladdin. You now have full access.", reply_markup=main_reply_markup)
+        await context.bot.send_message(user_id, get_text(user_id, "msg_payment_success"), reply_markup=main_reply_markup)
         referrer_id = get_referrer(user_id)
         
         if referrer_id:
@@ -98,61 +135,54 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
             try:
                 await context.bot.send_message(
                     referrer_id, 
-                    f"🎉 Congratulations! You received {REFERRAL_REWARD} tokens for a successful referral."
+                    get_text(referrer_id, "msg_referral_reward", reward=REFERRAL_REWARD)
                 )
             except Exception as e:
                 print(f"Could not notify referrer {referrer_id}: {e}")
                 
     except Exception as e:
         print(f"Error in verify_payment: {e}")
-        await context.bot.send_message(user_id, "❌ An unexpected error occurred during verification.")
+        await context.bot.send_message(user_id, get_text(user_id, "err_unexpected"))
 
 async def simulate_thinking(duration=2):
     """Задержка для естественности"""
     await asyncio.sleep(duration)
 
 
-def format_plan_to_message(plan):
-    print("\n--- [FORMATTER] Received plan ---")
-    import json
-    print(json.dumps(plan, indent=2))
-    print("---------------------------------")
-    symbol = plan.get('symbol', 'N/A')
-    timeframe = plan.get('timeframe', 'N/A')
-    view = plan.get('view', 'neutral')
-    notes = plan.get('notes', 'No notes.')
-    
+def format_plan_to_message(plan, user_id: int):
+    view = plan.get('view')
+    symbol = plan.get('symbol', 'UNKNOWN')
+    timeframe = plan.get('timeframe', '15m')
+    notes = plan.get('notes', '')
+
     if view == 'long': 
         icon = "🟢"
-        title = f"<b>Long Idea: ${symbol}</b> ({timeframe})"
+        title = get_text(user_id, "report_long_title", symbol=symbol, timeframe=timeframe)
     elif view == 'short': 
         icon = "🔴"
-        title = f"<b>Short Idea: ${symbol}</b> ({timeframe})"
+        title = get_text(user_id, "report_short_title", symbol=symbol, timeframe=timeframe)
     else: # neutral
-        icon = "⚪️"; title = f"<b>Neutral: ${symbol}</b> ({timeframe})"
+        icon = "⚪️"; title = get_text(user_id, "report_neutral_title", symbol=symbol, timeframe=timeframe)
         
-        print("\n--- [FORMATTER] Generated HTML ---")
-        print(message)
-        print("----------------------------------\n")
-        message = f"{icon} {title}\n\n<b>Rationale:</b>\n<i>{notes}</i>"
+        message = f"{icon} {title}\n\n<b>{get_text(user_id, 'report_rationale')}</b>\n<i>{notes}</i>"
         
         metrics = plan.get('metrics')
         if metrics:
-            metrics_text = "\n\n<b>Current Key Metrics:</b>\n"
+            metrics_text = f"\n\n<b>{get_text(user_id, 'report_metrics')}</b>\n"
             for key, value in metrics.items():
                 metrics_text += f"— {key}: <code>{value}</code>\n"
             message += metrics_text
         
-        message += "\n<i>Waiting for a clearer setup.</i>"
+        message += f"\n<i>{get_text(user_id, 'report_waiting')}</i>"
         return message
 
     entry_zone = plan.get('entry_zone', ['N/A']); stop_loss = plan.get('stop', 'N/A'); targets = plan.get('targets', ['N/A'])
     
     message = (f"{icon} {title}\n\n"
-               f"<b>🔹 Entry Zone:</b> <code>{entry_zone[0]} - {entry_zone[1]}</code>\n"
-               f"<b>🔸 Stop Loss:</b> <code>{stop_loss}</code>\n"
-               f"<b>🎯 Target(s):</b> <code>{', '.join(map(str, targets))}</code>\n\n"
-               f"📝 <b>Rationale:</b>\n<i>{notes}</i>")
+               f"<b>🔹 {get_text(user_id, 'report_entry')}</b> <code>{entry_zone[0]} - {entry_zone[1]}</code>\n"
+               f"<b>🔸 {get_text(user_id, 'report_stop')}</b> <code>{stop_loss}</code>\n"
+               f"<b>🎯 {get_text(user_id, 'report_targets')}</b> <code>{', '.join(map(str, targets))}</code>\n\n"
+               f"📝 <b>{get_text(user_id, 'report_rationale')}</b>\n<i>{notes}</i>")
                
     if plan.get('position_size_asset'):
         pos_size_asset = plan.get('position_size_asset', 'N/A')
@@ -161,20 +191,19 @@ def format_plan_to_message(plan):
         potential_loss = plan.get('potential_loss_usd', 'N/A')
         potential_profit = plan.get('potential_profit_usd', 'N/A')
         rr_ratio = plan.get('risk_reward_ratio', 'N/A')
-        message += (f"\n\n<b>Risk Profile:</b>\n"
-                    f"  - Position Size: <code>{pos_size_asset} {symbol_base}</code> ({pos_size_usd})\n"
-                    f"  - Max Loss on this trade: <code>{potential_loss}</code>\n"
-                    f"  - Max Profit (TP1): <code>{potential_profit}</code>\n"
-                    f"  - Risk/Reward Ratio: <code>{rr_ratio}</code>" )
-    # message += "\n\n<pre>⚠️ Not financial advice. DYOR.</pre>"
+        message += (f"\n\n<b>{get_text(user_id, 'report_risk_profile')}</b>\n"
+                    f"  - {get_text(user_id, 'report_pos_size')} <code>{pos_size_asset} {symbol_base}</code> ({pos_size_usd})\n"
+                    f"  - {get_text(user_id, 'report_max_loss')} <code>{potential_loss}</code>\n"
+                    f"  - {get_text(user_id, 'report_max_profit')} <code>{potential_profit}</code>\n"
+                    f"  - {get_text(user_id, 'report_rr_ratio')} <code>{rr_ratio}</code>" )
     return message
 
 
-def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback) -> tuple:
+def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callback, user_id: int) -> tuple:
     try:
         print(f"\n--- [START] BLOCKING ANALYSIS in thread for {file_path} ---")
         if progress_callback:
-            progress_callback("🔍 Analyzing chart with AI (recognizing symbol and timeframe)...")
+            progress_callback(get_text(user_id, "msg_analyzing_chart"))
         time.sleep(5)
         
         candlesticks, chart_info = find_candlesticks(file_path)
@@ -190,7 +219,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
             
             print(f"LOG: Ticker '{ticker}' and Timeframe '{display_timeframe}' identified.")
             if progress_callback:
-                progress_callback(f"✅ AI identified: <b>{ticker}</b> at <b>{display_timeframe}</b>\n\nFetching live data...")
+                progress_callback(get_text(user_id, "msg_ai_identified", ticker=ticker, display_timeframe=display_timeframe))
             time.sleep(2)
             
             base_currency = None; known_quotes = ["USDT", "BUSD", "TUSD", "USDC", "USD"]
@@ -207,7 +236,7 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
                 if df is not None and not df.empty:
                     print(f"LOG: Successfully fetched {len(df)} candles for {symbol_for_api}.")
                     if progress_callback:
-                        progress_callback("🤖 Running technical analysis...")
+                        progress_callback(get_text(user_id, "msg_running_tech_analysis"))
                     time.sleep(4)
                     features = compute_features(df)
                     trade_plan, analysis_context = generate_decisive_signal(
@@ -215,29 +244,29 @@ def blocking_chart_analysis(file_path: str, risk_settings: dict, progress_callba
                     )
                 else:
                     print(f"LOG: FAILED to fetch data for {symbol_for_api}.")
-                    return None, None, f"❌ Found {ticker}, but couldn't fetch its data from the exchange."
+                    return None, None, get_text(user_id, "err_fetch_failed", ticker=ticker)
             else:
                 print(f"LOG: Ticker '{ticker}' was identified, but not recognized as a valid pair.")
                 ticker = None 
 
         if ticker is None:
             print("LOG: Ticker not identified by AI.")
-            return None, None, "❌ Sorry, the AI could not identify a valid ticker on this chart."
+            return None, None, get_text(user_id, "err_ticker_not_found")
 
         if not trade_plan:
             print("LOG: Analysis engine did not produce a valid trade plan.")
-            return None, None, "❌ Sorry, analysis did not produce a valid trade plan."
+            return None, None, get_text(user_id, "err_no_trade_plan")
 
         print(f"LOG: Trade plan generated successfully: {trade_plan.get('view')}")
         if progress_callback:
-            progress_callback("🎯 Generating final report...")
+            progress_callback(get_text(user_id, "msg_generating_report"))
         time.sleep(1)
         print(f"--- [END] BLOCKING ANALYSIS for {file_path} ---")
         return trade_plan, analysis_context, None
 
     except Exception as e:
         print(f"FATAL ERROR in blocking_chart_analysis for {file_path}: {e}")
-        return None, None, "❌ An unexpected error occurred during the analysis."
+        return None, None, get_text(user_id, "err_unexpected_analysis")
 
 async def run_analysis_in_background(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, processing_message: object, file_path: str, risk_settings: dict):
     try:
@@ -262,7 +291,7 @@ async def run_analysis_in_background(update: Update, context: ContextTypes.DEFAU
                 print(f"Error putting message in progress queue: {e}")
         
         trade_plan, analysis_context, error_message = await asyncio.to_thread(
-            blocking_chart_analysis, file_path, risk_settings, progress_callback
+            blocking_chart_analysis, file_path, risk_settings, progress_callback, user_id
         )
         
         await progress_queue.put(None)
@@ -274,7 +303,7 @@ async def run_analysis_in_background(update: Update, context: ContextTypes.DEFAU
             
         context.user_data['last_analysis_context'] = analysis_context
         
-        message_text = format_plan_to_message(trade_plan)
+        message_text = format_plan_to_message(trade_plan, user_id)
         
         profile = get_user_profile(user_id)
         referral_link = None
@@ -294,15 +323,15 @@ async def run_analysis_in_background(update: Update, context: ContextTypes.DEFAU
             reply_markup=reply_markup_inline
         )
         
-        reply_keyboard = [["Explain Analysis 🔬", "Back to Main Menu ⬅️"]]
+        reply_keyboard = [[get_text(user_id, "btn_explain"), get_text(user_id, "btn_back")]]
         reply_markup_reply = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True)
         
-        await update.message.reply_text("What would you like to do next?", reply_markup=reply_markup_reply)
+        await update.message.reply_text(get_text(user_id, "msg_next_steps"), reply_markup=reply_markup_reply)
 
     except Exception as e:
         print(f"FATAL Error in background analysis task for user {user_id}: {e}")
         try:
-            await processing_message.edit_text("❌ An unexpected error occurred during the analysis process.")
+            await processing_message.edit_text(get_text(user_id, "err_unexpected_analysis"))
         except Exception as edit_e:
             print(f"Could not even inform user {user_id} about the error: {edit_e}")
     finally:
@@ -433,12 +462,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1. ПРОВЕРКА ЛИМИТА (ГЛАВНОЕ ИЗМЕНЕНИЕ)
     # Если лимит исчерпан, check_analysis_limit вернет False
     if not check_analysis_limit(user_id, limit=5):
-        await update.message.reply_text(
-            "⛔ <b>Daily Limit Reached</b>\n\n"
-            "You have used your <b>5 free chart analyses</b> for today.\n"
-            "Please come back tomorrow (UTC time) to analyze more charts.",
-            parse_mode=ParseMode.HTML
-        )
+        await update.message.reply_text(get_text(user_id, "err_daily_limit"), parse_mode=ParseMode.HTML)
         return
 
     # 2. Получаем настройки риска
@@ -453,7 +477,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await photo_file.download_to_drive(file_path)
         
         # 4. Отправляем пользователю моментальный ответ
-        processing_message = await update.message.reply_text("📨 Chart received! Analysis in queue (Limit: -1)...")
+        processing_message = await update.message.reply_text(get_text(user_id, "msg_chart_received"))
         
         # 5. Запускаем "тяжелую" задачу в ФОНЕ через create_task
         # Это гарантирует, что бот не зависнет для других юзеров
@@ -538,10 +562,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
     
+    welcome_text = get_text(user.id, "welcome_back")
+    
     await update.message.reply_text(
-        "Welcome back to Aladdin! 🧞‍♂️\n\n"
-        "You have <b>5 free chart analyses</b> per day.\n"
-        "Copy Trading requires a token balance for fees.",
+        welcome_text,
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -559,54 +583,81 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
     referral_counts = get_referral_counts(user_id)
     
-    status_emoji = "✅ Active" if profile['status'] == 'active' else "⏳ Pending Payment"
-    expiry_text = f"Expires on: {profile['expiry']}" if profile['expiry'] else "N/A"
+    status_emoji = get_text(user_id, "status_active") if profile['status'] == 'active' else get_text(user_id, "status_pending")
+    expiry_text = f"{get_text(user_id, 'expires_on')} {profile['expiry']}" if profile['expiry'] else "N/A"
     
     # --- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ БАЛАНСА И КНОПОК ---
     profile_text = (
-        f"👤 <b>Your Profile</b>\n\n"
-        f"<b>Status:</b> {status_emoji}\n"
-        f"<b>Subscription:</b> {expiry_text}\n"
-        f"<b>Token Balance:</b> {profile['balance']:.2f} 🪙\n"
-        f"<b>Trading Balance:</b> ${profile['account_balance']:,.2f}\n"
-        f"<b>Risk per Trade:</b> {profile['risk_pct']}%\n\n"
-        f"🔗 <b>Your Referral Link:</b>\n"
+        f"{get_text(user_id, 'profile_title')}\n\n"
+        f"{get_text(user_id, 'status')} {status_emoji}\n"
+        f"{get_text(user_id, 'subscription')} {expiry_text}\n"
+        f"{get_text(user_id, 'token_balance')} {profile['balance']:.2f} 🪙\n"
+        f"{get_text(user_id, 'trading_balance')} ${profile['account_balance']:,.2f}\n"
+        f"{get_text(user_id, 'risk_per_trade')} {profile['risk_pct']}%\n\n"
+        f"{get_text(user_id, 'referral_link')}\n"
         f"<code>{referral_link}</code>\n\n"
-        f"Invite friends and earn tokens!\n"
+        f"{get_text(user_id, 'invite_earn')}\n"
         f"Level 1: 24.5 tokens\n"
-        f"👥 <b>Your Referrals:</b>\n"
-        f"  - Level 1: <b>{referral_counts['l1']}</b> users\n"
+        f"{get_text(user_id, 'referrals_title')}\n"
+        f"{get_text(user_id, 'level_1_count', count=referral_counts['l1'])}\n"
     )
     
     # Разные кнопки для активных и неактивных
     if profile['status'] == 'active':
         keyboard = [
-            ["Top Up Balance 💵", "Withdraw Tokens 💰"],
-            ["Connect Exchange 🔌", "Back to Main Menu ⬅️"]
+            [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
+            [get_text(user_id, "btn_connect"), get_text(user_id, "btn_language")],
+            [get_text(user_id, "btn_back")]
         ]
     else:
-        keyboard = [["Back to Main Menu ⬅️"]]
+        keyboard = [[get_text(user_id, "btn_back")]]
         
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(profile_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 
+# --- LANGUAGE SELECTION FLOW ---
+async def change_language_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    keyboard = [["🇬🇧 English", "🇷🇺 Русский"], ["🇺🇦 Українська"], [get_text(user_id, "btn_back")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    await update.message.reply_text(get_text(user_id, "select_language"), reply_markup=reply_markup)
+    return SELECT_LANG
+
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    choice = update.message.text
+    
+    lang_map = {
+        "🇬🇧 English": "en",
+        "🇷🇺 Русский": "ru",
+        "🇺🇦 Українська": "uk"
+    }
+    
+    lang_code = lang_map.get(choice)
+    
+    if lang_code:
+        from database import save_user_language
+        save_user_language(user_id, lang_code)
+        # We need to get the text IN THE NEW LANGUAGE
+        # But our get_text fetches from DB, so it should work immediately
+        await update.message.reply_text(get_text(user_id, "language_set"))
+    else:
+        await update.message.reply_text(get_text(user_id, "invalid_selection"))
+        
+    # Return to profile
+    await profile_command(update, context)
+    return ConversationHandler.END
+
 async def top_up_balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показывает инструкцию по пополнению баланса."""
-    top_up_message = (
-        "<b>How to Top Up Your Token Balance:</b>\n\n"
-        "Tokens are used to pay the 40% performance fee on profitable trades.\n"
-        "The exchange rate is <b>1 USDT = 1 Token</b>.\n\n"
-        "1. Send any amount of USDT (BEP-20) to this address:\n"
-        f"<code>{WALLET_ADDRESS}</code>\n\n"
-        "2. After sending, paste the <b>Transaction Hash (TxID)</b> here in the chat to credit your balance."
-    )
-    await update.message.reply_text(top_up_message, parse_mode=ParseMode.HTML)
+    user_id = update.effective_user.id
+    await update.message.reply_text(get_text(user_id, "msg_how_to_top_up", address=WALLET_ADDRESS), parse_mode=ParseMode.HTML)
 
 # --- НОВАЯ ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ПЛАТЕЖА ЗА ПОПОЛНЕНИЕ ---
 async def verify_top_up_payment(tx_hash: str, user_id: int) -> tuple[bool, str, float]:
     """Проверяет транзакцию пополнения и возвращает сумму."""
     if is_tx_hash_used(tx_hash):
-        return False, "This transaction has already been used.", 0
+        return False, get_text(user_id, "err_tx_used"), 0
     
     url = f"https://api.etherscan.io/v2/api?chainid=56&module=proxy&action=eth_getTransactionByHash&txhash={tx_hash}&apikey={BSCSCAN_API_KEY}"
     
@@ -618,7 +669,7 @@ async def verify_top_up_payment(tx_hash: str, user_id: int) -> tuple[bool, str, 
         print(f"DEBUG: Etherscan V2 API Response: {data}")
 
         if "result" not in data:
-            return False, "Invalid response from blockchain explorer.", 0
+            return False, get_text(user_id, "err_invalid_api"), 0
             
         tx = data.get("result")
         
@@ -632,11 +683,11 @@ async def verify_top_up_payment(tx_hash: str, user_id: int) -> tuple[bool, str, 
         contract_address = tx.get('to', '').lower()
         tx_input = tx.get('input', '')
         if contract_address != USDT_CONTRACT_ADDRESS.lower() or len(tx_input) < 138:
-            return False, "Payment was not made in USDT (BEP-20).", 0
+            return False, get_text(user_id, "err_not_usdt"), 0
             
         to_address_in_data = tx_input[34:74]
         if WALLET_ADDRESS[2:].lower() not in to_address_in_data.lower():
-            return False, "Payment sent to wrong address.", 0
+            return False, get_text(user_id, "err_wrong_address"), 0
             
         amount_token = int(tx_input[74:138], 16) / (10**18)
         if amount_token <= 0:
@@ -654,50 +705,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = get_user_status(user_id)
     
     if status == 'active':
-        help_text = (
-            "🧞‍♂️ <b>Aladdin - Crypto Chart Analyst</b>\n\n"
-            "Here's how you can use me:\n\n"
-            "1. Press the <b>'Analyze Chart 📈'</b> button below.\n"
-            "2. Send me a clear screenshot of a candlestick chart.\n"
-            "3. I will analyze it and provide a technical outlook.\n\n"
-            "<b>What I can do:</b>\n"
-            "• Recognize cryptocurrency symbols from charts\n"
-            "• Fetch live market data from Binance\n"
-            "• Analyze technical indicators (EMA, RSI, ATR, Bollinger Bands)\n"
-            "• Provide trading ideas with entry zones and targets\n"
-            "• Calculate position sizes based on your risk profile\n\n"
-            "<b>Risk Management:</b>\n"
-            "• Set your account balance and risk percentage\n"
-            "• Get automatic position size calculations\n"
-            "• Manage your risk per trade\n\n"
-            "<b>Referral System:</b>\n"
-            "• Earn 25 tokens for Level 1 referrals\n"
-            "• Withdraw tokens to your wallet\n\n"
-            "<b>Available Commands:</b>\n"
-            "/start - Restart the bot\n"
-            "/help - Show this help message\n"
-            "/profile - View your profile\n"
-            "/risk - Set up risk management\n\n"
-            "<i>Your access is active! Press the buttons below to get started!</i>"
-        )
+        help_text = get_text(user_id, "msg_help_active")
     else:
-        help_text = (
-            "🧞‍♂️ <b>Aladdin - Crypto Chart Analyst</b>\n\n"
-            "This bot provides AI-powered technical analysis of cryptocurrency charts.\n\n"
-            "<b>How it works:</b>\n"
-            "1. Send a screenshot of any crypto chart\n"
-            "2. I'll recognize the symbol and analyze it\n"
-            "3. Get detailed trading insights with entry/exit points\n\n"
-            "<b>Subscription:</b>\n"
-            f"• One-time payment of {PAYMENT_AMOUNT} USDT for 1 month access\n"
-            "• Or use a valid promo code\n"
-            "• Full access to all analysis features\n"
-            "• Referral system to earn tokens\n"
-            "• Risk management with position sizing\n\n"
-            "<b>To get started:</b>\n"
-            "Use /start to activate your access with payment or promo code.\n\n"
-            "<i>Use /start to begin the activation process!</i>"
-        )
+        help_text = get_text(user_id, "msg_help_inactive", amount=PAYMENT_AMOUNT)
     
     await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
 
@@ -707,40 +717,43 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #     await update.message.reply_text("Please enter the amount of tokens you wish to withdraw:", reply_markup=ReplyKeyboardRemove())
 #     return ASK_AMOUNT
 async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["Cancel"]]
+    user_id = update.effective_user.id
+    keyboard = [[get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
-        "Please enter the amount of tokens you wish to withdraw:", 
+        get_text(user_id, "msg_withdraw_amount"), 
         reply_markup=reply_markup
     )
     return ASK_AMOUNT
 
 
 async def ask_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["Cancel"]]
+    user_id = update.effective_user.id
+    keyboard = [[get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     try:
         amount = float(update.message.text)
         if amount <= 0: raise ValueError
         
-        profile = get_user_profile(update.effective_user.id)
+        profile = get_user_profile(user_id)
         if amount > profile['balance']:
-            await update.message.reply_text(f"Insufficient balance. You only have {profile['balance']:.2f} tokens. Please enter a valid amount.")
+            await update.message.reply_text(get_text(user_id, "err_insufficient_balance", balance=profile['balance']), reply_markup=reply_markup)
             return ASK_AMOUNT
             
         context.user_data['withdraw_amount'] = amount
-        await update.message.reply_text("Great! Now, please paste your BEP-20 (BSC) wallet address for the withdrawal.",reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "msg_withdraw_wallet"), reply_markup=reply_markup)
         return ASK_WALLET
     except ValueError:
-        await update.message.reply_text("Invalid amount. Please enter a number greater than 0.",reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "err_invalid_amount"), reply_markup=reply_markup)
         return ASK_AMOUNT
 
 async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     wallet_address = update.message.text
+    user_id = update.effective_user.id
     if not (wallet_address.startswith("0x") and len(wallet_address) == 42):
-        keyboard = [["Cancel"]]
+        keyboard = [[get_text(user_id, "btn_cancel")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Invalid wallet address. Please paste a valid BEP-20 address (starts with 0x).",reply_markup=reply_markup )
+        await update.message.reply_text(get_text(user_id, "err_invalid_wallet"), reply_markup=reply_markup )
         return ASK_WALLET
         
     amount = context.user_data['withdraw_amount']
@@ -764,15 +777,15 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_message(ADMIN_USER_ID, admin_message, parse_mode=ParseMode.HTML)
     
-    # Возвращаем к основной клавиатуре с View Chart
+    # Возвращаем к основной клавиатуре
     keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+        [get_text(user_id, "btn_risk")]
     ]
     
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("✅ Your withdrawal request has been submitted! Please allow up to 24 hours for processing.", reply_markup=reply_markup)
+    await update.message.reply_text(get_text(user_id, "msg_withdraw_submitted"), reply_markup=reply_markup)
     
     return ConversationHandler.END
 
@@ -797,12 +810,11 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Сразу спрашиваем стратегию
-    keyboard = [["Ratner (Futures)", "CGT Robot (Spot)"], ["Cancel"]]
+    user_id = update.effective_user.id
+    keyboard = [["Ratner (Futures)", "CGT Robot (Spot)"], [get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     await update.message.reply_text(
-        "🤖 <b>Select Trading Strategy</b>\n\n"
-        "<b>Ratner:</b> Futures trading (Binance, Bybit, etc.)\n"
-        "<b>CGT Robot:</b> Spot trading (OKX Only)",
+        get_text(user_id, "msg_select_strategy"),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -810,26 +822,28 @@ async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_T
 
 async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
-    if choice == "Cancel":
+    user_id = update.effective_user.id
+    
+    if choice in ["Cancel", get_text(user_id, "btn_cancel")]:
         return await cancel(update, context) # Вызываем функцию отмены
     if choice == "Ratner (Futures)":
         context.user_data['strategy'] = 'ratner'
         # Показываем биржи для Ратнера
-        keyboard = [["Binance", "Bybit"], ["BingX", "MEXC"], ["Back to Main Menu ⬅️"]]
+        keyboard = [["Binance", "Bybit"], ["BingX", "MEXC"], [get_text(user_id, "btn_back")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-        await update.message.reply_text("Select Futures Exchange:", reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "msg_select_futures_exchange"), reply_markup=reply_markup)
         return ASK_EXCHANGE
 
     elif choice == "CGT Robot (Spot)":
         context.user_data['strategy'] = 'cgt'
         # Показываем ТОЛЬКО OKX
-        keyboard = [["OKX"], ["Back to Main Menu ⬅️"]]
+        keyboard = [["OKX"], [get_text(user_id, "btn_back")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-        await update.message.reply_text("Select Spot Exchange:", reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "msg_select_spot_exchange"), reply_markup=reply_markup)
         return ASK_EXCHANGE
 
     else:
-        await update.message.reply_text("Please select a valid strategy.")
+        await update.message.reply_text(get_text(user_id, "err_invalid_strategy"))
         return ASK_STRATEGY
 
 # async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -966,8 +980,9 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Шаг 3: Проверка биржи, Инструкции (Фото + Ссылка) и запрос API Key."""
     exchange_name = update.message.text
     strategy = context.user_data.get('strategy', 'ratner')
+    user_id = update.effective_user.id
     
-    if exchange_name == "Back to Main Menu ⬅️":
+    if exchange_name in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
         return await cancel(update, context)
 
     # Валидация бирж
@@ -975,11 +990,11 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     valid_cgt = ["OKX"]
     
     if strategy == 'ratner' and exchange_name not in valid_ratner:
-        await update.message.reply_text(f"For Ratner strategy, please choose: {', '.join(valid_ratner)}")
+        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy=strategy, valid_exchanges=', '.join(valid_ratner)))
         return ASK_EXCHANGE
         
     if strategy == 'cgt' and exchange_name not in valid_cgt:
-        await update.message.reply_text("For CGT Robot, only OKX is supported.")
+        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy='CGT Robot', valid_exchanges='OKX'))
         return ASK_EXCHANGE
     
     context.user_data['exchange_name'] = exchange_name.lower()
@@ -996,17 +1011,8 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     server_ip = "167.99.130.80" # Твой статический IP с DigitalOcean
     
-    msg_text = (
-        f"🔶 <b>{exchange_name} Configuration</b>\n\n"
-        f"👉 <b>Step 1:</b> Go to API Management:\n{link}\n"
-        f"<i>(Login if required)</i>\n\n"
-        f"👉 <b>Step 2:</b> Create new API Keys with these settings:\n"
-        f"  - Permissions: Enable <b>'{'Spot' if strategy == 'cgt' else 'Futures'} Trading'</b>.\n"
-        f"  - ❌ <b>DO NOT</b> enable 'Withdrawals'.\n"
-        f"  - IP Access: Select 'Restrict access to trusted IPs only' and paste this IP:\n"
-        f"    <code>{server_ip}</code>\n\n"
-        f"👉 <b>Step 3:</b> See screenshots for guidance 👇"
-    )
+    perm = 'Spot' if strategy == 'cgt' else 'Futures'
+    msg_text = get_text(user_id, "msg_exchange_config", exchange=exchange_name, link=link, perm=perm, ip=server_ip)
     
     await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     
@@ -1028,12 +1034,11 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Error sending instructions: {e}")
 
     # Клавиатура "Назад"
-    keyboard = [["Back to Main Menu ⬅️"]]
+    keyboard = [[get_text(user_id, "btn_back")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
-        "🔑 <b>Enter API Key</b>\n\n"
-        "Please paste your <b>API Key</b> below:",
+        get_text(user_id, "msg_enter_api_key"),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -1042,22 +1047,22 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_api_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Шаг 4: Получение API Key."""
     api_key = update.message.text.strip()
+    user_id = update.effective_user.id
     
-    if api_key == "Back to Main Menu ⬅️":
+    if api_key in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
         return await cancel(update, context)
         
     if len(api_key) < 10: 
-        await update.message.reply_text("❌ <b>Invalid API Key</b>\nTry again.", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_text(user_id, "err_api_key_short"), parse_mode=ParseMode.HTML)
         return ASK_API_KEY
 
     context.user_data['api_key'] = api_key
     
-    keyboard = [["Back to Main Menu ⬅️"]]
+    keyboard = [[get_text(user_id, "btn_back")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
-        "🔒 <b>Enter Secret Key</b>\n\n"
-        "Now paste your <b>Secret Key</b>:",
+        get_text(user_id, "msg_enter_secret_key"),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -1110,12 +1115,13 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Если другая -> сохраняет и завершает.
     """
     secret_key = update.message.text.strip()
+    user_id = update.effective_user.id
     
-    if secret_key == "Back to Main Menu ⬅️":
+    if secret_key in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
         return await cancel(update, context)
 
     if len(secret_key) < 10:
-        await update.message.reply_text("❌ <b>Invalid Secret Key</b>\nTry again.", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(get_text(user_id, "err_secret_key_short"), parse_mode=ParseMode.HTML)
         return ASK_SECRET_KEY
 
     # Сохраняем секрет во временное хранилище
@@ -1124,12 +1130,10 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # --- РАЗВИЛКА ДЛЯ OKX ---
     if exchange == 'okx':
-        keyboard = [["Back to Main Menu ⬅️"]]
+        keyboard = [[get_text(user_id, "btn_back")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(
-            "🔐 <b>Enter Passphrase</b>\n\n"
-            "OKX requires a <b>Passphrase</b> (password) that you set when creating the API key.\n"
-            "Please enter it below:",
+            get_text(user_id, "msg_enter_passphrase"),
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
@@ -1141,8 +1145,9 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает Passphrase (только для OKX) и сохраняет."""
     passphrase = update.message.text.strip()
+    user_id = update.effective_user.id
     
-    if passphrase == "Back to Main Menu ⬅️":
+    if passphrase in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
         return await cancel(update, context)
     
     context.user_data['passphrase'] = passphrase
@@ -1167,30 +1172,28 @@ async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     
     main_keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+        [get_text(user_id, "btn_risk")]
     ]
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
-        f"✅ <b>Connected Successfully!</b>\n\n"
-        f"Exchange: <b>{exchange.capitalize()}</b>\n"
-        f"Strategy: <b>{strategy.upper()}</b>\n\n"
-        "Aladdin is now ready to copy trades according to your strategy.",
+        get_text(user_id, "msg_connect_success", exchange=exchange.capitalize(), strategy=strategy.upper()),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
     keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+        [get_text(user_id, "btn_risk")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Operation cancelled.", reply_markup=reply_markup)
+    await update.message.reply_text(get_text(user_id, "msg_operation_cancelled"), reply_markup=reply_markup)
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -1202,29 +1205,26 @@ async def risk_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     settings = get_user_risk_settings(user_id)
     await update.message.reply_text(
-        f"Let's set up your risk profile.\n\n"
-        f"Your current trading account balance is set to: ${settings['balance']:,.2f}\n"
-        f"Please enter your new account balance (e.g., 10000), or type 'skip' to keep the current value.",
+        get_text(user_id, "msg_risk_setup_start", balance=settings['balance']),
         reply_markup=ReplyKeyboardRemove()
     )
     return ASK_BALANCE
 
 async def ask_balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
+    user_id = update.effective_user.id
     if text != 'skip':
         try:
             balance = float(text)
             if balance <= 0: raise ValueError
             context.user_data['risk_balance'] = balance
         except ValueError:
-            await update.message.reply_text("Invalid number. Please enter a positive number for your balance (e.g., 10000).")
+            await update.message.reply_text(get_text(user_id, "err_invalid_balance"))
             return ASK_BALANCE
     
-    user_id = update.effective_user.id
     settings = get_user_risk_settings(user_id)
     await update.message.reply_text(
-        f"Great. Your current risk per trade is: {settings['risk_pct']}%\n"
-        f"Please enter your new risk percentage (e.g., 1 for 1%), or type 'skip' to keep it."
+        get_text(user_id, "msg_risk_pct_current", risk_pct=settings['risk_pct'])
     )
     return ASK_RISK_PCT
 
@@ -1243,23 +1243,20 @@ async def ask_risk_pct(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not (0 < risk_pct_new <= 100): raise ValueError
             risk_pct = risk_pct_new
         except ValueError:
-            await update.message.reply_text("Invalid percentage. Please enter a number between 0 and 100 (e.g., 1.5).")
+            await update.message.reply_text(get_text(user_id, "err_invalid_risk_pct"))
             return ASK_RISK_PCT
             
     # Save to DB
     update_user_risk_settings(user_id, balance, risk_pct)
     
     keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+        [get_text(user_id, "btn_risk")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
-        f"✅ Risk profile updated!\n\n"
-        f"  - Account Balance: ${balance:,.2f}\n"
-        f"  - Risk per Trade: {risk_pct}%\n\n"
-        f"I will now use these settings to calculate position sizes for your trades.",
+        get_text(user_id, "msg_risk_updated", balance=balance, risk_pct=risk_pct),
         reply_markup=reply_markup
     )
     context.user_data.clear()
@@ -1267,13 +1264,14 @@ async def ask_risk_pct(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cancel_risk(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancels the risk setup process."""
+    user_id = update.effective_user.id
     keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+        [get_text(user_id, "btn_risk")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Risk setup cancelled.", reply_markup=reply_markup)
+    await update.message.reply_text(get_text(user_id, "msg_risk_cancelled"), reply_markup=reply_markup)
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -1281,23 +1279,14 @@ async def cancel_risk(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def view_chart_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Открывает TradingView для просмотра графиков"""
+    user_id = update.effective_user.id
     # Создаем Inline-кнопку, которая ведет на TradingView
     inline_keyboard = [[
-        InlineKeyboardButton("📊 Open TradingView Charts", url="https://www.tradingview.com/chart/")
+        InlineKeyboardButton(get_text(user_id, "btn_view_tradingview"), url="https://www.tradingview.com/chart/")
     ]]
     inline_reply_markup = InlineKeyboardMarkup(inline_keyboard)
     
-    message = (
-        "📈 <b>Live Chart Analysis</b>\n\n"
-        "Click the button below to open TradingView where you can:\n\n"
-        "• View real-time cryptocurrency charts\n"
-        "• Analyze different timeframes\n"
-        "• Use technical indicators\n"
-        "• Take screenshots for analysis\n\n"
-        "After analyzing the chart, come back and use the <b>'Analyze Chart 📈'</b> button to get my insights!"
-    )
-    
-    await update.message.reply_text(message, parse_mode=ParseMode.HTML, reply_markup=inline_reply_markup)
+    await update.message.reply_text(get_text(user_id, "msg_view_chart"), parse_mode=ParseMode.HTML, reply_markup=inline_reply_markup)
 
 # --- ADMIN PANEL FUNCTIONS WITH PROMOCODES ---
 
@@ -1481,21 +1470,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "User Stats 👥": await handle_admin_stats(update, context); return
         elif text == "Withdrawals 🏧": await handle_admin_withdrawals(update, context); return
         # Кнопка Generate Promos теперь запускает диалог, поэтому ее здесь нет
-        elif text == "Back to Main Menu ⬅️":
-            keyboard = [        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]]
+        elif text in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
+            keyboard = [
+                [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+                [get_text(user_id, "btn_risk")]
+            ]
             
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await update.message.reply_text("Returned to main menu.", reply_markup=reply_markup)
+            await update.message.reply_text(get_text(user_id, "msg_returned_main_menu"), reply_markup=reply_markup)
             return
             
     # --- ПРОВЕРКА НА ПРОМОКОД ---
+    # --- ПРОВЕРКА НА ПРОМОКОД ---
     if text.upper().startswith("ALADDIN-"):
         if get_user_status(user_id) == 'active':
-            await update.message.reply_text("Your account is already active."); return
+            await update.message.reply_text(get_text(user_id, "err_account_already_active")); return
 
-        await update.message.reply_text("Checking your promo code...")
+        await update.message.reply_text(get_text(user_id, "msg_checking_promo"))
         
         # validate_and_use... теперь возвращает срок действия или None
         duration_days = validate_and_use_promo_code(text, user_id)
@@ -1503,56 +1495,62 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if duration_days:
             activate_user_subscription(user_id, duration_days=duration_days)
             
-            keyboard = [        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]]
+            keyboard = [
+                [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+                [get_text(user_id, "btn_risk")]
+            ]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await update.message.reply_text(f"✅ Promo code accepted! Your access is active for {duration_days} days.", reply_markup=reply_markup)
+            await update.message.reply_text(get_text(user_id, "msg_promo_success", duration=duration_days), reply_markup=reply_markup)
         else:
-            await update.message.reply_text("❌ This promo code is invalid or has already been used.")
+            await update.message.reply_text(get_text(user_id, "err_promo_invalid"))
         return
 
     # --- Основные кнопки ---
-    if text == "Analyze Chart 📈": await analyze_chart_start(update, context)
-    elif text == "View Chart 📊": await view_chart_command(update, context)
-    elif text == "Profile 👤": await profile_command(update, context)
-    elif text == "Top Up Balance 💵": await top_up_balance_command(update, context)
-    elif text == "Copy Trade 🚀":
+    if text in get_all_translations("btn_analyze"): await analyze_chart_start(update, context)
+    elif text in get_all_translations("btn_viewchart"): await view_chart_command(update, context)
+    elif text in get_all_translations("btn_profile"): await profile_command(update, context)
+    elif text in get_all_translations("btn_top_up"): await top_up_balance_command(update, context)
+    elif text in get_all_translations("btn_copytrade"):
         await connect_exchange_start(update, context)
-    elif text == "Risk Settings ⚙️":
+    elif text in get_all_translations("btn_risk"):
         await risk_command(update, context)
-    elif text == "Withdraw Tokens 💰":  
+    elif text in get_all_translations("btn_withdraw"):  
         await withdraw_start(update, context)
-    elif text == "Cancel":
+    elif text in get_all_translations("btn_language"):
+        await change_language_start(update, context)
+    elif text in get_all_translations("btn_cancel"):
         await cancel(update, context)
-    # elif text == "Back to Menu ↩️":
-    elif text in ("Back to Menu ↩️", "Back to Main Menu ⬅️"):
+    elif text in ["Back to Menu ↩️", "Back to Main Menu ⬅️"] or text in get_all_translations("btn_back"):
         keyboard = [
-            ["Analyze Chart 📈", "Copy Trade 🚀"],
-            ["View Chart 📊", "Profile 👤"],
-            ["Risk Settings ⚙️"]
+            [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+            [get_text(user_id, "btn_risk")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Main menu:", reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "msg_main_menu"), reply_markup=reply_markup)
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     # Кнопки Risk, Withdraw, Back to Menu обрабатываются своими диалогами или как здесь
         # --- НОВЫЙ БЛОК ДЛЯ КНОПКИ EXPLAIN ---
-    elif text == "Explain Analysis 🔬":
+    elif text in get_all_translations("btn_explain"):
         # Возвращаем пользователя в основное меню
-        keyboard = [        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]]
+        keyboard = [
+            [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
+            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
+            [get_text(user_id, "btn_risk")]
+        ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Getting explanation...", reply_markup=reply_markup)
+        await update.message.reply_text(get_text(user_id, "msg_getting_explanation"), reply_markup=reply_markup)
 
         # Вызываем тот же код, что был в explain_analysis_handler
         analysis_context = context.user_data.get('last_analysis_context')
         if not analysis_context:
-            await update.message.reply_text("Sorry, the context for this analysis has expired.")
+            await update.message.reply_text(get_text(user_id, "err_context_expired"))
             return
 
-        thinking_message = await update.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
-        explanation = get_explanation(analysis_context)
+        thinking_message = await update.message.reply_text(get_text(user_id, "msg_aladdin_thinking"), parse_mode=ParseMode.HTML)
+        lang = get_user_language(user_id)
+        explanation = get_explanation(analysis_context, lang=lang)
         await thinking_message.edit_text(explanation, parse_mode=ParseMode.MARKDOWN)
     # --- Проверка на TxHash ---
     # elif text.startswith("0x") and len(text) == 66:
@@ -1568,7 +1566,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Если юзер еще не активен, это оплата подписки
         if status != 'active':
-            await update.message.reply_text("Verifying your subscription payment...")
+            await update.message.reply_text(get_text(user_id, "msg_verifying_payment"))
             await verify_payment_and_activate(text, user_id, context)
         
         # Если юзер уже активен, это пополнение баланса
@@ -1584,7 +1582,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # return
         # Сценарий 2: Пополнение баланса
         else:
-            await update.message.reply_text("Verifying your balance top-up...")
+            await update.message.reply_text(get_text(user_id, "msg_verifying_top_up"))
             # is_valid, message, amount = await verify_top_up_payment(text)
             is_valid, message, amount = await verify_top_up_payment(text, user_id)
             
@@ -1598,15 +1596,15 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 profile_after_topup = get_user_profile(user_id)
                 new_balance = profile_after_topup['balance']
                 
-                await update.message.reply_text(f"✅ Success! Topped up with {amount:.2f} tokens. Your new balance is {new_balance:.2f} 🪙.")
+                await update.message.reply_text(get_text(user_id, "msg_top_up_success", amount=amount, new_balance=new_balance))
 
                 # ПРОВЕРКА НА РАЗБЛОКИРОВКУ
                 # Если баланс был <= 0, а стал > 0, включаем копи-трейдинг
                 if profile_before_topup['balance'] <= 0 and new_balance > 0:
                     set_copytrading_status(user_id, is_enabled=True)
-                    await update.message.reply_text("✅ Your token balance is now positive. Copy trading has been re-enabled!")
+                    await update.message.reply_text(get_text(user_id, "msg_copy_trading_reenabled"))
             else:
-                await update.message.reply_text(f"❌ Top-up failed.\nReason: {message}")
+                await update.message.reply_text(get_text(user_id, "err_top_up_failed", reason=message))
         return
     
 
@@ -1716,9 +1714,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #     await update.message.reply_text("I'm ready! Please send a clear screenshot of a candlestick chart.")
 
 async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if get_user_status(user_id) != 'active':
+        await update.message.reply_text(get_text(user_id, "err_access_required"))
+        return
     await update.message.reply_text(
-        "I'm ready! Please send a clear screenshot of a candlestick chart.\n\n"
-        "<i>Remember: You have a daily limit of 5 free analyses.</i>",
+        get_text(user_id, "msg_send_chart"),
         parse_mode=ParseMode.HTML
     )
 
@@ -1764,8 +1765,11 @@ async def explain_analysis_handler(update: Update, context: ContextTypes.DEFAULT
         await query.message.reply_text("Sorry, the context for this analysis has expired. Please run a new analysis.")
         return
 
-    thinking_message = await query.message.reply_text("<i>Aladdin is thinking... 🧞‍♂️</i>", parse_mode=ParseMode.HTML)
-    explanation = await asyncio.to_thread(get_explanation, analysis_context)
+    user_id = update.effective_user.id
+    thinking_message = await query.message.reply_text(get_text(user_id, "msg_aladdin_thinking"), parse_mode=ParseMode.HTML)
+    
+    lang = get_user_language(user_id)
+    explanation = await asyncio.to_thread(get_explanation, analysis_context, lang=lang)
     
     await thinking_message.edit_text(explanation, parse_mode=ParseMode.MARKDOWN)
 
@@ -1786,9 +1790,7 @@ async def daily_subscription_check(context: ContextTypes.DEFAULT_TYPE):
             # 3. Отправляем уведомление
             await context.bot.send_message(
                 user_id,
-                "⛔ <b>Subscription Expired</b>\n\n"
-                "Your subscription period has ended. Copy trading has been disabled.\n"
-                "Please use /start to renew your access and resume trading.",
+                get_text(user_id, "msg_subscription_expired"),
                 parse_mode=ParseMode.HTML
             )
         except Exception as e:
@@ -1802,7 +1804,7 @@ def main():
     job_queue.run_daily(daily_subscription_check, time=datetime.strptime("00:05", "%H:%M").time())
     # Withdrawal conversation handler
     withdraw_conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^Withdraw Tokens 💰$'), withdraw_start)],  
+        entry_points=[MessageHandler(filters.Regex('^Withdraw Tokens 💰$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_withdraw")])), withdraw_start)],  
         states={
             ASK_AMOUNT: [MessageHandler(filters.Regex('^Cancel$'), cancel), MessageHandler(filters.TEXT & ~filters.COMMAND, ask_amount)],
             ASK_WALLET: [ MessageHandler(filters.Regex('^Cancel$'), cancel), MessageHandler(filters.TEXT & ~filters.COMMAND, ask_wallet)],
@@ -1812,7 +1814,7 @@ def main():
     
     # Risk management conversation handler
     risk_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('risk', risk_command), MessageHandler(filters.Regex('^Risk Settings ⚙️$'), risk_command)],
+        entry_points=[CommandHandler('risk', risk_command), MessageHandler(filters.Regex('^Risk Settings ⚙️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_risk")])), risk_command)],
         states={
             ASK_BALANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_balance)],
             ASK_RISK_PCT: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_risk_pct)],
@@ -1841,34 +1843,45 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel)]
     )
     
+    lang_conv_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^Language 🌍$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_language")])), change_language_start)],
+        states={
+            SELECT_LANG: [
+                MessageHandler(filters.Regex('^(' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")]) + ')$'), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, set_language)
+            ]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
+    
     connect_conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^Copy Trade 🚀$'), connect_exchange_start)],
+        entry_points=[MessageHandler(filters.Regex('^Copy Trade 🚀$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_copytrade")])), connect_exchange_start)],
         states={
             ASK_EXCHANGE: [
-                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel), # Обработка кнопки Назад
+                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel), # Обработка кнопки Назад
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_exchange)
             ],
             ASK_API_KEY: [
-                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel), # Обработка кнопки Назад
+                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel), # Обработка кнопки Назад
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_api_key)
             ],
             ASK_SECRET_KEY: [
-                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel), # Обработка кнопки Назад
+                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel), # Обработка кнопки Назад
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_secret_key)
             ],
             ASK_STRATEGY: [
-                MessageHandler(filters.Regex('^Cancel$'), cancel),
+                MessageHandler(filters.Regex('^Cancel$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_cancel")])), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_strategy)
             ],
             ASK_PASSPHRASE: [
-                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel),
+                MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_passphrase)
             ],
         },
         # fallbacks обрабатывают команды типа /cancel, но лучше добавить кнопку и сюда
         fallbacks=[
             CommandHandler('cancel', cancel),
-            MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel)
+            MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel)
         ]
     )
     
@@ -1878,6 +1891,7 @@ def main():
     application.add_handler(CommandHandler("admin", admin_command))  # Новая админ-команда
     application.add_handler(connect_conv_handler)
     application.add_handler(withdraw_conv_handler)
+    application.add_handler(lang_conv_handler)
     application.add_handler(risk_conv_handler)
     application.add_handler(promo_conv_handler)
     application.add_handler(broadcast_conv_handler)

@@ -103,7 +103,8 @@ def initialize_db():
                    
             selected_strategy TEXT DEFAULT 'ratner', -- ratner или cgt
             daily_analysis_count INTEGER DEFAULT 0,
-            last_analysis_date TEXT
+            last_analysis_date TEXT,
+            language_code TEXT DEFAULT 'en'
         )
     """)
     
@@ -139,10 +140,25 @@ def initialize_db():
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN api_passphrase_encrypted TEXT")
     except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'")
+    except: pass
 
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully (WAL Mode ON).")
+
+def save_user_language(user_id: int, lang_code: str):
+    """Сохраняет выбранный язык пользователя."""
+    execute_write_query("UPDATE users SET language_code = ? WHERE user_id = ?", (lang_code, user_id))
+
+def get_user_language(user_id: int) -> str:
+    """Возвращает код языка пользователя (по умолчанию 'en')."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT language_code FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return res[0] if res and res[0] else 'en'
 
 # --- ФУНКЦИИ КОПИ-ТРЕЙДИНГА (БЕЗОПАСНЫЕ) ---
 

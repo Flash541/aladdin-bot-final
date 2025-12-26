@@ -81,7 +81,7 @@ if OPENROUTER_API_KEY:
 else:
     client = None
 
-def get_explanation(context: dict) -> str:
+def get_explanation(context: dict, lang: str = "en") -> str:
     """Генерирует объяснение используя DeepSeek через OpenRouter."""
     if not client:
         return "Explanation feature is unavailable (API key is missing)."
@@ -91,7 +91,8 @@ def get_explanation(context: dict) -> str:
         "Analyze the provided technical data and explain the trade signal. "
         "Be concise, professional, and logical. "
         "Structure: 1. Market Context, 2. Key Drivers (Indicators), 3. Risk Warning. "
-        "Do not mention that you are an AI."
+        "Do not mention that you are an AI. "
+        f"IMPORTANT: Respond strictly in {lang.upper()} language."
     )
     
     # Формируем промпт из контекста
