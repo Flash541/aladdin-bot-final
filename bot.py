@@ -993,15 +993,18 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     link = links.get(exchange_name, "")
     
-    # Текст инструкции
+    server_ip = "167.99.130.80" # Твой статический IP с DigitalOcean
+    
     msg_text = (
         f"🔶 <b>{exchange_name} Configuration</b>\n\n"
         f"👉 <b>Step 1:</b> Go to API Management:\n{link}\n"
         f"<i>(Login if required)</i>\n\n"
-        f"👉 <b>Step 2:</b> Create new API Keys.\n"
-        f"⚠️ <b>IMPORTANT:</b> Enable <b>'{'Spot' if strategy == 'cgt' else 'Futures'} Trading'</b> permission.\n"
-        f"❌ <b>DO NOT</b> enable 'Withdrawals'.\n\n"
-        f"👉 <b>Step 3:</b> See the screenshots below for guidance 👇"
+        f"👉 <b>Step 2:</b> Create new API Keys with these settings:\n"
+        f"  - Permissions: Enable <b>'{'Spot' if strategy == 'cgt' else 'Futures'} Trading'</b>.\n"
+        f"  - ❌ <b>DO NOT</b> enable 'Withdrawals'.\n"
+        f"  - IP Access: Select 'Restrict access to trusted IPs only' and paste this IP:\n"
+        f"    <code>{server_ip}</code>\n\n"
+        f"👉 <b>Step 3:</b> See screenshots for guidance 👇"
     )
     
     await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
