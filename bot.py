@@ -810,7 +810,8 @@ async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_T
 
 async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
-    
+    if choice == "Cancel":
+        return await cancel(update, context) # Вызываем функцию отмены
     if choice == "Ratner (Futures)":
         context.user_data['strategy'] = 'ratner'
         # Показываем биржи для Ратнера
@@ -1855,7 +1856,10 @@ def main():
                 MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel), # Обработка кнопки Назад
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_secret_key)
             ],
-            ASK_STRATEGY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_strategy)],
+            ASK_STRATEGY: [
+                MessageHandler(filters.Regex('^Cancel$'), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_strategy)
+            ],
             ASK_PASSPHRASE: [
                 MessageHandler(filters.Regex('^Back to Main Menu ⬅️$'), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_passphrase)
