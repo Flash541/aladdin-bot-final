@@ -460,7 +460,7 @@ def add_user(user_id: int, username: str = None, referrer_id: int = None):
         # Используем execute_write_query для INSERT
         conn.close() # Закрываем читалку
         execute_write_query(
-            "INSERT INTO users (user_id, username, join_date, referrer_id, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, 'pending_payment', 1000.0, 1.0)", 
+            "INSERT INTO users (user_id, username, join_date, referrer_id, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, 'active', 1000.0, 1.0)", 
             (user_id, username, join_date, referrer_id, ref_code)
         )
     else:

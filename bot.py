@@ -24,7 +24,6 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID")) 
-REFERRAL_REWARD = 24.5
 PAYMENT_AMOUNT = 49
 # PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
@@ -128,17 +127,14 @@ async def verify_payment_and_activate(tx_hash: str, user_id: int, context: Conte
         main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
         
         await context.bot.send_message(user_id, get_text(user_id, "msg_payment_success"), reply_markup=main_reply_markup)
+        # REFERRAL REWARD LOGIC REMOVED (Handled by MLM profit sharing now)
         referrer_id = get_referrer(user_id)
-        
         if referrer_id:
-            credit_referral_tokens(referrer_id, REFERRAL_REWARD)
             try:
-                await context.bot.send_message(
-                    referrer_id, 
-                    get_text(referrer_id, "msg_referral_reward", reward=REFERRAL_REWARD)
-                )
-            except Exception as e:
-                print(f"Could not notify referrer {referrer_id}: {e}")
+                # Optional: notify referrer about new referral, but no reward 
+                pass
+            except Exception:
+                pass
                 
     except Exception as e:
         print(f"Error in verify_payment: {e}")
@@ -586,7 +582,6 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_emoji = get_text(user_id, "status_active") if profile['status'] == 'active' else get_text(user_id, "status_pending")
     expiry_text = f"{get_text(user_id, 'expires_on')} {profile['expiry']}" if profile['expiry'] else "N/A"
     
-    # --- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ БАЛАНСА И КНОПОК ---
     profile_text = (
         f"{get_text(user_id, 'profile_title')}\n\n"
         f"{get_text(user_id, 'status')} {status_emoji}\n"
@@ -597,7 +592,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{get_text(user_id, 'referral_link')}\n"
         f"<code>{referral_link}</code>\n\n"
         f"{get_text(user_id, 'invite_earn')}\n"
-        f"Level 1: 24.5 tokens\n"
+        f"{get_text(user_id, 'referral_levels')}\n"
         f"{get_text(user_id, 'referrals_title')}\n"
         f"{get_text(user_id, 'level_1_count', count=referral_counts['l1'])}\n"
     )
