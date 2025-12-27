@@ -598,14 +598,12 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     # Разные кнопки для активных и неактивных
-    if profile['status'] == 'active':
-        keyboard = [
-            [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
-            [get_text(user_id, "btn_connect"), get_text(user_id, "btn_language")],
-            [get_text(user_id, "btn_back")]
-        ]
-    else:
-        keyboard = [[get_text(user_id, "btn_back")]]
+    # Always show full keyboard for everyone
+    keyboard = [
+        [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
+        [get_text(user_id, "btn_connect"), get_text(user_id, "btn_language")],
+        [get_text(user_id, "btn_back")]
+    ]
         
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(profile_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
@@ -724,10 +722,15 @@ async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ask_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    text = update.message.text
+    
+    if text == get_text(user_id, "btn_cancel"):
+        return await cancel(update, context)
+
     keyboard = [[get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     try:
-        amount = float(update.message.text)
+        amount = float(text)
         if amount <= 0: raise ValueError
         
         profile = get_user_profile(user_id)
@@ -1710,9 +1713,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def analyze_chart_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if get_user_status(user_id) != 'active':
-        await update.message.reply_text(get_text(user_id, "err_access_required"))
-        return
+    # Remove strict check here. The daily limit check is handled inside photo_handler -> check_request_limit
+    # if get_user_status(user_id) != 'active':
+    #     await update.message.reply_text(get_text(user_id, "err_access_required"))
+    #     return
     await update.message.reply_text(
         get_text(user_id, "msg_send_chart"),
         parse_mode=ParseMode.HTML
