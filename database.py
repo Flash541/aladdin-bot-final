@@ -451,7 +451,7 @@ def credit_tokens_from_payment(user_id: int, amount_usd: float):
 
 UserStatus = Literal["pending_payment", "active", "expired"]
 
-def add_user(user_id: int, username: str = None, referrer_id: int = None):
+def add_user(user_id: int, username: str = None, referrer_id: int = None) -> bool:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     if not cursor.fetchone():
@@ -463,8 +463,10 @@ def add_user(user_id: int, username: str = None, referrer_id: int = None):
             "INSERT INTO users (user_id, username, join_date, referrer_id, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, 'active', 1000.0, 1.0)", 
             (user_id, username, join_date, referrer_id, ref_code)
         )
+        return True
     else:
         conn.close()
+        return False
 
 def get_user_status(user_id: int) -> UserStatus | None:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()

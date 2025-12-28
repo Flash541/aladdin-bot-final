@@ -35,6 +35,7 @@ ASK_AMOUNT, ASK_WALLET = range(2)
 ASK_BALANCE, ASK_RISK_PCT = range(2, 4)  
 ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(4, 6)
 SELECT_LANG = 12
+SELECT_LANG_START = 13
 # ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
 ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE = range(6, 11)
 
@@ -517,54 +518,27 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         code = context.args[0]
         referrer_id = get_user_by_referral_code(code)
     
-    add_user(user.id, user.username, referrer_id)
-    # status = get_user_status(user.id)
+    is_new_user = add_user(user.id, user.username, referrer_id)
+    
+    if is_new_user:
+        keyboard = [["🇬🇧 English", "🇷🇺 Русский"], ["🇺🇦 Українська"]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        # Initial prompt in English/Russian as we don't know the language yet
+        await update.message.reply_text("Please select your language / Пожалуйста, выберите язык:", reply_markup=reply_markup)
+        return SELECT_LANG_START
 
-    # if status == 'active':
-    #     # --- ОСНОВНЫЕ КНОПКИ ВНИЗУ С VIEW CHART ---
-    #     # main_keyboard = [
-    #     #     ["Analyze Chart 📈", "View Chart 📊"],
-    #     #     ["Profile 👤", "Risk Settings ⚙️"]
-    #     # ]
-    #     main_keyboard = [
-    #     ["Analyze Chart 📈", "Copy Trade 🚀"], # Copy Trade теперь здесь
-    #     ["View Chart 📊", "Profile 👤"],
-    #     ["Risk Settings ⚙️"]
-    #     ]
+    await send_welcome(update, context)
+    return ConversationHandler.END
 
-    #     main_reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
-        
-    #     await update.message.reply_text(
-    #         "Welcome back! Your subscription is active. Use the buttons below to start.",
-    #         reply_markup=main_reply_markup
-    #     )
-        
-    # else: # Если подписка не активна
-    #     payment_message = (
-    #         f"Welcome to <b>Aladdin Bot!</b> 🧞‍♂️\n\n"
-    #         f"To activate your 1-month subscription, please send exactly <b>{PAYMENT_AMOUNT} USDT</b> (BEP-20) to:\n\n"
-    #         f"<i>⬇️⬇️⬇️ Tap the address to copy it ⬇️⬇️⬇️</i>\n\n"
-    #         # f"<code>{WALLET_ADDRESS}</code>\n\n"
-    #         f"<b><code>{WALLET_ADDRESS}</code></b>\n\n"
-    #         f"Then, paste the <b>Transaction Hash (TxID)</b> here to verify.\n\n"
-    #         f"<i>Alternatively, you can use a promo code if you have one!</i>"
-    #     )
-    #     await update.message.reply_text(payment_message, parse_mode=ParseMode.HTML)
-
+async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
     main_keyboard = [
-        ["Analyze Chart 📈", "Copy Trade 🚀"],
-        ["View Chart 📊", "Profile 👤"],
-        ["Risk Settings ⚙️"]
+        [get_text(user.id, "btn_copytrade")],
+        [get_text(user.id, "btn_viewchart"), get_text(user.id, "btn_profile")]
     ]
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
-    
     welcome_text = get_text(user.id, "welcome_back")
-    
-    await update.message.reply_text(
-        welcome_text,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML
-    )
+    await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -601,8 +575,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Always show full keyboard for everyone
     keyboard = [
         [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
-        [get_text(user_id, "btn_connect"), get_text(user_id, "btn_language")],
-        [get_text(user_id, "btn_back")]
+        [get_text(user_id, "btn_language"),get_text(user_id, "btn_back")],
     ]
         
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -639,6 +612,30 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     # Return to profile
     await profile_command(update, context)
+    return ConversationHandler.END
+
+async def set_initial_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    choice = update.message.text
+    
+    lang_map = {
+        "🇬🇧 English": "en",
+        "🇷🇺 Русский": "ru",
+        "🇺🇦 Українська": "uk"
+    }
+    
+    lang_code = lang_map.get(choice)
+    
+    if lang_code:
+        from database import save_user_language
+        save_user_language(user_id, lang_code)
+        await update.message.reply_text(get_text(user_id, "language_set"))
+        await send_welcome(update, context)
+    else:
+        # If invalid (e.g. random text), ask again properly or default to EN
+        await update.message.reply_text("Invalid selection. Please use the buttons.")
+        return SELECT_LANG_START
+        
     return ConversationHandler.END
 
 async def top_up_balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -777,9 +774,8 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Возвращаем к основной клавиатуре
     keyboard = [
-        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-        [get_text(user_id, "btn_risk")]
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
     ]
     
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -826,8 +822,12 @@ async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, context) # Вызываем функцию отмены
     if choice == "Ratner (Futures)":
         context.user_data['strategy'] = 'ratner'
-        # Показываем биржи для Ратнера
-        keyboard = [["Binance", "Bybit"], ["BingX", "MEXC"], [get_text(user_id, "btn_back")]]
+        # Показываем биржи для Ратнера (Localized & No MEXC)
+        keyboard = [
+            [get_text(user_id, "btn_strat_binance"), get_text(user_id, "btn_strat_bybit")], 
+            [get_text(user_id, "btn_strat_bingx")], 
+            [get_text(user_id, "btn_back")]
+        ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
         await update.message.reply_text(get_text(user_id, "msg_select_futures_exchange"), reply_markup=reply_markup)
         return ASK_EXCHANGE
@@ -983,41 +983,57 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if exchange_name in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
         return await cancel(update, context)
 
+    # --- MAPPING DISPLAY NAME TO CANONICAL NAME ---
+    # We check all possible localized strings for each exchange
+    canonical_exchange = None
+    
+    if exchange_name in get_all_translations("btn_strat_binance") + ["Binance"]: canonical_exchange = "Binance"
+    elif exchange_name in get_all_translations("btn_strat_bybit") + ["Bybit"]: canonical_exchange = "Bybit"
+    elif exchange_name in get_all_translations("btn_strat_bingx") + ["BingX"]: canonical_exchange = "BingX"
+    elif exchange_name == "OKX": canonical_exchange = "OKX" # CGT only
+    
+    if not canonical_exchange:
+         await update.message.reply_text("Invalid selection. Please choose from the buttons.")
+         return ASK_EXCHANGE
+
     # Валидация бирж
-    valid_ratner = ["Binance", "Bybit", "BingX", "MEXC"]
+    valid_ratner = ["Binance", "Bybit", "BingX"] # Removed MEXC
     valid_cgt = ["OKX"]
     
-    if strategy == 'ratner' and exchange_name not in valid_ratner:
+    if strategy == 'ratner' and canonical_exchange not in valid_ratner:
         await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy=strategy, valid_exchanges=', '.join(valid_ratner)))
         return ASK_EXCHANGE
         
-    if strategy == 'cgt' and exchange_name not in valid_cgt:
+    if strategy == 'cgt' and canonical_exchange not in valid_cgt:
         await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy='CGT Robot', valid_exchanges='OKX'))
         return ASK_EXCHANGE
     
-    context.user_data['exchange_name'] = exchange_name.lower()
+    context.user_data['exchange_name'] = canonical_exchange.lower()
     
     # Ссылки (добавил OKX)
     links = {
         "Binance": "https://www.binance.com/en/my/settings/api-management",
         "Bybit": "https://www.bybit.com/app/user/api-management",
         "BingX": "https://www.bingx.com/en-us/account/api/",
-        "MEXC": "https://www.mexc.com/user/openapi",
-        "OKX": "https://www.okx.com/account/my-api"
+        "OKX": "https://www.okx.com/account/my-api" 
     }
-    link = links.get(exchange_name, "")
+    
+    link = links.get(canonical_exchange, "")
+    
     
     server_ip = "167.99.130.80" # Твой статический IP с DigitalOcean
     
     perm = 'Spot' if strategy == 'cgt' else 'Futures'
-    msg_text = get_text(user_id, "msg_exchange_config", exchange=exchange_name, link=link, perm=perm, ip=server_ip)
+    
+    # Use canonical_exchange for the message
+    msg_text = get_text(user_id, "msg_exchange_config", exchange=canonical_exchange, link=link, perm=perm, ip=server_ip)
     
     await update.message.reply_text(msg_text, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
     
     # Отправка ФОТО (Твой код)
     try:
         # Для OKX убедись, что папка называется okx_pic
-        folder_path = os.path.join("instructions", f"{exchange_name.lower()}_pic")
+        folder_path = os.path.join("instructions", f"{canonical_exchange.lower()}_pic")
         if os.path.exists(folder_path):
             files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
             files.sort()
@@ -1170,9 +1186,8 @@ async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     
     main_keyboard = [
-        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-        [get_text(user_id, "btn_risk")]
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
     ]
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
     
@@ -1186,9 +1201,8 @@ async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     keyboard = [
-        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-        [get_text(user_id, "btn_risk")]
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(get_text(user_id, "msg_operation_cancelled"), reply_markup=reply_markup)
@@ -1248,9 +1262,8 @@ async def ask_risk_pct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     update_user_risk_settings(user_id, balance, risk_pct)
     
     keyboard = [
-        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-        [get_text(user_id, "btn_risk")]
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
@@ -1264,9 +1277,8 @@ async def cancel_risk(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancels the risk setup process."""
     user_id = update.effective_user.id
     keyboard = [
-        [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-        [get_text(user_id, "btn_risk")]
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(get_text(user_id, "msg_risk_cancelled"), reply_markup=reply_markup)
@@ -1470,13 +1482,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Кнопка Generate Promos теперь запускает диалог, поэтому ее здесь нет
         elif text in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
             keyboard = [
-                [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-                [get_text(user_id, "btn_risk")]
+                [get_text(user_id, "btn_copytrade")],
+                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
             ]
             
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await update.message.reply_text(get_text(user_id, "msg_returned_main_menu"), reply_markup=reply_markup)
+            await update.message.reply_text(get_text(user_id, "msg_returned_main"), reply_markup=reply_markup)
             return
             
     # --- ПРОВЕРКА НА ПРОМОКОД ---
@@ -1494,9 +1505,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             activate_user_subscription(user_id, duration_days=duration_days)
             
             keyboard = [
-                [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-                [get_text(user_id, "btn_risk")]
+                [get_text(user_id, "btn_copytrade")],
+                [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
             ]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
             await update.message.reply_text(get_text(user_id, "msg_promo_success", duration=duration_days), reply_markup=reply_markup)
@@ -1505,14 +1515,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # --- Основные кнопки ---
-    if text in get_all_translations("btn_analyze"): await analyze_chart_start(update, context)
+    # if text in get_all_translations("btn_analyze"): await analyze_chart_start(update, context)
     elif text in get_all_translations("btn_viewchart"): await view_chart_command(update, context)
     elif text in get_all_translations("btn_profile"): await profile_command(update, context)
     elif text in get_all_translations("btn_top_up"): await top_up_balance_command(update, context)
     elif text in get_all_translations("btn_copytrade"):
         await connect_exchange_start(update, context)
-    elif text in get_all_translations("btn_risk"):
-        await risk_command(update, context)
+    # elif text in get_all_translations("btn_risk"):
+    #     await risk_command(update, context)
     elif text in get_all_translations("btn_withdraw"):  
         await withdraw_start(update, context)
     elif text in get_all_translations("btn_language"):
@@ -1521,9 +1531,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cancel(update, context)
     elif text in ["Back to Menu ↩️", "Back to Main Menu ⬅️"] or text in get_all_translations("btn_back"):
         keyboard = [
-            [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-            [get_text(user_id, "btn_risk")]
+            [get_text(user_id, "btn_copytrade")],
+            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(get_text(user_id, "msg_main_menu"), reply_markup=reply_markup)
@@ -1533,9 +1542,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text in get_all_translations("btn_explain"):
         # Возвращаем пользователя в основное меню
         keyboard = [
-            [get_text(user_id, "btn_analyze"), get_text(user_id, "btn_copytrade")],
-            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")],
-            [get_text(user_id, "btn_risk")]
+            [get_text(user_id, "btn_copytrade")],
+            [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(get_text(user_id, "msg_getting_explanation"), reply_markup=reply_markup)
@@ -1813,7 +1821,7 @@ def main():
     
     # Risk management conversation handler
     risk_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('risk', risk_command), MessageHandler(filters.Regex('^Risk Settings ⚙️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_risk")])), risk_command)],
+        entry_points=[CommandHandler('risk', risk_command)],
         states={
             ASK_BALANCE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_balance)],
             ASK_RISK_PCT: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_risk_pct)],
@@ -1884,7 +1892,16 @@ def main():
         ]
     )
     
-    application.add_handler(CommandHandler("start", start_command))
+    start_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start_command)],
+        states={
+            SELECT_LANG_START: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_initial_language)]
+        },
+        fallbacks=[CommandHandler("start", start_command)] # Allow restarting start if needed
+    )
+    
+    application.add_handler(start_conv_handler)
+    # application.add_handler(CommandHandler("start", start_command)) # Removed simple handler
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("profile", profile_command))
     application.add_handler(CommandHandler("admin", admin_command))  # Новая админ-команда
