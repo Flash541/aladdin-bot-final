@@ -18,6 +18,8 @@ from database import check_analysis_limit
 from chart_analyzer import find_candlesticks, candlesticks_to_ohlc
 from core_analyzer import fetch_data, compute_features, generate_decisive_signal, generate_signal
 from llm_explainer import get_explanation
+import ccxt
+from binance.um_futures import UMFutures
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -37,7 +39,7 @@ ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(4, 6)
 SELECT_LANG = 12
 SELECT_LANG_START = 13
 # ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
-ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE = range(6, 11)
+ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE, ASK_RESERVE, ASK_RESERVE_EDIT = range(6, 13)
 
 
 # --- LOCALIZATION HELPER ---
@@ -575,11 +577,106 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Always show full keyboard for everyone
     keyboard = [
         [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
+        [get_text(user_id, "btn_my_exchanges")],
         [get_text(user_id, "btn_language"),get_text(user_id, "btn_back")],
     ]
         
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(profile_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+
+async def my_exchanges_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает список подключенных бирж и их статус."""
+    from database import get_user_exchanges
+    
+    user_id = update.effective_user.id
+    exchanges = get_user_exchanges(user_id)
+    
+    if not exchanges:
+        await update.message.reply_text(get_text(user_id, "msg_no_exchanges"))
+        return
+
+    msg_list = ""
+    keyboard = []
+    
+    # Send "Checking balances..." message first
+    status_msg = await update.message.reply_text(get_text(user_id, "msg_checking_balances"))
+
+    for ex in exchanges:
+        # Decrypt keys
+        keys = get_user_decrypted_keys(user_id, ex['exchange_name'])
+        
+        # Check connection & Fetch Balance
+        real_usdt_bal = None
+        is_connected = False
+        
+        if keys:
+            try:
+                # Run sync CCXT/Binance calls in thread
+                real_usdt_bal = await fetch_exchange_balance_safe(
+                    ex['exchange_name'], keys['apiKey'], keys['secret'], keys['password']
+                )
+                if real_usdt_bal is not None: is_connected = True
+            except Exception as e:
+                print(f"Check failed for {ex['exchange_name']}: {e}")
+
+        # Combine Flags
+        db_active = ex['is_active']
+        
+        if db_active and is_connected:
+            status_icon = f"🟢 {get_text(user_id, 'status_connected')}"
+            balance_str = f"${real_usdt_bal:,.2f}"
+        elif db_active and not is_connected:
+            status_icon = f"🔴 {get_text(user_id, 'status_error')}"
+            balance_str = "N/A"
+        else:
+            status_icon = f"🔴 {get_text(user_id, 'status_disconnected')}"
+            balance_str = "N/A"
+
+        # Localized Item
+        msg_list += (
+            f"🔹 <b>{ex['exchange_name'].capitalize()}</b>\n"
+            f"   • {get_text(user_id, 'lbl_strategy')}: {ex['strategy'].upper()}\n"
+            f"   • {get_text(user_id, 'lbl_reserve')}: <b>${ex['reserved_amount']}</b>\n"
+            f"   • {get_text(user_id, 'lbl_status')}: {status_icon}\n"
+            f"   • {get_text(user_id, 'lbl_wallet_balance')}: <b>{balance_str}</b>\n\n"
+        )
+        
+        # Add 'Edit Reserve' button for this exchange
+        btn_text = get_text(user_id, "btn_edit_reserve", exchange=ex['exchange_name'].capitalize())
+        keyboard.append([btn_text])
+
+    keyboard.append([get_text(user_id, "btn_back")])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    
+    await status_msg.delete() # Remove "Checking..."
+    
+    await update.message.reply_text(
+        get_text(user_id, "msg_my_exchanges", exchanges_list=msg_list),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+
+async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase=None):
+    """Helper to fetch USDT balance safely via thread."""
+    exchange_name = exchange_name.lower()
+    
+    def _fetch():
+        if exchange_name == 'binance':
+            c = UMFutures(key=api_key, secret=secret, base_url="https://fapi.binance.com")
+            acc = c.account()
+            # Use 'walletBalance' (Total) instead of 'availableBalance' for display
+            return float(next((a['walletBalance'] for a in acc['assets'] if a['asset']=='USDT'), 0))
+        elif exchange_name == 'okx':
+            ex = ccxt.okx({'apiKey': api_key, 'secret': secret, 'password': passphrase, 'options': {'defaultType': 'spot'}})
+            bal = ex.fetch_balance()
+            return float(bal['USDT']['total']) # Total (Free + Used)
+        else: # bybit, bingx
+            ex_class = getattr(ccxt, exchange_name)
+            ex = ex_class({'apiKey': api_key, 'secret': secret, 'options': {'defaultType': 'future'}})
+            bal = ex.fetch_balance({'type': 'future'})
+            return float(bal['USDT']['total']) # Total
+            
+    return await asyncio.to_thread(_fetch)
 
 # --- LANGUAGE SELECTION FLOW ---
 async def change_language_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -613,6 +710,60 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Return to profile
     await profile_command(update, context)
     return ConversationHandler.END
+
+    await update.message.reply_text(
+        get_text(user_id, "msg_my_exchanges", exchanges_list=msg_list),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+
+async def edit_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начинает редактирование резерва."""
+    text = update.message.text
+    user_id = update.effective_user.id
+    
+    # Парсим имя биржи из текста кнопки: Edit Reserve (Binance) 🛡️
+    # Regex: .*\((.+)\).*
+    match = re.search(r"\((.+)\)", text)
+    if not match:
+        await update.message.reply_text("Error identifying exchange.")
+        return ConversationHandler.END
+        
+    exchange_name = match.group(1).lower()
+    # Normalize back if needed, but lower() should match what we saved (unless we saved 'binance' and proper is 'Binance')
+    # Use fuzzy matching or just lower(). Database stores as saved in save_user_exchange.
+    # Check DB to be sure? 
+    # Let's assume lower() works if we stick to conventions. 
+    # But wait, button text has capitalized name.
+    
+    context.user_data['editing_exchange'] = exchange_name
+    
+    await update.message.reply_text(
+        get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange_name.capitalize()),
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ASK_RESERVE_EDIT
+
+async def edit_reserve_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохраняет новый резерв."""
+    user_id = update.effective_user.id
+    text = update.message.text
+    exchange_name = context.user_data.get('editing_exchange')
+    
+    try:
+        new_reserve = float(text)
+        if new_reserve < 0: raise ValueError
+    except ValueError:
+        await update.message.reply_text(get_text(user_id, "err_invalid_amount"))
+        return ASK_RESERVE_EDIT
+        
+    update_exchange_reserve(user_id, exchange_name, new_reserve)
+    
+    await update.message.reply_text(f"✅ Reserve for {exchange_name.capitalize()} updated to ${new_reserve}")
+    
+    # Возвращаем список бирж
+    context.user_data.pop('editing_exchange', None)
+    return await my_exchanges_command(update, context)
 
 async def set_initial_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1154,7 +1305,7 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ASK_PASSPHRASE
     
     # Для остальных бирж (Binance, Bybit, etc.) сохраняем сразу
-    return await save_and_finish(update, context)
+    return await ask_reserve_start(update, context)
 
 async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Получает Passphrase (только для OKX) и сохраняет."""
@@ -1165,22 +1316,52 @@ async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, context)
     
     context.user_data['passphrase'] = passphrase
-    return await save_and_finish(update, context)
+    return await ask_reserve_start(update, context)
 
-async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Вспомогательная функция для финального сохранения данных в БД."""
+async def ask_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Шаг 5 (или 6 для OKX): Спрашиваем про резерв."""
     user_id = update.effective_user.id
+    
+    keyboard = [[get_text(user_id, "btn_skip")], [get_text(user_id, "btn_cancel")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    
+    await update.message.reply_text(
+        get_text(user_id, "msg_ask_reserve"),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+    return ASK_RESERVE
+
+async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Финальный шаг: Сохраняем все данные вместе с резервом."""
+    user_id = update.effective_user.id
+    text = update.message.text
+    
+    reserved_amount = 0.0
+    
+    if text not in ["Skip ⏩", "Пропустить ⏩", "Пропустити ⏩", get_text(user_id, "btn_skip")]:
+        # Пытаемся распарсить число
+        try:
+            val = float(text)
+            if val < 0: raise ValueError
+            reserved_amount = val
+        except ValueError:
+            await update.message.reply_text(get_text(user_id, "err_invalid_reserve"))
+            return ASK_RESERVE
+
+    # Достаем все данные из контекста
     exchange = context.user_data['exchange_name']
     api_key = context.user_data['api_key']
     secret_key = context.user_data['secret_key']
-    passphrase = context.user_data.get('passphrase') # Будет None для не-OKX
+    passphrase = context.user_data.get('passphrase')
     strategy = context.user_data.get('strategy', 'ratner')
 
-    # 1. Сохраняем ключи (включая passphrase, если есть)
-    # Убедись, что твоя функция save_user_api_keys в database.py принимает 5 аргументов!
-    save_user_api_keys(user_id, exchange, api_key, secret_key, passphrase)
+    # 1. Сохраняем подключение к бирже + резерв
+    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase, strategy)
+    update_exchange_reserve(user_id, exchange, reserved_amount)
     
-    # 2. Сохраняем стратегию
+    # 2. Сохраняем стратегию глобально (хотя теперь это есть и в user_exchanges)
+    # Оставляем для совместимости, если где-то используется
     set_user_strategy(user_id, strategy)
     
     context.user_data.clear()
@@ -1192,7 +1373,7 @@ async def save_and_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
     
     await update.message.reply_text(
-        get_text(user_id, "msg_connect_success", exchange=exchange.capitalize(), strategy=strategy.upper()),
+        get_text(user_id, "msg_reserve_saved", exchange=exchange.capitalize(), strategy=strategy.upper(), reserve=reserved_amount),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -1518,6 +1699,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # if text in get_all_translations("btn_analyze"): await analyze_chart_start(update, context)
     elif text in get_all_translations("btn_viewchart"): await view_chart_command(update, context)
     elif text in get_all_translations("btn_profile"): await profile_command(update, context)
+    elif text in get_all_translations("btn_my_exchanges"): await my_exchanges_command(update, context)
     elif text in get_all_translations("btn_top_up"): await top_up_balance_command(update, context)
     elif text in get_all_translations("btn_copytrade"):
         await connect_exchange_start(update, context)
@@ -1838,6 +2020,16 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
+
+    # Edit Reserve conversation handler
+    # Catch buttons like "Edit Reserve (Binance) 🛡️", "Изм. Резерв (Binance) 🛡️"
+    edit_reserve_conv_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex(r".*(Reserve|Резерв).*"), edit_reserve_start)],
+        states={
+            ASK_RESERVE_EDIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_reserve_save)]
+        },
+        fallbacks=[CommandHandler('cancel', my_exchanges_command)] # Fallback is just list again
+    )
     broadcast_conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^Broadcast 📢$'), broadcast_start)],
         states={
@@ -1884,6 +2076,10 @@ def main():
                 MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_passphrase)
             ],
+            ASK_RESERVE: [
+                MessageHandler(filters.Regex('^Cancel$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_cancel")])), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_reserve_finish)
+            ]
         },
         # fallbacks обрабатывают команды типа /cancel, но лучше добавить кнопку и сюда
         fallbacks=[
@@ -1910,6 +2106,7 @@ def main():
     application.add_handler(lang_conv_handler)
     application.add_handler(risk_conv_handler)
     application.add_handler(promo_conv_handler)
+    application.add_handler(edit_reserve_conv_handler) # NEW
     application.add_handler(broadcast_conv_handler)
     application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))

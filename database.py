@@ -127,6 +127,47 @@ def initialize_db():
         )
     """)
 
+    # Таблица подключенных бирж (Multi-Exchange Support)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_exchanges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            exchange_name TEXT, -- 'binance', 'bybit', 'okx', etc.
+            api_key TEXT,
+            api_secret_encrypted TEXT,
+            passphrase_encrypted TEXT, -- for OKX
+            strategy TEXT DEFAULT 'ratner', -- 'ratner' or 'cgt'
+            reserved_amount REAL DEFAULT 0.0,
+            is_active BOOLEAN DEFAULT 1,
+            created_at TEXT,
+            UNIQUE(user_id, exchange_name)
+        )
+    """)
+    
+    # --- MIGRATION: Auto-migrate legacy keys from 'users' table to 'user_exchanges' ---
+    # This ensures existing users continue copying without needing to reconnect.
+    try:
+        cursor.execute("SELECT user_id, exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted, selected_strategy FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
+        legacy_users = cursor.fetchall()
+        
+        for u in legacy_users:
+            uid, ex_name, pub, sec, pas, strat = u
+            if not ex_name: ex_name = 'binance' # Default
+            
+            # Use safe INSERT OR IGNORE to avoid duplicates if migration ran before
+            cursor.execute("""
+                INSERT OR IGNORE INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (uid, ex_name.lower(), pub, sec, pas, strat, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            
+        if legacy_users:
+            print(f"🔄 Migrated {len(legacy_users)} legacy users to 'user_exchanges'.")
+            
+    except Exception as e:
+        print(f"⚠️ Migration warning: {e}")
+
+    conn.commit()
+    
     # Миграции (на случай, если таблица старая)
     try: cursor.execute("ALTER TABLE users ADD COLUMN exchange_name TEXT")
     except: pass
@@ -209,7 +250,10 @@ def get_user_strategy(user_id: int):
     return res[0] if res else 'ratner'
 
 # Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
+# Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
 def get_users_for_copytrade(strategy: str = None) -> list:
+    # LEGACY: Returns lists of user_ids. 
+    # Used by checks, but worker should migrate to get_active_exchange_connections
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if strategy:
@@ -219,6 +263,30 @@ def get_users_for_copytrade(strategy: str = None) -> list:
     user_ids = [row[0] for row in cursor.fetchall()]
     conn.close()
     return user_ids
+
+def get_active_exchange_connections(strategy: str = None) -> list:
+    """Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy}"""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Мы берем только те биржи, которые активны, И у которых юзер включил копитрейдинг, И есть токены
+    query = """
+        SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy 
+        FROM user_exchanges ue
+        JOIN users u ON ue.user_id = u.user_id
+        WHERE ue.is_active = 1 AND u.is_copytrading_enabled = 1 AND u.token_balance > 0
+    """
+    params = []
+    
+    if strategy:
+        query += " AND ue.strategy = ?"
+        params.append(strategy)
+        
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 # def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
@@ -266,9 +334,33 @@ def get_referral_counts(user_id: int) -> dict:
 #     return {"exchange": exchange, "apiKey": public, "secret": decrypted_secret}
 
 
-def get_user_decrypted_keys(user_id: int):
+def get_user_decrypted_keys(user_id: int, exchange_name: str = None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    
+    # 1. New Table Lookup
+    query = "SELECT exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, reserved_amount FROM user_exchanges WHERE user_id = ?"
+    params = [user_id]
+    if exchange_name:
+        query += " AND exchange_name = ?"
+        params.append(exchange_name)
+    
+    cursor.execute(query, params)
+    res = cursor.fetchone()
+    
+    # Если нашли в новой таблице
+    if res:
+        ex_name, pub, sec_enc, pass_enc, res_amt = res
+        conn.close()
+        return {
+            "exchange": ex_name,
+            "apiKey": pub,
+            "secret": decrypt_data(sec_enc),
+            "password": decrypt_data(pass_enc) if pass_enc else None,
+            "reserved_amount": res_amt or 0.0
+        }
+
+    # 2. Legacy Lookup (users table)
     cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
@@ -276,6 +368,8 @@ def get_user_decrypted_keys(user_id: int):
     if not result or not result[2]: return None
     
     exchange, public, encrypted_secret, encrypted_pass = result
+    if exchange_name and exchange != exchange_name: return None # Mismatch
+
     decrypted_secret = decrypt_data(encrypted_secret)
     decrypted_pass = decrypt_data(encrypted_pass) if encrypted_pass else None
     
@@ -283,7 +377,8 @@ def get_user_decrypted_keys(user_id: int):
         "exchange": exchange,
         "apiKey": public,
         "secret": decrypted_secret,
-        "password": decrypted_pass # ccxt использует поле 'password' для passphrase
+        "password": decrypted_pass,
+        "reserved_amount": 0.0 # Legacy has no reserve
     }
 
 # def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quantity: float):
@@ -508,6 +603,132 @@ def get_user_risk_settings(user_id: int) -> dict:
 
 def update_user_risk_settings(user_id: int, balance: float, risk_pct: float):
     execute_write_query("UPDATE users SET account_balance = ?, risk_per_trade_pct = ? WHERE user_id = ?", (balance, risk_pct, user_id))
+
+# --- MULTI-EXCHANGE MANAGEMENT ---
+
+def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'ratner'):
+    """Сохраняет или обновляет подключение к бирже."""
+    encrypted_secret = encrypt_data(secret_key)
+    encrypted_pass = encrypt_data(passphrase) if passphrase else None
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Upsert logic (INSERT OR REPLACE) - но лучше проверить, чтобы не затереть reserved_amount если он есть
+    # Поэтому делаем INSERT ON CONFLICT DO UPDATE
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    
+    # Проверяем, есть ли запись
+    cursor.execute("SELECT id FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+    row = cursor.fetchone()
+    
+    if row:
+        # Обновляем ключи, стратегию, но оставляем reserved_amount
+        execute_write_query("""
+            UPDATE user_exchanges 
+            SET api_key = ?, api_secret_encrypted = ?, passphrase_encrypted = ?, strategy = ?, is_active = 1
+            WHERE user_id = ? AND exchange_name = ?
+        """, (api_key, encrypted_secret, encrypted_pass, strategy, user_id, exchange))
+    else:
+        # Новая запись
+        execute_write_query("""
+            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0.0, ?)
+        """, (user_id, exchange, api_key, encrypted_secret, encrypted_pass, strategy, created_at))
+    
+    conn.close()
+
+def get_user_exchanges(user_id: int) -> list[dict]:
+    """Возвращает список всех подключенных бирж пользователя."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_exchanges WHERE user_id = ? AND is_active = 1", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    exchanges = []
+    for row in rows:
+        exchanges.append(dict(row))
+    return exchanges
+
+def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
+    """Обновляет сумму резерва для конкретной биржи."""
+    execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
+
+def delete_user_exchange(user_id: int, exchange: str):
+    """Удаляет (или помечает неактивной) биржу."""
+    execute_write_query("UPDATE user_exchanges SET is_active = 0 WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+
+# Backwards compatibility wrapper (if needed for old single-exchange calls, though we should refactor them too)
+def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
+    # Just redirect to new function, defaulting strategy to whatever
+    # But wait, old function implied 'ratner' usually. 
+    # We will assume 'ratner' unless context provided, but save_user_exchange takes strategy.
+    # For now, let's keep it simple.
+    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase)
+
+
+# --- MULTI-EXCHANGE MANAGEMENT ---
+
+def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'ratner'):
+    """Сохраняет или обновляет подключение к бирже."""
+    encrypted_secret = encrypt_data(secret_key)
+    encrypted_pass = encrypt_data(passphrase) if passphrase else None
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Upsert logic (INSERT OR REPLACE) - но лучше проверить, чтобы не затереть reserved_amount если он есть
+    # Поэтому делаем INSERT ON CONFLICT DO UPDATE
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    
+    # Проверяем, есть ли запись
+    cursor.execute("SELECT id FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+    row = cursor.fetchone()
+    
+    if row:
+        # Обновляем ключи, стратегию, но оставляем reserved_amount
+        execute_write_query("""
+            UPDATE user_exchanges 
+            SET api_key = ?, api_secret_encrypted = ?, passphrase_encrypted = ?, strategy = ?, is_active = 1
+            WHERE user_id = ? AND exchange_name = ?
+        """, (api_key, encrypted_secret, encrypted_pass, strategy, user_id, exchange))
+    else:
+        # Новая запись
+        execute_write_query("""
+            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0.0, ?)
+        """, (user_id, exchange, api_key, encrypted_secret, encrypted_pass, strategy, created_at))
+    
+    conn.close()
+
+def get_user_exchanges(user_id: int) -> list[dict]:
+    """Возвращает список всех подключенных бирж пользователя."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_exchanges WHERE user_id = ? AND is_active = 1", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    exchanges = []
+    for row in rows:
+        exchanges.append(dict(row))
+    return exchanges
+
+def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
+    """Обновляет сумму резерва для конкретной биржи."""
+    execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
+
+def delete_user_exchange(user_id: int, exchange: str):
+    """Удаляет (или помечает неактивной) биржу."""
+    execute_write_query("DELETE FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+
+# Backwards compatibility wrapper (if needed for old single-exchange calls, though we should refactor them too)
+def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
+    # Just redirect to new function, defaulting strategy to whatever
+    # But wait, old function implied 'ratner' usually. 
+    # We will assume 'ratner' unless context provided, but save_user_exchange takes strategy.
+    # For now, let's keep it simple.
+    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase)
+
 
 def credit_referral_tokens(user_id: int, amount: float):
     execute_write_query("UPDATE users SET token_balance = token_balance + ? WHERE user_id = ?", (amount, user_id))

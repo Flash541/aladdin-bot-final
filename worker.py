@@ -410,7 +410,10 @@ from database import (
     get_referrer_upline,
     credit_referral_tokens,
     deduct_performance_fee,
-    set_copytrading_status
+    credit_referral_tokens,
+    deduct_performance_fee,
+    set_copytrading_status,
+    get_active_exchange_connections # NEW
 )
 
 import os
@@ -580,6 +583,12 @@ class TradeCopier:
                 master_bal = self._get_master_balance(master_exchange)
                 ratio = min((qty * price) / master_bal, 0.99) if master_bal > 0 else 0
                 
+                # --- APPLY RESERVE LOGIC HERE OR INSIDE _execute_single_user? ---
+                # The prompt said: "worker.py before calculating ratio will do: trading_balance = total_balance - reserved_amount"
+                # But ratio is calculated based on MASTER balance.
+                # The USER position size is calculated inside _execute_single_user based on USER balance * ratio.
+                # So we apply reserve logic inside _execute_single_user.
+                
                 print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
                 
                 # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only ДАЛЬШЕ ---
@@ -587,19 +596,28 @@ class TradeCopier:
 
 
     def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='ratner', is_reduce_only=False):
-        subscribers = get_users_for_copytrade(strategy=strategy)
-        print(f"⚡ [WORKER] Executing ({strategy}) for {len(subscribers)} users...")
-        for user_id in subscribers:
-            # --- ПЕРЕДАЕМ is_reduce_only В КАЖДУЮ ЗАДАЧУ ---
-            executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only)
+        # Используем список подключений (Multi-Exchange)
+        connections = get_active_exchange_connections(strategy=strategy)
+        print(f"⚡ [WORKER] Executing ({strategy}) for {len(connections)} connections...")
+        
+        for conn in connections:
+            user_id = conn['user_id']
+            exchange_name = conn['exchange_name']
+            reserve = conn['reserved_amount']
+            
+            # --- ПЕРЕДАЕМ is_reduce_only И PARAMS ---
+            executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only, exchange_name, reserve)
 
     def close_all_positions_parallel(self, symbol, executor):
-        # Закрытие нужно только для Futures (Ratner)
-        # Для Spot (CGT) закрытие - это просто сигнал SELL, который идет через execute_trade
-        subscribers = get_users_with_api_keys()
-        print(f"⚡ [WORKER] Closing concurrently for {len(subscribers)} users...")
-        for user_id in subscribers:
-            executor.submit(self._close_single_user, user_id, symbol)
+        # Закрываем для всех активных подключений (Ratner по умолчанию для Futures закрытия)
+        connections = get_active_exchange_connections(strategy='ratner') 
+        # Если нужно закрывать и Spot, нужно отдельно вызывать. Но close_all обычно для Futures.
+        
+        print(f"⚡ [WORKER] Closing concurrently for {len(connections)} connections...")
+        for conn in connections:
+            user_id = conn['user_id']
+            exchange = conn['exchange_name']
+            executor.submit(self._close_single_user, user_id, symbol, exchange)
 
 
     # def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner'):
@@ -764,12 +782,12 @@ class TradeCopier:
     #             print(f"   ❌ User {user_id} {exchange_id} Error: {e}")
 
 
-    def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner', is_reduce_only=False):
+    def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner', is_reduce_only=False, exchange_name=None, reserve=0.0):
         """
         Единичная задача: открыть/усреднить/закрыть сделку для одного юзера.
         С ЗАЩИТОЙ от "позднего входа".
         """
-        keys = get_user_decrypted_keys(user_id)
+        keys = get_user_decrypted_keys(user_id, exchange_name)
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
 
@@ -794,6 +812,7 @@ class TradeCopier:
                 client = ccxt.okx({'apiKey': keys['apiKey'], 'secret': keys['secret'], 'password': keys.get('password', ''), 'options': {'defaultType': 'spot'}})
                 bal = client.fetch_balance()
                 usdt = float(bal['USDT']['free']) if 'USDT' in bal else 0
+                usdt = max(0, usdt - reserve) # APPLY RESERVE
                 amt_usd = usdt * percentage_used
                 if amt_usd < 2: return
                 ticker = client.fetch_ticker(symbol)
@@ -834,6 +853,7 @@ class TradeCopier:
                 
                 acc = client.account()
                 usdt = float(next((a['availableBalance'] for a in acc['assets'] if a['asset']=='USDT'), 0))
+                usdt = max(0, usdt - reserve) # APPLY RESERVE
                 amt_usd = usdt * percentage_used
                 if amt_usd < 5 and not is_closing: return
 
@@ -874,6 +894,7 @@ class TradeCopier:
 
                 bal = client.fetch_balance({'type': 'future'})
                 usdt = float(bal['USDT']['free'])
+                usdt = max(0, usdt - reserve) # APPLY RESERVE
                 amt_usd = usdt * percentage_used
                 if amt_usd < 2 and not is_closing: return 
 
@@ -918,8 +939,8 @@ class TradeCopier:
     # Скопируй их из предыдущего рабочего кода, если они тут сокращены.
     # Главное изменение было в _execute_single_user.
     
-    def _close_single_user(self, user_id, symbol):
-        keys = get_user_decrypted_keys(user_id)
+    def _close_single_user(self, user_id, symbol, exchange_name=None):
+        keys = get_user_decrypted_keys(user_id, exchange_name)
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
 

@@ -116,68 +116,109 @@ def start_bybit_listener():
 # ==========================================
 def start_bingx_listener():
     key = os.getenv("BINGX_MASTER_KEY")
-    if not key or len(key) < 10:
+    secret = os.getenv("BINGX_MASTER_SECRET")
+    if not key or len(key) < 10 or not secret:
         print("ℹ️ BingX Listener skipped (No key).")
         return
 
     print("🎧 Starting BingX Listener...")
 
     def get_listen_key():
+        """Получение ListenKey через REST API (Swap V2) - С ПОДПИСЬЮ."""
         try:
-            url = "https://open-api.bingx.com/openApi/user/auth/userDataStream"
+            # Correct Swap V2 Endpoint
+            path = "/openApi/swap/v2/user/auth/userDataStream"
+            base_url = "https://open-api.bingx.com"
+            url = base_url + path
+            
+            # 1. Signature Params
+            timestamp = int(time.time() * 1000)
+            params = {"timestamp": timestamp}
+            
+            # 2. Sign
+            query_string = urlencode(sorted(params.items()))
+            signature = hmac.new(
+                secret.encode("utf-8"),
+                query_string.encode("utf-8"),
+                hashlib.sha256
+            ).hexdigest()
+            
+            final_url = f"{url}?{query_string}&signature={signature}"
+            
             headers = {"X-BX-APIKEY": key}
-            # Таймаут 5 сек, чтобы не виснуть
-            response = requests.post(url, headers=headers, timeout=5)
+            
+            # POST request
+            response = requests.post(final_url, headers=headers, timeout=5)
+            
+            if response.status_code != 200:
+                print(f"❌ BingX Auth Failed: {response.status_code} - {response.text}")
+                return None
+                
             data = response.json()
-            if "listenKey" in data: return data["listenKey"]
-            print("❌ BingX listenKey Error:", data)
+            
+            if data.get('code') == 0:
+                return data['data']['listenKey']
+            
+            print(f"❌ BingX ListenKey Error: {data}")
             return None
+
         except Exception as e:
-            print("❌ BingX listenKey request error:", e)
+            print(f"❌ BingX Request Error: {repr(e)}")
             return None
 
     def on_message(ws, message):
         try:
-
             if isinstance(message, bytes):
                 with gzip.GzipFile(fileobj=io.BytesIO(message)) as f:
                     message = f.read().decode()
 
+            msg = json.loads(message)
+
+            # 1. PING/PONG (BingX specific)
+            if "ping" in msg:
+                ws.send(json.dumps({"pong": msg["ping"]}))
+                return
+            
+            # Simple Pong check (sometimes needed)
             if message == "Ping":
                 ws.send("Pong")
                 return
 
-            msg = json.loads(message)
-
-            # Обработка истечения ключа
+            # ListenKey Expiry
             if msg.get("e") == "listenKeyExpired":
                 print("⚠️ BingX listenKey expired. Reconnecting...")
                 ws.close()
                 return
 
-            if msg.get("e") == "ORDER_TRADE_UPDATE":
-                order = msg.get("o", {})
-                status = order.get("X")
-                
+            # 2. EVENT PARSING (BingX Futures)
+            if msg.get("dataType") == "ORDER_UPDATE":
+                order = msg.get("data", {})
+                status = order.get("status")
+
                 if status in ["FILLED", "PARTIALLY_FILLED"]:
-                    # Нормализация символа (VST -> USDT)
-                    symbol = order["s"].replace("-", "").replace("VST", "USDT")
+                    # Normalize Symbol
+                    symbol = order["symbol"].replace("-", "").replace("VST", "USDT")
                     
-                    # Определение типа ордера (STOP/TAKE)
-                    raw_type = order.get("o", "")
+                    # Normalize Side/Type
+                    side = order["side"]
+                    raw_type = order.get("orderType", "LIMIT")
+                    
+                    # Determine Original Type
                     orig_type = "LIMIT"
                     if "STOP" in raw_type or "TAKE" in raw_type:
                         orig_type = "STOP_MARKET"
+                    elif raw_type == "MARKET":
+                         orig_type = "MARKET"
 
                     event_queue.put({
                         "master_exchange": "bingx",
                         "s": symbol,
-                        "S": order["S"],
+                        "S": side,
                         "o": raw_type,
-                        "X": status, # Передаем реальный статус
-                        "q": float(order["q"]),
-                        "p": float(order.get("p", 0)),
-                        "ap": float(order.get("ap") or order.get("p") or 0),
+                        "X": status,
+                        "q": float(order["orderQty"]),
+                        "p": float(order.get("price") or 0),
+                        "ap": float(order.get("avgPrice") or 0),
                         "ot": orig_type,
                         'ro': order.get('reduceOnly', False)
                     })
@@ -194,6 +235,15 @@ def start_bingx_listener():
         print(f"⚠️ BingX WS Closed: {code} {msg}")
     def on_open(ws):
         print("✅ BingX WS connected (listenKey OK)")
+        # Subscribe to order updates
+        sub_msg = {
+            "id": "sub-1",
+            "reqType": "sub",
+            "dataType": "listenKey" # BingX V2 Swap specific subscription? Or seemingly auto-subscribed?
+            # Actually, attaching listenKey to URL is enough for User Data Stream.
+            # But docs often say "Subscribe". For User Data, URL parameter is usually sufficient.
+            # We'll stick to URL param + Ping/Pong for now as per user instruction.
+        }
 
     while True:
         listen_key = get_listen_key()
@@ -201,6 +251,7 @@ def start_bingx_listener():
             time.sleep(5)
             continue
 
+        # Authenticated WS URL (Standard)
         ws_url = f"wss://open-api-swap.bingx.com/swap-market?listenKey={listen_key}"
         
         # Событие для остановки авто-продления
@@ -211,12 +262,27 @@ def start_bingx_listener():
                 time.sleep(30 * 60) # 30 минут
                 if stop_extend.is_set(): break
                 try:
-                    requests.put(
-                        "https://open-api.bingx.com/openApi/user/auth/userDataStream",
-                        params={"listenKey": listen_key},
-                        headers={"X-BX-APIKEY": key},
-                        timeout=5
-                    )
+                    # EXTEND KEY (PUT) - ALSO SIGNED
+                    path = "/openApi/swap/v2/user/auth/userDataStream"
+                    base_url = "https://open-api.bingx.com"
+                    url = base_url + path
+                    
+                    timestamp = int(time.time() * 1000)
+                    params = {
+                        "timestamp": timestamp,
+                        "listenKey": listen_key
+                    }
+                    
+                    query = urlencode(sorted(params.items()))
+                    signature = hmac.new(
+                        secret.encode("utf-8"),
+                        query.encode("utf-8"),
+                        hashlib.sha256
+                    ).hexdigest()
+                    
+                    final_url = f"{url}?{query}&signature={signature}"
+                    
+                    requests.put(final_url, headers={"X-BX-APIKEY": key}, timeout=5)
                     # print("♻️ BingX Key Extended")
                 except: pass
 
