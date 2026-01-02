@@ -634,10 +634,13 @@ async def my_exchanges_command(update: Update, context: ContextTypes.DEFAULT_TYP
             status_icon = f"🔴 {get_text(user_id, 'status_disconnected')}"
             balance_str = "N/A"
 
+        # Strategy Display Name
+        strat_disp = "TradeMax" if ex['strategy'] == 'cgt' else ex['strategy'].upper()
+
         # Localized Item
         msg_list += (
             f"🔹 <b>{ex['exchange_name'].capitalize()}</b>\n"
-            f"   • {get_text(user_id, 'lbl_strategy')}: {ex['strategy'].upper()}\n"
+            f"   • {get_text(user_id, 'lbl_strategy')}: {strat_disp}\n"
             f"   • {get_text(user_id, 'lbl_reserve')}: <b>${ex['reserved_amount']}</b>\n"
             f"   • {get_text(user_id, 'lbl_status')}: {status_icon}\n"
             f"   • {get_text(user_id, 'lbl_wallet_balance')}: <b>{balance_str}</b>\n\n"
