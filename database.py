@@ -144,7 +144,21 @@ def initialize_db():
         )
     """)
     
-    # --- MIGRATION: Auto-migrate legacy keys from 'users' table to 'user_exchanges' ---
+    # Таблица транзакций (Top Up)
+    cursor.execute("""
+       CREATE TABLE IF NOT EXISTS transactions (
+            tx_hash TEXT PRIMARY KEY,
+            user_id INTEGER,
+            amount REAL,
+            currency TEXT,
+            from_address TEXT,
+            status TEXT,
+            created_at TEXT
+       )
+    """)
+
+    # --- MIGRATION: LEGACY USERS to USER_EXCHANGES ---
+    # migrate legacy keys from 'users' table to 'user_exchanges' ---
     # This ensures existing users continue copying without needing to reconnect.
     try:
         cursor.execute("SELECT user_id, exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted, selected_strategy FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
@@ -182,6 +196,21 @@ def initialize_db():
     try: cursor.execute("ALTER TABLE users ADD COLUMN api_passphrase_encrypted TEXT")
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'")
+    except: pass
+    
+    # Init Transactions Table (for migration)
+    try:
+        cursor.execute("""
+           CREATE TABLE IF NOT EXISTS transactions (
+                tx_hash TEXT PRIMARY KEY,
+                user_id INTEGER,
+                amount REAL,
+                currency TEXT,
+                from_address TEXT,
+                status TEXT,
+                created_at TEXT
+           )
+        """)
     except: pass
 
     conn.commit()

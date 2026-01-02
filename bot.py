@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import asyncio
 import pandas as pd
 import requests
@@ -20,6 +21,7 @@ from core_analyzer import fetch_data, compute_features, generate_decisive_signal
 from llm_explainer import get_explanation
 import ccxt
 from binance.um_futures import UMFutures
+from exchange_utils import fetch_exchange_balance_safe
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -656,27 +658,9 @@ async def my_exchanges_command(update: Update, context: ContextTypes.DEFAULT_TYP
         parse_mode=ParseMode.HTML
     )
 
-async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase=None):
-    """Helper to fetch USDT balance safely via thread."""
-    exchange_name = exchange_name.lower()
-    
-    def _fetch():
-        if exchange_name == 'binance':
-            c = UMFutures(key=api_key, secret=secret, base_url="https://fapi.binance.com")
-            acc = c.account()
-            # Use 'walletBalance' (Total) instead of 'availableBalance' for display
-            return float(next((a['walletBalance'] for a in acc['assets'] if a['asset']=='USDT'), 0))
-        elif exchange_name == 'okx':
-            ex = ccxt.okx({'apiKey': api_key, 'secret': secret, 'password': passphrase, 'options': {'defaultType': 'spot'}})
-            bal = ex.fetch_balance()
-            return float(bal['USDT']['total']) # Total (Free + Used)
-        else: # bybit, bingx
-            ex_class = getattr(ccxt, exchange_name)
-            ex = ex_class({'apiKey': api_key, 'secret': secret, 'options': {'defaultType': 'future'}})
-            bal = ex.fetch_balance({'type': 'future'})
-            return float(bal['USDT']['total']) # Total
-            
-    return await asyncio.to_thread(_fetch)
+# fetch_exchange_balance_safe moved to exchange_utils.py
+
+# --- LANGUAGE SELECTION FLOW ---
 
 # --- LANGUAGE SELECTION FLOW ---
 async def change_language_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -740,7 +724,8 @@ async def edit_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     await update.message.reply_text(
         get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange_name.capitalize()),
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        parse_mode=ParseMode.HTML
     )
     return ASK_RESERVE_EDIT
 
@@ -750,20 +735,48 @@ async def edit_reserve_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     exchange_name = context.user_data.get('editing_exchange')
     
-    try:
-        new_reserve = float(text)
-        if new_reserve < 0: raise ValueError
-    except ValueError:
-        await update.message.reply_text(get_text(user_id, "err_invalid_amount"))
-        return ASK_RESERVE_EDIT
+    if not exchange_name:
+        await update.message.reply_text("Session expired. Please select exchange again.")
+        return await my_exchanges_command(update, context)
+    
+    # --- NAVIGATION CHECK ---
+    # If user clicks "Back", "Skip", or any other menu button, handle it.
+    if "Back to Main Menu" in text:
+        return await back_to_main_menu(update, context)
         
+    if "Skip" in text or text == "0":
+        # Skip treats as 0 or keeping current? Prompt says "Skip to use all funds" (Reserve = 0)
+        # Assuming Skip = 0 based on prompt: "Enter 0 or press Skip to use all funds"
+        new_reserve = 0.0
+    elif "Edit Reserve" in text:
+        # User clicked another Edit button while in edit mode. 
+        # Restart edit with new exchange?
+        # Ideally, we should detect this. For now let's just loop back to start of edit.
+        return await edit_reserve_start(update, context)
+    else:
+        try:
+            new_reserve = float(text)
+            if new_reserve < 0: raise ValueError
+        except ValueError:
+            await update.message.reply_text(get_text(user_id, "err_invalid_amount"))
+            return ASK_RESERVE_EDIT
+    
+    # Save (for Skip or Float)
     update_exchange_reserve(user_id, exchange_name, new_reserve)
     
-    await update.message.reply_text(f"✅ Reserve for {exchange_name.capitalize()} updated to ${new_reserve}")
-    
-    # Возвращаем список бирж
+    await update.message.reply_text(
+        get_text(user_id, "msg_reserve_updated", exchange=exchange_name.capitalize(), reserve=new_reserve),
+        parse_mode=ParseMode.HTML
+    )
     context.user_data.pop('editing_exchange', None)
     return await my_exchanges_command(update, context)
+
+async def back_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # This might duplicates existing logic, but ensures clean exit
+    context.user_data.pop('editing_exchange', None)
+    return await start(update, context) # Or end_conversation depending on flow
+
+
 
 async def set_initial_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -956,7 +969,7 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Сразу спрашиваем стратегию
     user_id = update.effective_user.id
-    keyboard = [["Ratner (Futures)", "CGT Robot (Spot)"], [get_text(user_id, "btn_cancel")]]
+    keyboard = [["Ratner (Futures)", "TradeMax (Spot)"], [get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     await update.message.reply_text(
         get_text(user_id, "msg_select_strategy"),
@@ -983,7 +996,7 @@ async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_text(user_id, "msg_select_futures_exchange"), reply_markup=reply_markup)
         return ASK_EXCHANGE
 
-    elif choice == "CGT Robot (Spot)":
+    elif choice == "TradeMax (Spot)":
         context.user_data['strategy'] = 'cgt'
         # Показываем ТОЛЬКО OKX
         keyboard = [["OKX"], [get_text(user_id, "btn_back")]]
@@ -1141,7 +1154,7 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if exchange_name in get_all_translations("btn_strat_binance") + ["Binance"]: canonical_exchange = "Binance"
     elif exchange_name in get_all_translations("btn_strat_bybit") + ["Bybit"]: canonical_exchange = "Bybit"
     elif exchange_name in get_all_translations("btn_strat_bingx") + ["BingX"]: canonical_exchange = "BingX"
-    elif exchange_name == "OKX": canonical_exchange = "OKX" # CGT only
+    elif exchange_name == "OKX": canonical_exchange = "OKX" # TradeMax only
     
     if not canonical_exchange:
          await update.message.reply_text("Invalid selection. Please choose from the buttons.")
@@ -1156,7 +1169,7 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ASK_EXCHANGE
         
     if strategy == 'cgt' and canonical_exchange not in valid_cgt:
-        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy='CGT Robot', valid_exchanges='OKX'))
+        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy='TradeMax', valid_exchanges='OKX'))
         return ASK_EXCHANGE
     
     context.user_data['exchange_name'] = canonical_exchange.lower()
