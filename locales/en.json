@@ -87,6 +87,7 @@
     "msg_edit_settings_title": "⚙️ <b>Edit Settings ({exchange})</b>\nStrategy: {strategy}\nCurrent Balance: ${balance}",
     "msg_what_to_change": "What do you want to change?",
     "msg_edit_risk_prompt": "⚖️ <b>Edit Risk Percentage ({exchange})</b>\n\nEnter new Risk % per trade (e.g. <b>2.5</b>).",
+    "msg_profit_notification": "💰 <b>Profit Realized!</b>\n📈 {symbol}\n💵 Profit: <b>${pnl}</b>\n💸 Fee (40%): <b>{fee} USDT</b>\n🏦 Balance: <b>{balance} USDT</b>",
     "msg_reserve_updated": "✅ <b>Capital Updated!</b>\n\n🏦 <b>Exchange:</b> {exchange}\n💰 <b>New Capital:</b> ${reserve}\n\nTrades will be sized based on this capital.",
     "btn_skip": "Skip ⏩",
     "msg_next_steps": "What would you like to do next?",

@@ -1219,12 +1219,12 @@ class TradeCopier:
             # Уведомление
             if self.bot:
                 try:
-                    msg = (
-                        f"💰 <b>Profit Realized!</b>\n"
-                        f"📈 {symbol}\n"
-                        f"💵 Profit: <b>${pnl:.2f}</b>\n"
-                        f"💸 Fee (40%): <b>{total_fee:.2f} tokens</b>\n"
-                        f"🏦 Balance: <b>{new_bal:.2f} tokens</b>"
+                    msg = get_text(
+                        user_id, "msg_profit_notification",
+                        symbol=symbol,
+                        pnl=f"{pnl:.2f}",
+                        fee=f"{total_fee:.2f}",
+                        balance=f"{new_bal:.2f}"
                     )
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)

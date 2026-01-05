@@ -2,6 +2,7 @@
 import sqlite3
 import uuid
 import os
+import json
 import time
 from datetime import datetime, timedelta
 from typing import Literal
@@ -865,3 +866,21 @@ def get_pending_withdrawals():
 
 # Запуск инициализации при импорте
 initialize_db()
+def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
+    """Retrieves translated text for a user."""
+    if not lang:
+        lang = get_user_language(user_id)
+    
+    try:
+        file_path = os.path.join("locales", f"{lang}.json")
+        if not os.path.exists(file_path):
+            file_path = os.path.join("locales", "en.json")
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            translations = json.load(f)
+            
+        text = translations.get(key, translations.get(key, key))
+        return text.format(**kwargs)
+    except Exception as e:
+        print(f"Error in get_text: {e}")
+        return key

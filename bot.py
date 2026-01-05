@@ -45,25 +45,7 @@ ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE, ASK_RES
 
 
 # --- LOCALIZATION HELPER ---
-def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
-    """Retrieves translated text for a user."""
-    from database import get_user_language
-    if not lang:
-        lang = get_user_language(user_id)
-    
-    try:
-        file_path = os.path.join("locales", f"{lang}.json")
-        if not os.path.exists(file_path):
-            file_path = os.path.join("locales", "en.json")
-            
-        with open(file_path, 'r', encoding='utf-8') as f:
-            translations = json.load(f)
-            
-        text = translations.get(key, translations.get(key, key))
-        return text.format(**kwargs)
-    except Exception as e:
-        print(f"Error in get_text: {e}")
-        return key
+
 
 async def get_main_menu_keyboard(user_id):
     keyboard = [
