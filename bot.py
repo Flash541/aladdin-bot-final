@@ -41,7 +41,7 @@ ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(4, 6)
 SELECT_LANG = 12
 SELECT_LANG_START = 13
 # ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY = range(6, 10)
-ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE, ASK_RESERVE, ASK_RESERVE_EDIT = range(6, 13)
+ASK_STRATEGY, ASK_EXCHANGE, ASK_API_KEY, ASK_SECRET_KEY, ASK_PASSPHRASE, ASK_RESERVE, ASK_EDIT_SELECTION, ASK_EDIT_CAPITAL, ASK_EDIT_RISK, ASK_RISK_FINISH = range(6, 16)
 
 
 # --- LOCALIZATION HELPER ---
@@ -60,10 +60,18 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
             translations = json.load(f)
             
         text = translations.get(key, translations.get(key, key))
-        return text.format(**kwargs) if kwargs else text
+        return text.format(**kwargs)
     except Exception as e:
         print(f"Error in get_text: {e}")
         return key
+
+async def get_main_menu_keyboard(user_id):
+    keyboard = [
+        [get_text(user_id, "btn_top_up"), get_text(user_id, "btn_withdraw")],
+        [get_text(user_id, "btn_my_exchanges")],
+        [get_text(user_id, "btn_language"), get_text(user_id, "btn_back")],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 def get_all_translations(key: str) -> list:
     """Returns all possible translations for a key (used for button matching)."""
@@ -546,12 +554,18 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from database import get_user_exchanges
     user_id = update.effective_user.id
     profile = get_user_profile(user_id)
+    confirm_exchanges = get_user_exchanges(user_id)
     
     if not profile:
         await update.message.reply_text("Couldn't find your profile. Please /start the bot.")
         return
+
+    # Calculate Total Trading Capital from all active connections
+    total_capital = sum(ex['reserved_amount'] for ex in confirm_exchanges if ex['is_active'])
+
         
     bot_username = (await context.bot.get_me()).username
     referral_link = f"https://t.me/{bot_username}?start={profile['ref_code']}"
@@ -565,8 +579,7 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{get_text(user_id, 'status')} {status_emoji}\n"
         f"{get_text(user_id, 'subscription')} {expiry_text}\n"
         f"{get_text(user_id, 'token_balance')} {profile['balance']:.2f} 🪙\n"
-        f"{get_text(user_id, 'trading_balance')} ${profile['account_balance']:,.2f}\n"
-        f"{get_text(user_id, 'risk_per_trade')} {profile['risk_pct']}%\n\n"
+        f"{get_text(user_id, 'trading_balance')} ${total_capital:,.2f}\n\n"
         f"{get_text(user_id, 'referral_link')}\n"
         f"<code>{referral_link}</code>\n\n"
         f"{get_text(user_id, 'invite_earn')}\n"
@@ -637,17 +650,27 @@ async def my_exchanges_command(update: Update, context: ContextTypes.DEFAULT_TYP
         # Strategy Display Name
         strat_disp = "TradeMax" if ex['strategy'] == 'cgt' else ex['strategy'].upper()
 
+        risk_line = ""
+        btn_key = "btn_edit_reserve"
+        
+        if ex['strategy'] == 'cgt': # TradeMax
+            risk_val = ex.get('risk_pct', 1.0)
+            risk_line = f"   • {get_text(user_id, 'lbl_risk')}: <b>{risk_val}%</b>\n"
+            btn_key = "btn_edit_settings"
+
+
         # Localized Item
         msg_list += (
             f"🔹 <b>{ex['exchange_name'].capitalize()}</b>\n"
             f"   • {get_text(user_id, 'lbl_strategy')}: {strat_disp}\n"
             f"   • {get_text(user_id, 'lbl_reserve')}: <b>${ex['reserved_amount']}</b>\n"
+            f"{risk_line}"
             f"   • {get_text(user_id, 'lbl_status')}: {status_icon}\n"
             f"   • {get_text(user_id, 'lbl_wallet_balance')}: <b>{balance_str}</b>\n\n"
         )
         
         # Add 'Edit Reserve' button for this exchange
-        btn_text = get_text(user_id, "btn_edit_reserve", exchange=ex['exchange_name'].capitalize())
+        btn_text = get_text(user_id, btn_key, exchange=ex['exchange_name'].capitalize())
         keyboard.append([btn_text])
 
     keyboard.append([get_text(user_id, "btn_back")])
@@ -705,74 +728,185 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def edit_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начинает редактирование резерва."""
+    """Начинает редактирование торгового капитала."""
     text = update.message.text
     user_id = update.effective_user.id
     
-    # Парсим имя биржи из текста кнопки: Edit Reserve (Binance) 🛡️
-    # Regex: .*\((.+)\).*
+    # Парсим имя биржи из текста кнопки: Edit Capital (Binance) 💰
     match = re.search(r"\((.+)\)", text)
     if not match:
         await update.message.reply_text("Error identifying exchange.")
         return ConversationHandler.END
         
-    exchange_name = match.group(1).lower()
-    # Normalize back if needed, but lower() should match what we saved (unless we saved 'binance' and proper is 'Binance')
-    # Use fuzzy matching or just lower(). Database stores as saved in save_user_exchange.
-    # Check DB to be sure? 
-    # Let's assume lower() works if we stick to conventions. 
-    # But wait, button text has capitalized name.
+    exchange_name = match.group(1).lower() # binance/okx
+    
+    # Fetch API Keys to check Status & Balance
+    msg_checking = await update.message.reply_text(get_text(user_id, "msg_checking_balances"))
+    
+    keys = get_user_decrypted_keys(user_id, exchange_name)
+    if not keys:
+         await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_checking.message_id)
+         await update.message.reply_text("Error: Exchange keys not found.")
+         return ConversationHandler.END
+
+    # Strategy Check
+    from database import get_user_exchanges
+    user_exs = get_user_exchanges(user_id)
+    target_ex = next((x for x in user_exs if x['exchange_name'] == exchange_name), None)
+    strategy = target_ex['strategy'] if target_ex else 'ratner'
+    context.user_data['editing_strategy'] = strategy
+
+    # Live Balance Check
+    balance = await fetch_exchange_balance_safe(exchange_name, keys['apiKey'], keys['secret'], keys.get('password'))
+    
+    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_checking.message_id)
+    
+    if balance is None:
+        await update.message.reply_text("⚠️ <b>Warning</b>\nCould not fetch live balance. Capital check will be disabled.", parse_mode=ParseMode.HTML)
+        balance = 99999999.0 # Disable check if fetch fails
     
     context.user_data['editing_exchange'] = exchange_name
+    context.user_data['editing_balance'] = balance
     
+    # BRANCHING
+    # BRANCHING
+    if strategy == 'cgt': # TradeMax
+        keyboard = [
+            [get_text(user_id, "btn_change_capital"), get_text(user_id, "btn_change_risk")], 
+            [get_text(user_id, "btn_back")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+        
+        msg_title = get_text(user_id, "msg_edit_settings_title", exchange=exchange_name.capitalize(), strategy="TradeMax", balance=f"{balance:.2f}")
+        msg_prompt = get_text(user_id, "msg_what_to_change")
+        
+        await update.message.reply_text(
+            f"{msg_title}\n\n{msg_prompt}",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML
+        )
+        return ASK_EDIT_SELECTION
+
+    # Ratner (Standard)
     await update.message.reply_text(
-        get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange_name.capitalize()),
+        get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange_name.capitalize(), balance=f"{balance:.2f}"),
         reply_markup=ReplyKeyboardRemove(),
         parse_mode=ParseMode.HTML
     )
-    return ASK_RESERVE_EDIT
+    return ASK_EDIT_CAPITAL
 
-async def edit_reserve_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Сохраняет новый резерв."""
+async def edit_selection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    user_id = update.effective_user.id
+    exchange = context.user_data.get('editing_exchange')
+    balance = context.user_data.get('editing_balance')
+    
+    # Handle Back
+    if text in get_all_translations("btn_back"):
+        context.user_data.pop('editing_exchange', None)
+        await my_exchanges_command(update, context) # Show list again
+        return ConversationHandler.END
+    
+    if text in get_all_translations("btn_change_capital"):
+        await update.message.reply_text(
+            get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange.capitalize(), balance=f"{balance:.2f}"),
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode=ParseMode.HTML
+        )
+        return ASK_EDIT_CAPITAL
+        
+    elif text in get_all_translations("btn_change_risk"):
+        await update.message.reply_text(
+             get_text(user_id, "msg_edit_risk_prompt", exchange=exchange.capitalize()),
+             parse_mode=ParseMode.HTML,
+             reply_markup=ReplyKeyboardRemove()
+        )
+        return ASK_EDIT_RISK
+        
+    await update.message.reply_text(get_text(user_id, "err_unknown_command"))
+    return ASK_EDIT_SELECTION
+
+async def edit_capital_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохраняет новый торговый капитал."""
     user_id = update.effective_user.id
     text = update.message.text
     exchange_name = context.user_data.get('editing_exchange')
+    balance = context.user_data.get('editing_balance', 99999999.0)
+    
+    # Check for Back/Cancel
+    if text in get_all_translations("btn_back") or "Back to Main Menu" in text or "/cancel" in text:
+        return await cancel_edit_reserve(update, context)
     
     if not exchange_name:
         await update.message.reply_text("Session expired. Please select exchange again.")
         return await my_exchanges_command(update, context)
     
     # --- NAVIGATION CHECK ---
-    # If user clicks "Back", "Skip", or any other menu button, handle it.
-    if "Back to Main Menu" in text:
-        return await back_to_main_menu(update, context)
-        
     if "Skip" in text or text == "0":
-        # Skip treats as 0 or keeping current? Prompt says "Skip to use all funds" (Reserve = 0)
-        # Assuming Skip = 0 based on prompt: "Enter 0 or press Skip to use all funds"
-        new_reserve = 0.0
-    elif "Edit Reserve" in text:
-        # User clicked another Edit button while in edit mode. 
-        # Restart edit with new exchange?
-        # Ideally, we should detect this. For now let's just loop back to start of edit.
-        return await edit_reserve_start(update, context)
+        # Skip = Balance
+        new_capital = balance if balance != 99999999.0 else 0.0 
     else:
         try:
-            new_reserve = float(text)
-            if new_reserve < 0: raise ValueError
+            val = float(text)
+            if val < 0: raise ValueError
+            
+            if val > balance:
+                await update.message.reply_text(
+                     f"❌ <b>Invalid Amount</b>\n",
+                     parse_mode=ParseMode.HTML
+                 )
+                return ASK_EDIT_CAPITAL
+                
+            new_capital = val
         except ValueError:
             await update.message.reply_text(get_text(user_id, "err_invalid_amount"))
-            return ASK_RESERVE_EDIT
+            return ASK_EDIT_CAPITAL
     
-    # Save (for Skip or Float)
-    update_exchange_reserve(user_id, exchange_name, new_reserve)
+    # Save
+    update_exchange_reserve(user_id, exchange_name, new_capital)
     
     await update.message.reply_text(
-        get_text(user_id, "msg_reserve_updated", exchange=exchange_name.capitalize(), reserve=new_reserve),
+        get_text(user_id, "msg_reserve_updated", exchange=exchange_name.capitalize(), reserve=f"{new_capital:.2f}"),
+        reply_markup=await get_main_menu_keyboard(user_id),
         parse_mode=ParseMode.HTML
     )
+    context.user_data.clear()
+    return ConversationHandler.END
+
+async def edit_risk_save(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text
+    exchange = context.user_data.get('editing_exchange')
+    
+    # Check for Back/Cancel
+    if text in get_all_translations("btn_back") or "Back to Main Menu" in text or "/cancel" in text:
+        return await cancel_edit_reserve(update, context)
+    
+    try:
+        val = float(text)
+        if val <= 0 or val > 100: raise ValueError
+        new_risk = val
+    except ValueError:
+        await update.message.reply_text(f"❌ Invalid Percentage. Enter 0.1 - 100.")
+        return ASK_EDIT_RISK
+        
+    update_exchange_risk(user_id, exchange, new_risk)
+    
+    await update.message.reply_text(
+        f"✅ <b>Risk Updated!</b>\n\nExchange: {exchange.capitalize()}\nNew Risk: <b>{new_risk}%</b>",
+        reply_markup=await get_main_menu_keyboard(user_id),
+        parse_mode=ParseMode.HTML
+    )
+    context.user_data.clear()
+    return ConversationHandler.END
+
+async def cancel_edit_reserve(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancels edit and returns to My Exchanges."""
     context.user_data.pop('editing_exchange', None)
-    return await my_exchanges_command(update, context)
+    context.user_data.pop('editing_balance', None)
+    context.user_data.pop('editing_strategy', None)
+    await my_exchanges_command(update, context)
+    return ConversationHandler.END
 
 async def back_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # This might duplicates existing logic, but ensures clean exit
@@ -1308,8 +1442,8 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Сохраняем секрет во временное хранилище
     context.user_data['secret_key'] = secret_key
     exchange = context.user_data['exchange_name']
-
-    # --- РАЗВИЛКА ДЛЯ OKX ---
+    
+    # --- IF OKX -> ASK PASSPHRASE --- #
     if exchange == 'okx':
         keyboard = [[get_text(user_id, "btn_back")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -1320,7 +1454,22 @@ async def ask_secret_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ASK_PASSPHRASE
     
-    # Для остальных бирж (Binance, Bybit, etc.) сохраняем сразу
+    # --- IF OTHERS (Binance, Bybit..) -> VALIDATE & ASK CAPITAL --- #
+    # Validate keys immediately
+    msg_checking = await update.message.reply_text(get_text(user_id, "msg_checking_balances"))
+    
+    api_key = context.user_data['api_key']
+    
+    # Check connection & fetch balance
+    balance = await fetch_exchange_balance_safe(exchange, api_key, secret_key)
+    
+    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_checking.message_id)
+    
+    if balance is None:
+        await update.message.reply_text(get_text(user_id, "status_error"))
+        return ASK_SECRET_KEY
+        
+    context.user_data['balance'] = balance
     return await ask_reserve_start(update, context)
 
 async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1332,6 +1481,23 @@ async def ask_passphrase(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, context)
     
     context.user_data['passphrase'] = passphrase
+    
+    # Validate OKX keys & Fetch Balance
+    msg_checking = await update.message.reply_text(get_text(user_id, "msg_checking_balances"))
+    
+    exchange = context.user_data['exchange_name'] # okx
+    api_key = context.user_data['api_key']
+    secret_key = context.user_data['secret_key']
+    
+    balance = await fetch_exchange_balance_safe(exchange, api_key, secret_key, passphrase)
+    
+    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_checking.message_id)
+    
+    if balance is None:
+        await update.message.reply_text(get_text(user_id, "status_error"))
+        return ASK_PASSPHRASE
+        
+    context.user_data['balance'] = balance
     return await ask_reserve_start(update, context)
 
 async def ask_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1341,8 +1507,11 @@ async def ask_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[get_text(user_id, "btn_skip")], [get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     
+    # Show Balance and Ask for Trading Capital
+    balance = context.user_data.get('balance', 0.0)
+    
     await update.message.reply_text(
-        get_text(user_id, "msg_ask_reserve"),
+        get_text(user_id, "msg_ask_reserve", balance=f"{balance:.2f}"),
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -1353,14 +1522,27 @@ async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = update.effective_user.id
     text = update.message.text
     
-    reserved_amount = 0.0
+    # Default: Use ALL available balance if skipped (Capital = Balance)
+    balance = context.user_data.get('balance', 0.0)
+    capital_amount = balance # Default if skipped
     
     if text not in ["Skip ⏩", "Пропустить ⏩", "Пропустити ⏩", get_text(user_id, "btn_skip")]:
-        # Пытаемся распарсить число
+        # Parse entered Capital Amount
         try:
             val = float(text)
             if val < 0: raise ValueError
-            reserved_amount = val
+            
+            # Validation: Capital cannot exceed Balance
+            if val > balance:
+                 await update.message.reply_text(
+                     f"❌ <b>Invalid Amount</b>\n"
+                     f"Trading Capital cannot exceed your balance (${balance:.2f}).\n"
+                     f"Please enter a valid amount.",
+                     parse_mode=ParseMode.HTML
+                 )
+                 return ASK_RESERVE
+                 
+            capital_amount = val
         except ValueError:
             await update.message.reply_text(get_text(user_id, "err_invalid_reserve"))
             return ASK_RESERVE
@@ -1372,13 +1554,60 @@ async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE)
     passphrase = context.user_data.get('passphrase')
     strategy = context.user_data.get('strategy', 'ratner')
 
-    # 1. Сохраняем подключение к бирже + резерв
+    # 1. Save Exchange Connection + Trading Capital
     save_user_exchange(user_id, exchange, api_key, secret_key, passphrase, strategy)
-    update_exchange_reserve(user_id, exchange, reserved_amount)
+    update_exchange_reserve(user_id, exchange, capital_amount)
     
-    # 2. Сохраняем стратегию глобально (хотя теперь это есть и в user_exchanges)
-    # Оставляем для совместимости, если где-то используется
-    set_user_strategy(user_id, strategy)
+    # 2. IF TRADEMAX (OKX) -> ASK FOR RISK %
+    if strategy == 'cgt': # TradeMax
+        # Default risk in DB is 1.0 via migration
+        await update.message.reply_text(
+            f"⚖️ <b>Risk Settings ({exchange.capitalize()})</b>\n\n"
+            f"How much of your Trading Capital do you want to risk per trade?\n"
+            f"Enter a number (e.g., <b>1</b> for 1%).\n\n"
+            f"<i>Calculated Entry Size: ${capital_amount * 0.01:.2f} (at 1% risk)</i>",
+            parse_mode=ParseMode.HTML
+        )
+        return ASK_RISK_FINISH
+
+    # Ratner -> Finish
+    context.user_data.clear()
+    
+    main_keyboard = [
+        [get_text(user_id, "btn_copytrade")],
+        [get_text(user_id, "btn_viewchart"), get_text(user_id, "btn_profile")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+    
+    display_strategy = "TradeMax" if strategy.lower() == 'cgt' else strategy.upper()
+    await update.message.reply_text(
+        get_text(user_id, "msg_reserve_saved", exchange=exchange.capitalize(), strategy=display_strategy, reserve=f"{capital_amount:.2f}"),
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML
+    )
+    return ConversationHandler.END
+
+async def ask_risk_finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Saves the risk percentage for the new connection."""
+    user_id = update.effective_user.id
+    text = update.message.text
+    
+    # Parse Risk
+    risk_pct = 1.0
+    try:
+        val = float(text)
+        if val <= 0 or val > 100: raise ValueError
+        risk_pct = val
+    except ValueError:
+        await update.message.reply_text("❌ Invalid Percentage. Please enter a number between 0.1 and 100.")
+        return ASK_RISK_FINISH
+        
+    exchange = context.user_data['exchange_name']
+    capital = context.user_data.get('balance', 0.0) # Actually stored in DB already, but for display
+    # Better: fetch from DB or assume passed logic
+    # We just updated DB with capital_amount in ask_reserve_finish
+    
+    update_exchange_risk(user_id, exchange, risk_pct)
     
     context.user_data.clear()
     
@@ -1388,8 +1617,15 @@ async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
     
+    strategy_disp = "TradeMax" # We know it is TradeMax here
+    # Re-fetch capital just for display if needed, or rely on msg
+    # Use generic success msg
+    
     await update.message.reply_text(
-        get_text(user_id, "msg_reserve_saved", exchange=exchange.capitalize(), strategy=strategy.upper(), reserve=reserved_amount),
+        f"✅ <b>Setup Complete!</b>\n\n"
+        f"Strategy: <b>{strategy_disp}</b>\n"
+        f"Risk per Trade: <b>{risk_pct}%</b>\n\n"
+        f"Aladdin is now ready to trade.",
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML
     )
@@ -2040,11 +2276,16 @@ def main():
     # Edit Reserve conversation handler
     # Catch buttons like "Edit Reserve (Binance) 🛡️", "Изм. Резерв (Binance) 🛡️"
     edit_reserve_conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex(r".*(Reserve|Резерв).*"), edit_reserve_start)],
+        entry_points=[MessageHandler(filters.Regex(r".*(Reserve|Резерв|Capital|Капитал|Капітал|Settings|Настройки|Налаштування).*"), edit_reserve_start)],
         states={
-            ASK_RESERVE_EDIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_reserve_save)]
+            ASK_EDIT_SELECTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_selection_handler)],
+            ASK_EDIT_CAPITAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_capital_save)],
+            ASK_EDIT_RISK: [MessageHandler(filters.TEXT & ~filters.COMMAND, edit_risk_save)]
         },
-        fallbacks=[CommandHandler('cancel', my_exchanges_command)] # Fallback is just list again
+        fallbacks=[
+            CommandHandler('cancel', cancel_edit_reserve),
+            MessageHandler(filters.Regex('^Back to Main Menu ⬅️$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_back")])), cancel_edit_reserve)
+        ]
     )
     broadcast_conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^Broadcast 📢$'), broadcast_start)],
@@ -2095,6 +2336,10 @@ def main():
             ASK_RESERVE: [
                 MessageHandler(filters.Regex('^Cancel$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_cancel")])), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_reserve_finish)
+            ],
+            ASK_RISK_FINISH: [
+                MessageHandler(filters.Regex('^Cancel$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_cancel")])), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_risk_finish)
             ]
         },
         # fallbacks обрабатывают команды типа /cancel, но лучше добавить кнопку и сюда

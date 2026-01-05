@@ -138,6 +138,7 @@ def initialize_db():
             passphrase_encrypted TEXT, -- for OKX
             strategy TEXT DEFAULT 'ratner', -- 'ratner' or 'cgt'
             reserved_amount REAL DEFAULT 0.0,
+            risk_pct REAL DEFAULT 1.0,
             is_active BOOLEAN DEFAULT 1,
             created_at TEXT,
             UNIQUE(user_id, exchange_name)
@@ -178,7 +179,18 @@ def initialize_db():
             print(f"🔄 Migrated {len(legacy_users)} legacy users to 'user_exchanges'.")
             
     except Exception as e:
-        print(f"⚠️ Migration warning: {e}")
+        print(f"⚠️ Limit migration warning: {e}")
+
+    # --- MIGRATION: ADD RISK_PCT COLUMN TO USER_EXCHANGES IF MISSING ---
+    try:
+        cursor.execute("SELECT risk_pct FROM user_exchanges LIMIT 1")
+    except sqlite3.OperationalError as err:
+        print("🔄 Adding 'risk_pct' column to user_exchanges...")
+        cursor.execute("ALTER TABLE user_exchanges ADD COLUMN risk_pct REAL DEFAULT 1.0;")
+        conn.commit()
+        print(f"✅ Migration successful. Added risk_pct.")
+    except Exception as err:
+        print(f"⚠️ Migration warning: {err}")
 
     conn.commit()
     
@@ -277,6 +289,16 @@ def get_user_strategy(user_id: int):
     res = cursor.fetchone()
     conn.close()
     return res[0] if res else 'ratner'
+
+def get_user_risk_profile(user_id: int) -> float:
+    """Returns risk per trade percentage (e.g. 1.0 for 1%)."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT risk_per_trade_pct FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return float(res[0]) if res and res[0] is not None else 1.0
+
 
 # Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
 # Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
@@ -745,6 +767,10 @@ def get_user_exchanges(user_id: int) -> list[dict]:
 def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
     """Обновляет сумму резерва для конкретной биржи."""
     execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
+
+def update_exchange_risk(user_id: int, exchange: str, risk_pct: float):
+    """Обновляет риск на сделку для конкретной биржи."""
+    execute_write_query("UPDATE user_exchanges SET risk_pct = ? WHERE user_id = ? AND exchange_name = ?", (risk_pct, user_id, exchange))
 
 def delete_user_exchange(user_id: int, exchange: str):
     """Удаляет (или помечает неактивной) биржу."""
