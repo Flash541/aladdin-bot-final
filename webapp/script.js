@@ -32,7 +32,7 @@ const translations = {
         wiz_step1: "Select Strategy",
         wiz_step2: "Select Exchange",
         wiz_step3: "Connection Details",
-        strat_ratner: "Ratner (Futures)",
+        strat_ratner: "Bro-Bot (Futures)",
         strat_ratner_desc: "Binance, Bybit, etc.",
         strat_cgt: "TradeMax (Spot)",
         strat_cgt_desc: "OKX Only",
@@ -67,7 +67,7 @@ const translations = {
         wiz_step1: "Выберите Стратегию",
         wiz_step2: "Выберите Биржу",
         wiz_step3: "Детали Подключения",
-        strat_ratner: "Ratner (Фьючерсы)",
+        strat_ratner: "Bro-Bot (Фьючерсы)",
         strat_ratner_desc: "Binance, Bybit и др.",
         strat_cgt: "TradeMax (Спот)",
         strat_cgt_desc: "Только OKX",
@@ -102,7 +102,7 @@ const translations = {
         wiz_step1: "Оберіть Стратегію",
         wiz_step2: "Оберіть Біржу",
         wiz_step3: "Деталі Підключення",
-        strat_ratner: "Ratner (Ф'ючерси)",
+        strat_ratner: "Bro-Bot (Ф'ючерси)",
         strat_ratner_desc: "Binance, Bybit та ін.",
         strat_cgt: "TradeMax (Спот)",
         strat_cgt_desc: "Тільки OKX",
@@ -209,10 +209,13 @@ function renderExchanges(exchanges) {
     exchanges.forEach(ex => {
         const isConnected = ex.status === "Connected";
         const statusClass = isConnected ? "status-green" : "status-red";
+        const logoPath = `logo_bots/${ex.name.toLowerCase()}.png?v=2`;
 
         const html = `
             <div class="list-item">
-                <div class="item-icon">${ex.icon || '🔹'}</div>
+                <div class="item-icon" style="background:transparent; border:none; padding:0;">
+                    <img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='https://ui-avatars.com/api/?name=${ex.name}&background=333&color=fff'">
+                </div>
                 <div class="item-content">
                     <div class="item-title">${ex.name}</div>
                     <div class="item-subtitle">
@@ -244,12 +247,15 @@ function renderActiveStrategies(exchanges) {
     }
 
     active.forEach(ex => {
-        const stratName = ex.strategy === 'cgt' ? 'TradeMax' : 'Ratner';
+        const stratName = ex.strategy === 'cgt' ? 'TradeMax' : 'Bro-Bot';
         const type = ex.strategy === 'cgt' ? 'Spot' : 'Futures';
+        const logoPath = `logo_bots/${ex.name.toLowerCase()}.png?v=2`;
 
         const html = `
             <div class="list-item">
-                <div class="item-icon">🧞‍♂️</div>
+                <div class="item-icon" style="background:transparent; border:none; padding:0;">
+                   <img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='https://ui-avatars.com/api/?name=${ex.name}&background=333&color=fff'">
+                </div>
                 <div class="item-content">
                     <div class="item-title">${stratName}</div>
                     <div class="item-subtitle">${ex.name} • ${type}</div>
@@ -264,7 +270,7 @@ function renderActiveStrategies(exchanges) {
 }
 
 // --- WIZARD LOGIC ---
-let wizardData = { strategy: 'ratner', exchange: 'binance', reserve: 0, apiKey: '', secret: '', password: '' };
+let wizardData = { strategy: 'bro-bot', exchange: 'binance', reserve: 0, apiKey: '', secret: '', password: '' };
 let currentStep = 1;
 
 function setupWizard() {
@@ -319,7 +325,7 @@ function filterExchanges(strategy) {
             // OKX Only
             opt.style.display = ex === 'okx' ? 'block' : 'none';
         } else {
-            // Ratner: Not OKX
+            // Bro-Bot: Not OKX
             opt.style.display = ex !== 'okx' ? 'block' : 'none';
         }
     });

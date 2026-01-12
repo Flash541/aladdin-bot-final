@@ -102,7 +102,7 @@ def initialize_db():
             api_secret_encrypted TEXT,
             api_passphrase_encrypted TEXT,
                    
-            selected_strategy TEXT DEFAULT 'ratner', -- ratner или cgt
+            selected_strategy TEXT DEFAULT 'bro-bot', -- bro-bot или cgt
             daily_analysis_count INTEGER DEFAULT 0,
             last_analysis_date TEXT,
             language_code TEXT DEFAULT 'en'
@@ -137,7 +137,7 @@ def initialize_db():
             api_key TEXT,
             api_secret_encrypted TEXT,
             passphrase_encrypted TEXT, -- for OKX
-            strategy TEXT DEFAULT 'ratner', -- 'ratner' or 'cgt'
+            strategy TEXT DEFAULT 'bro-bot', -- 'bro-bot' or 'cgt'
             reserved_amount REAL DEFAULT 0.0,
             risk_pct REAL DEFAULT 1.0,
             is_active BOOLEAN DEFAULT 1,
@@ -200,7 +200,7 @@ def initialize_db():
     except: pass
     try: cursor.execute("ALTER TABLE copied_trades ADD COLUMN open_date TEXT")
     except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN selected_strategy TEXT DEFAULT 'ratner'")
+    try: cursor.execute("ALTER TABLE users ADD COLUMN selected_strategy TEXT DEFAULT 'bro-bot'")
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN daily_analysis_count INTEGER DEFAULT 0")
     except: pass
@@ -280,7 +280,7 @@ def check_analysis_limit(user_id: int, limit: int = 5) -> bool:
         return False
 
 def set_user_strategy(user_id: int, strategy: str):
-    """Сохраняет выбранную стратегию (ratner или cgt)."""
+    """Сохраняет выбранную стратегию (bro-bot или cgt)."""
     execute_write_query("UPDATE users SET selected_strategy = ? WHERE user_id = ?", (strategy, user_id))
 
 def get_user_strategy(user_id: int):
@@ -289,7 +289,7 @@ def get_user_strategy(user_id: int):
     cursor.execute("SELECT selected_strategy FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone()
     conn.close()
-    return res[0] if res else 'ratner'
+    return res[0] if res else 'bro-bot'
 
 def get_user_risk_profile(user_id: int) -> float:
     """Returns risk per trade percentage (e.g. 1.0 for 1%)."""
@@ -658,7 +658,7 @@ def update_user_risk_settings(user_id: int, balance: float, risk_pct: float):
 
 # --- MULTI-EXCHANGE MANAGEMENT ---
 
-def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'ratner'):
+def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'bro-bot'):
     """Сохраняет или обновляет подключение к бирже."""
     encrypted_secret = encrypt_data(secret_key)
     encrypted_pass = encrypt_data(passphrase) if passphrase else None
@@ -721,7 +721,7 @@ def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: st
 
 # --- MULTI-EXCHANGE MANAGEMENT ---
 
-def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'ratner'):
+def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'bro-bot'):
     """Сохраняет или обновляет подключение к бирже."""
     encrypted_secret = encrypt_data(secret_key)
     encrypted_pass = encrypt_data(passphrase) if passphrase else None

@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aladdin Bot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&family=Orbitron:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -16,7 +20,7 @@
     <div id="home" class="page active animate-enter">
         <header>
             <div class="user-info">
-                <img id="user-avatar" src="https://ui-avatars.com/api/?name=Aladdin&background=FFD700&color=000"
+                <img id="user-avatar" src="https://ui-avatars.com/api/?name=Aladdin&background=A500E1&color=fff"
                     class="avatar">
                 <div>
                     <div class="text-caption" data-i18n="welcome">Welcome Back</div>
@@ -105,8 +109,8 @@
             <form id="form-wizard-api" onsubmit="return false;">
                 <!-- Step 1: Strategy -->
                 <div id="step-1" class="wizard-step">
-                    <div class="strategy-card" data-strategy="ratner">
-                        <div class="item-title" data-i18n="strat_ratner">Ratner (Futures)</div>
+                    <div class="strategy-card" data-strategy="bro-bot">
+                        <div class="item-title" data-i18n="strat_ratner">Bro-Bot (Futures)</div>
                         <div class="text-sm" data-i18n="strat_ratner_desc">Binance, Bybit, BingX</div>
                     </div>
                     <div class="strategy-card" data-strategy="cgt">
@@ -117,11 +121,36 @@
 
                 <!-- Step 2: Exchange -->
                 <div id="step-2" class="wizard-step" style="display:none;">
+                    <h2 style="margin-bottom:20px; text-align:center;">Select Exchange</h2>
                     <div class="exchange-grid">
-                        <div class="exchange-option" data-exchange="binance">🔸 Binance</div>
-                        <div class="exchange-option" data-exchange="bybit">⬛ Bybit</div>
-                        <div class="exchange-option" data-exchange="okx">⚫ OKX</div>
-                        <div class="exchange-option" data-exchange="bingx">🟦 BingX</div>
+                        <!-- Binance -->
+                        <div class="exchange-option" data-exchange="binance" data-filter="bro-bot">
+                            <img src="logo_bots/binance.png?v=2" class="exchange-logo"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">🔸</div>
+                            <div class="exchange-name">Binance</div>
+                        </div>
+                        <!-- OKX -->
+                        <div class="exchange-option" data-exchange="okx" data-filter="cgt">
+                            <img src="logo_bots/okx.png?v=2" class="exchange-logo"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">⚫</div>
+                            <div class="exchange-name">OKX</div>
+                        </div>
+                        <!-- Bybit -->
+                        <div class="exchange-option" data-exchange="bybit" data-filter="bro-bot">
+                            <img src="logo_bots/bybit.png?v=2" class="exchange-logo"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">⬛</div>
+                            <div class="exchange-name">Bybit</div>
+                        </div>
+                        <!-- BingX -->
+                        <div class="exchange-option" data-exchange="bingx" data-filter="bro-bot">
+                            <img src="logo_bots/bingx.png?v=2" class="exchange-logo"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">🟦</div>
+                            <div class="exchange-name">BingX</div>
+                        </div>
                     </div>
                 </div>
 

@@ -735,7 +735,7 @@ async def edit_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
     from database import get_user_exchanges
     user_exs = get_user_exchanges(user_id)
     target_ex = next((x for x in user_exs if x['exchange_name'] == exchange_name), None)
-    strategy = target_ex['strategy'] if target_ex else 'ratner'
+    strategy = target_ex['strategy'] if target_ex else 'bro-bot'
     context.user_data['editing_strategy'] = strategy
 
     # Live Balance Check
@@ -769,7 +769,7 @@ async def edit_reserve_start(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return ASK_EDIT_SELECTION
 
-    # Ratner (Standard)
+    # Bro-Bot (Standard)
     await update.message.reply_text(
         get_text(user_id, "msg_edit_reserve_prompt", exchange=exchange_name.capitalize(), balance=f"{balance:.2f}"),
         reply_markup=ReplyKeyboardRemove(),
@@ -1088,7 +1088,7 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Сразу спрашиваем стратегию
     user_id = update.effective_user.id
-    keyboard = [["Ratner (Futures)", "TradeMax (Spot)"], [get_text(user_id, "btn_cancel")]]
+    keyboard = [["Bro-Bot (Futures)", "TradeMax (Spot)"], [get_text(user_id, "btn_cancel")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
     await update.message.reply_text(
         get_text(user_id, "msg_select_strategy"),
@@ -1103,8 +1103,8 @@ async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if choice in ["Cancel", get_text(user_id, "btn_cancel")]:
         return await cancel(update, context) # Вызываем функцию отмены
-    if choice == "Ratner (Futures)":
-        context.user_data['strategy'] = 'ratner'
+    if choice == "Bro-Bot (Futures)":
+        context.user_data['strategy'] = 'bro-bot'
         # Показываем биржи для Ратнера (Localized & No MEXC)
         keyboard = [
             [get_text(user_id, "btn_strat_binance"), get_text(user_id, "btn_strat_bybit")], 
@@ -1260,7 +1260,7 @@ async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Шаг 3: Проверка биржи, Инструкции (Фото + Ссылка) и запрос API Key."""
     exchange_name = update.message.text
-    strategy = context.user_data.get('strategy', 'ratner')
+    strategy = context.user_data.get('strategy', 'bro-bot')
     user_id = update.effective_user.id
     
     if exchange_name in ["Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
@@ -1280,11 +1280,11 @@ async def ask_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE):
          return ASK_EXCHANGE
 
     # Валидация бирж
-    valid_ratner = ["Binance", "Bybit", "BingX"] # Removed MEXC
+    valid_bro_bot = ["Binance", "Bybit", "BingX"] # Removed MEXC
     valid_cgt = ["OKX"]
     
-    if strategy == 'ratner' and canonical_exchange not in valid_ratner:
-        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy=strategy, valid_exchanges=', '.join(valid_ratner)))
+    if strategy == 'bro-bot' and canonical_exchange not in valid_bro_bot:
+        await update.message.reply_text(get_text(user_id, "err_mismatch_strategy_exchange", strategy=strategy, valid_exchanges=', '.join(valid_bro_bot)))
         return ASK_EXCHANGE
         
     if strategy == 'cgt' and canonical_exchange not in valid_cgt:
@@ -1534,7 +1534,7 @@ async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE)
     api_key = context.user_data['api_key']
     secret_key = context.user_data['secret_key']
     passphrase = context.user_data.get('passphrase')
-    strategy = context.user_data.get('strategy', 'ratner')
+    strategy = context.user_data.get('strategy', 'bro-bot')
 
     # 1. Save Exchange Connection + Trading Capital
     save_user_exchange(user_id, exchange, api_key, secret_key, passphrase, strategy)
@@ -1552,7 +1552,7 @@ async def ask_reserve_finish(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return ASK_RISK_FINISH
 
-    # Ratner -> Finish
+    # Bro-Bot -> Finish
     context.user_data.clear()
     
     main_keyboard = [

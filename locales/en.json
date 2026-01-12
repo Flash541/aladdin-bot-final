@@ -102,7 +102,7 @@
     "err_invalid_amount": "Invalid amount. Please enter a number greater than 0.",
     "err_invalid_wallet": "Invalid wallet address. Please paste a valid BEP-20 address (starts with 0x).",
     "msg_withdraw_submitted": "✅ Your withdrawal request has been submitted! Please allow up to 24 hours for processing.",
-    "msg_select_strategy": "🤖 <b>Select Trading Strategy</b>\n\n<b>Ratner:</b> Futures trading (Binance, Bybit, etc.)\n<b>TradeMax:</b> Spot trading (OKX Only)",
+    "msg_select_strategy": "🤖 <b>Select Trading Strategy</b>\n\n<b>Bro-Bot:</b> Futures trading (Binance, Bybit, etc.)\n<b>TradeMax:</b> Spot trading (OKX Only)",
     "msg_select_futures_exchange": "Select Futures Exchange:",
     "msg_select_spot_exchange": "Select Spot Exchange:",
     "err_invalid_strategy": "Please select a valid strategy.",

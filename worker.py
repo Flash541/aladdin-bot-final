@@ -496,7 +496,7 @@ class TradeCopier:
         
     # def process_signal(self, event_data, executor):
     #     master_exchange = event_data.get('master_exchange', 'binance')
-    #     strategy = event_data.get('strategy', 'ratner') # ratner (futures) или cgt (spot)
+    #     strategy = event_data.get('strategy', 'bro-bot') # bro-bot (futures) или cgt (spot)
         
     #     symbol = event_data.get('s'); side = event_data.get('S')
     #     order_type = event_data.get('o'); status = event_data.get('X')
@@ -536,11 +536,11 @@ class TradeCopier:
     #                 ratio = 0
                 
     #             print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}%")
-    #             # Передаем strategy='ratner'
-    #             self.execute_trade_parallel(symbol, side.lower(), ratio, executor, strategy='ratner')
+    #             # Передаем strategy='bro-bot'
+    #             self.execute_trade_parallel(symbol, side.lower(), ratio, executor, strategy='bro-bot')
 
     # # --- PARALLEL EXECUTORS ---
-    # def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='ratner'):
+    # def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot'):
     #     # Фильтруем юзеров по стратегии (кто выбрал CGT, а кто Ratner)
     #     subscribers = get_users_for_copytrade(strategy=strategy)
     #     print(f"⚡ [WORKER] Executing ({strategy}) for {len(subscribers)} users...")
@@ -549,7 +549,7 @@ class TradeCopier:
 
     def process_signal(self, event_data, executor):
         master_exchange = event_data.get('master_exchange', 'binance')
-        strategy = event_data.get('strategy', 'ratner') # ratner (futures) или cgt (spot)
+        strategy = event_data.get('strategy', 'bro-bot') # bro-bot (futures) или cgt (spot)
         
         symbol = event_data.get('s'); side = event_data.get('S')
         order_type = event_data.get('o'); status = event_data.get('X')
@@ -596,10 +596,10 @@ class TradeCopier:
                 print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
                 
                 # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only ДАЛЬШЕ ---
-                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'ratner', is_reduce_only=is_reduce_only)
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'bro-bot', is_reduce_only=is_reduce_only)
 
 
-    def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='ratner', is_reduce_only=False):
+    def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot', is_reduce_only=False):
         # Используем список подключений (Multi-Exchange)
         connections = get_active_exchange_connections(strategy=strategy)
         print(f"⚡ [WORKER] Executing ({strategy}) for {len(connections)} connections...")
