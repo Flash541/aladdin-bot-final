@@ -1050,7 +1050,7 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⚠️ New Withdrawal Request ⚠️\n\n"
             f"User ID: {user_id}\n"
             f"Username: @{update.effective_user.username}\n"
-            f"Amount: {amount} tokens\n"
+            f"Amount: {amount} USDT\n"
             f"Wallet: <code>{wallet_address}</code>"
         )
         await context.bot.send_message(ADMIN_USER_ID, admin_message, parse_mode=ParseMode.HTML)
@@ -1740,7 +1740,7 @@ async def handle_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"Active Subscribers: <b>{stats['active_users']}</b>\n"
         f"Pending Payment: <b>{stats['pending_payment']}</b>\n\n"
         f"Total Token Balance (all users): <b>{stats['total_tokens']:.2f}</b>\n"
-        f"Pending Withdrawals: <b>{stats['pending_withdrawals_count']}</b> requests for <b>{stats['pending_withdrawals_sum']:.2f}</b> tokens.\n\n"
+        f"Pending Withdrawals: <b>{stats['pending_withdrawals_count']}</b> requests for <b>{stats['pending_withdrawals_sum']:.2f}</b> USDT.\n\n"
         f"🎟️ <b>Promo Codes Stats:</b>\n"
         f"Total Codes: <b>{stats['total_promo_codes']}</b>\n"
         f"Used Codes: <b>{stats['used_promo_codes']}</b>\n"
@@ -1756,7 +1756,7 @@ async def handle_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for user in users_report:
         report_text += (
             f"👤 <b>User:</b> <code>{user['user_id']}</code> (@{user['username']})\n"
-            f"   - Balance: <b>{user['balance']:.2f}</b> Tokens\n"
+            f"   - Balance: <b>{user['balance']:.2f}</b> USDT\n"
             f"   - Referrals: L1: <b>{user['referrals']['l1']}</b>\n"
             f"--------------------\n"
         )
@@ -1777,7 +1777,7 @@ async def handle_admin_withdrawals(update: Update, context: ContextTypes.DEFAULT
         report_text += (
             f"<b>Request ID: #{req_id}</b>\n"
             f"  - User ID: <code>{user_id}</code>\n"
-            f"  - Amount: <b>{amount:.2f}</b> Tokens\n"
+            f"  - Amount: <b>{amount:.2f}</b> USDT\n"
             f"  - Wallet (BEP-20): <code>{wallet}</code>\n"
             f"  - Date: {date}\n"
             f"--------------------\n"
@@ -2018,7 +2018,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 profile_after_topup = get_user_profile(user_id)
                 new_balance = profile_after_topup['balance']
                 
-                await update.message.reply_text(get_text(user_id, "msg_top_up_success", amount=amount, new_balance=new_balance))
+                await update.message.reply_text(get_text(user_id, "msg_topup_success", amount=amount, new_balance=new_balance))
 
                 # ПРОВЕРКА НА РАЗБЛОКИРОВКУ
                 # Если баланс был <= 0, а стал > 0, включаем копи-трейдинг

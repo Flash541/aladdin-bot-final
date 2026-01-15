@@ -1248,7 +1248,7 @@ class TradeCopier:
                                 ref_msg = (
                                     f"🎉 <b>Referral Bonus!</b>\n"
                                     f"Level {i+1} referral closed a profitable trade.\n"
-                                    f"💵 You earned: <b>{reward:.2f} tokens</b>"
+                                    f"💵 You earned: <b>{reward:.2f} USDT</b>"
                                 )
                                 loop = asyncio.new_event_loop()
                                 asyncio.set_event_loop(loop)
