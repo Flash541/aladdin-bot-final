@@ -4,11 +4,12 @@ import re
 import asyncio
 import pandas as pd
 import requests
+from urllib.parse import urlencode
 import concurrent.futures
 import time
 from datetime import datetime
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import (Application, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler, CallbackQueryHandler)
 from telegram.constants import ParseMode
 from telegram.ext import JobQueue
@@ -28,6 +29,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID")) 
+WEBAPP_URL = os.getenv("WEBAPP_URL") 
+NGROK_URL = "https://53f4a1267c1f.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
 PAYMENT_AMOUNT = 49
 # PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
@@ -630,7 +633,12 @@ async def my_exchanges_command(update: Update, context: ContextTypes.DEFAULT_TYP
             balance_str = "N/A"
 
         # Strategy Display Name
-        strat_disp = "TradeMax" if ex['strategy'] == 'cgt' else ex['strategy'].upper()
+        if ex['strategy'] == 'cgt':
+            strat_disp = "TradeMax"
+        elif ex['strategy'] == 'bro-bot' or ex['strategy'] == 'ratner':
+            strat_disp = "Bing-Bot"
+        else:
+            strat_disp = ex['strategy'].capitalize()
 
         risk_line = ""
         btn_key = "btn_edit_reserve"
@@ -922,9 +930,40 @@ async def set_initial_language(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 async def top_up_balance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает инструкцию по пополнению баланса."""
+    """
+    Генерирует уникальный адрес через CryptAPI.
+    """
     user_id = update.effective_user.id
-    await update.message.reply_text(get_text(user_id, "msg_how_to_top_up", address=WALLET_ADDRESS), parse_mode=ParseMode.HTML)
+    # Пишем "Генерирую адрес..."
+    await update.message.reply_text(get_text(user_id, "msg_generating_address"))
+    try:
+        # 1. Формируем Callback URL (куда CryptAPI пришлет уведомление)
+        # NGROK_URL - это твоя ссылка от ngrok (https://....ngrok-free.app)
+        callback_base = f"{NGROK_URL}/cryptapi_webhook"
+        
+        # Передаем user_id в параметрах, чтобы сервер знал, КОМУ пополнять
+        callback_params = {'user_id': user_id, 'secret': 'SOME_SECRET_WORD_TO_VALIDATE'}
+        callback_url = f"{callback_base}?{urlencode(callback_params)}"
+        # 2. Делаем запрос к CryptAPI
+        api_url = "https://api.cryptapi.io/bep20/usdt/create/"
+        params = {
+            'callback': callback_url,
+            'address': str(WALLET_ADDRESS), # Куда реально придут деньги (твой кошелек)
+        }
+        
+        response = requests.get(api_url, params=params)
+        data = response.json()
+        if data.get('status') == 'success':
+            address_in = data['address_in'] # Адрес, который показываем юзеру
+            min_deposit = data['minimum_transaction_coin']
+            # Отправляем адрес пользователю
+            msg = get_text(user_id, "msg_deposit_address", address=address_in, min_deposit=min_deposit)
+            await update.message.reply_text(msg, parse_mode=ParseMode.HTML)
+        else:
+            await update.message.reply_text(get_text(user_id, "err_generating_address"))
+    except Exception as e:
+        print(f"CryptAPI Error: {e}")
+        await update.message.reply_text(get_text(user_id, "msg_cryptapi_error"))
 
 # --- НОВАЯ ФУНКЦИЯ ДЛЯ ПРОВЕРКИ ПЛАТЕЖА ЗА ПОПОЛНЕНИЕ ---
 async def verify_top_up_payment(tx_hash: str, user_id: int) -> tuple[bool, str, float]:
@@ -1086,26 +1125,51 @@ async def ask_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #     return ASK_EXCHANGE
 
 async def connect_exchange_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Сразу спрашиваем стратегию
     user_id = update.effective_user.id
-    keyboard = [["Bro-Bot (Futures)", "TradeMax (Spot)"], [get_text(user_id, "btn_cancel")]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    
+    if not WEBAPP_URL:
+        await update.message.reply_text("⛔ Error: WEBAPP_URL not set in .env")
+        return ConversationHandler.END
+
+    # 1. Show Mini App Button (Inline)
+    btn_label = get_text(user_id, "btn_miniapp_label")
+    keyboard_inline = [[InlineKeyboardButton(btn_label, web_app=WebAppInfo(url=WEBAPP_URL))]]
+    reply_markup_inline = InlineKeyboardMarkup(keyboard_inline)
+    
+    msg_setup = get_text(user_id, "msg_aladdin_setup")
     await update.message.reply_text(
-        get_text(user_id, "msg_select_strategy"),
-        reply_markup=reply_markup,
+        msg_setup,
+        reply_markup=reply_markup_inline,
         parse_mode=ParseMode.HTML
     )
+
+    # 2. Show Chat Setup Options (Reply Keyboard)
+    # Using hardcoded names as requested "Bing-Bot (Futures), TradeMax (Spot)" for consistency
+    keyboard_reply = [
+        ["Bing-Bot (Futures)", "TradeMax (Spot)"],
+        [get_text(user_id, "btn_back")]
+    ]
+    reply_markup_reply = ReplyKeyboardMarkup(keyboard_reply, resize_keyboard=True, one_time_keyboard=True)
+    
+    await update.message.reply_text(
+        get_text(user_id, "msg_select_strategy"), # Ensure this key exists and explains "Or select below"
+        reply_markup=reply_markup_reply,
+        parse_mode=ParseMode.HTML
+    )
+    
     return ASK_STRATEGY
 
 async def ask_strategy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = update.message.text
     user_id = update.effective_user.id
     
-    if choice in ["Cancel", get_text(user_id, "btn_cancel")]:
-        return await cancel(update, context) # Вызываем функцию отмены
-    if choice == "Bro-Bot (Futures)":
-        context.user_data['strategy'] = 'bro-bot'
-        # Показываем биржи для Ратнера (Localized & No MEXC)
+    if choice in ["Cancel", get_text(user_id, "btn_cancel"), "Back to Main Menu ⬅️", get_text(user_id, "btn_back")]:
+        return await cancel(update, context)
+
+    # Handle Bing-Bot (was Bro-Bot)
+    if choice == "Bing-Bot (Futures)" or choice == "Bro-Bot (Futures)":
+        context.user_data['strategy'] = 'bro-bot' # Backend key remains bro-bot
+        # Показываем биржи для Bing-Bot (BingX)
         keyboard = [
             [get_text(user_id, "btn_strat_binance"), get_text(user_id, "btn_strat_bybit")], 
             [get_text(user_id, "btn_strat_bingx")], 

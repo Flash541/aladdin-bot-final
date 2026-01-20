@@ -1,0 +1,509 @@
+INFO:     Started server process [68614]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Database path set to: /Users/kamronbekjurabaev/Desktop/crypto_aladdin/aladdin_dev.db
+✅ Database initialized successfully (WAL Mode ON).
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=44 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=44 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=44 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=44 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=44 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=45 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=45 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=45 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=46 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /logo_bots/okx.png?v=2 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=45 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=45 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=46 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=46 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=8462621561
+DEBUG: Found 0 exchanges for user 8462621561: []
+DEBUG: Final ex_list for user 8462621561: []
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=8462621561 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=49 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=8462621561
+DEBUG: Found 0 exchanges for user 8462621561: []
+DEBUG: Final ex_list for user 8462621561: []
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=8462621561 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=49 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=50 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=50 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=51 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=51 HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 304 Not Modified
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=51 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=53 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 304 Not Modified
+INFO:     80.245.132.90:0 - "GET /script.js?v=53 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     149.154.161.252:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=53 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /logo_bots/okx.png?v=2 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=53 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=54 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=54 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=55 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=55 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=55 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /logo_bots/okx.png?v=2 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=57 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=58 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=60 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=61 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=62 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=63 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=63 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=63 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=64 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=64 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=65 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/language HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=66 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=66 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=66 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=66 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /logo_bots/okx.png?v=2 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=67 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=68 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=69 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/create_payment HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=69 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=69 HTTP/1.1" 304 Not Modified
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=70 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=71 HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET / HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /dashboard_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copytrading_styles.css HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /script.js?v=71 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /top_up.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_trade.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /usdt_bep_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /copy_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /exchange_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /home_icon.svg HTTP/1.1" 200 OK
+DEBUG: /api/data called for user_id=502483421
+DEBUG: Found 1 exchanges for user 502483421: [{'id': 1, 'user_id': 502483421, 'exchange_name': 'okx', 'api_key': '35da235c-fa34-4717-b392-7e2113703c7d', 'api_secret_encrypted': 'gAAAAABpbqQzGnAePggGQv2BSaGHbqBf6esdGO6Vx4XMnDgr0FXAsrjm5rOpRLLu_5ejGp6FTlpJTaxI6HaZVhg0xWpvp3Ify59fmIyhoXnQo27VpqiLtfqoJttVXf5zw3hFGai7NaiK', 'passphrase_encrypted': 'gAAAAABpbqQzUqwSPd-VMRrl1tRvCzCG4llSqUFpnWFR471y0wxYl1cQZZm4GiqWBufM-ubaW6k7HlMfOdn8K5oJcS_h9K4vuw==', 'strategy': 'cgt', 'reserved_amount': 10.0, 'risk_pct': 2.0, 'is_active': 1, 'created_at': '2026-01-19 22:37:55'}]
+INFO:     80.245.132.90:0 - "GET /back_image.png HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /settings_icon.svg HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "GET /lamp.png HTTP/1.1" 200 OK
+DEBUG: Final ex_list for user 502483421: [{'name': 'Okx', 'status': 'Connected', 'balance': 10.7583816506144, 'icon': '⚫', 'strategy': 'cgt', 'reserve': 10.0}]
+INFO:     80.245.132.90:0 - "GET /api/data?user_id=502483421 HTTP/1.1" 200 OK
+INFO:     80.245.132.90:0 - "POST /api/update-params HTTP/1.1" 405 Method Not Allowed
+INFO:     80.245.132.90:0 - "POST /api/update-params HTTP/1.1" 405 Method Not Allowed

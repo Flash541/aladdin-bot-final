@@ -5,11 +5,17 @@ from pydantic import BaseModel
 import uvicorn
 import asyncio
 import os
+import requests
+from urllib.parse import urlencode
 from database import get_user_exchanges, get_user_decrypted_keys, get_user_language, save_user_language, execute_write_query
 from exchange_utils import fetch_exchange_balance_safe, validate_exchange_credentials
 from tx_verifier import verify_bsc_tx
 import sqlite3
 from database import DB_NAME
+
+# --- CONSTANTS ---
+NGROK_URL = "http://167.99.130.80:8080"
+YOUR_WALLET = os.getenv("YOUR_WALLET_ADDRESS") # Ensure this is loaded
 
 app = FastAPI()
 
@@ -111,7 +117,42 @@ async def get_user_data(user_id: int):
         "credits": token_balance
     }
 
-@app.post("/api/topup")
+class PaymentRequest(BaseModel):
+    user_id: int
+
+@app.post("/api/create_payment")
+async def create_payment_address(req: PaymentRequest):
+    """Generates a personal deposit address via CryptAPI."""
+    try:
+        # NGROK_URL must be set (see top of file)
+        callback_base = f"{NGROK_URL}/cryptapi_webhook"
+        callback_params = {'user_id': req.user_id, 'secret': 'SOME_SECRET_WORD_TO_VALIDATE'}
+        callback_url = f"{callback_base}?{urlencode(callback_params)}"
+        
+        api_url = "https://api.cryptapi.io/bep20/usdt/create/"
+        params = {
+            'callback': callback_url,
+            'address': YOUR_WALLET,
+            'convert': 0 # We want USDT directly
+        }
+        
+        # Requests is blocking, but for low traffic prototype it's fine. 
+        # Ideally use aiohttp/httpx.
+        response = requests.get(api_url, params=params)
+        data = response.json()
+        
+        if data.get('status') == 'success':
+            return {
+                "status": "ok",
+                "address": data['address_in'],
+                "min_deposit": data['minimum_transaction_coin']
+            }
+        else:
+            return {"status": "error", "msg": "Provider Error"}
+            
+    except Exception as e:
+        print(f"Payment Gen Error: {e}")
+        return {"status": "error", "msg": str(e)}
 async def top_up(req: TopUpRequest):
     success, result = verify_bsc_tx(req.tx_id, req.user_id)
     if success:
@@ -132,6 +173,44 @@ async def set_reserve(req: ReserveRequest):
             SET reserved_amount = ? 
             WHERE user_id = ? AND exchange_name = ?
         """, (req.reserve, req.user_id, req.exchange.lower()))
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateParamsRequest(BaseModel):
+    user_id: int
+    exchange: str
+    reserve: float
+    risk_pct: float
+
+@app.post("/api/update-params")
+async def update_strategy_params(req: UpdateParamsRequest):
+    try:
+        execute_write_query("""
+            UPDATE user_exchanges 
+            SET reserved_amount = ?, risk_pct = ?
+            WHERE user_id = ? AND exchange_name = ?
+        """, (req.reserve, req.risk_pct, req.user_id, req.exchange.lower()))
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DisconnectRequest(BaseModel):
+    user_id: int
+    exchange: str
+
+class WithdrawRequest(BaseModel):
+    user_id: int
+    amount: float
+    wallet_address: str
+
+@app.post("/api/disconnect")
+async def disconnect_exchange(req: DisconnectRequest):
+    try:
+        execute_write_query("""
+            DELETE FROM user_exchanges 
+            WHERE user_id = ? AND exchange_name = ?
+        """, (req.user_id, req.exchange.lower()))
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -181,6 +260,103 @@ def get_icon(name):
     if 'bingx' in name: return "🟦"
     if 'bybit' in name: return "⬛"
     return "🔹"
+
+from telegram import Bot
+from telegram.constants import ParseMode
+from database import get_text, credit_tokens_from_payment
+
+# --- CONFIG ---
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CRYPTAPI_SECRET = "SOME_SECRET_WORD_TO_VALIDATE" # Or load from env
+ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "0")) if os.getenv("ADMIN_USER_ID") else None
+
+# ... existing code ...
+
+@app.post("/api/withdraw")
+async def withdraw_funds(req: WithdrawRequest):
+    from database import create_withdrawal_request
+    
+    try:
+        # Validate amount
+        if req.amount <= 0:
+            raise HTTPException(status_code=400, detail="Invalid amount")
+        
+        # Validate wallet address
+        if not req.wallet_address.startswith('0x') or len(req.wallet_address) != 42:
+            raise HTTPException(status_code=400, detail="Invalid wallet address")
+        
+        # Create withdrawal request in database
+        success = create_withdrawal_request(req.user_id, req.amount, req.wallet_address)
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="Insufficient balance or error creating request")
+        
+        # Notify admin via Telegram
+        if TELEGRAM_TOKEN and ADMIN_USER_ID:
+            try:
+                bot = Bot(token=TELEGRAM_TOKEN)
+                admin_message = (
+                    f"⚠️ New Withdrawal Request ⚠️\n\n"
+                    f"User ID: {req.user_id}\n"
+                    f"Amount: {req.amount} USDT\n"
+                    f"Wallet: <code>{req.wallet_address}</code>"
+                )
+                await bot.send_message(
+                    chat_id=ADMIN_USER_ID,
+                    text=admin_message,
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                print(f"Failed to send Telegram notification: {e}")
+        
+        return {"success": True, "message": "Withdrawal request submitted"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Withdrawal error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cryptapi_webhook")
+@app.post("/cryptapi_webhook")
+async def cryptapi_webhook(request: Request):
+    try:
+        # CryptAPI sends data as Query Params for GET (and mostly for callbacks)
+        params = dict(request.query_params)
+        
+        # 1. Validation
+        if params.get('secret') != CRYPTAPI_SECRET:
+             # Basic text response 'error' is what they expect if something wrong, 
+             # but strictly they look for 'ok' to stop retries.
+             return "error: invalid secret"
+
+        # 2. Extract Data
+        user_id = int(params.get('user_id', 0))
+        amount = float(params.get('value_coin', 0))
+        
+        # 3. Credit Balance
+        credit_tokens_from_payment(user_id, amount)
+        
+        # 4. Notify User via Telegram
+        if TELEGRAM_TOKEN:
+            try:
+                bot = Bot(token=TELEGRAM_TOKEN)
+                msg = get_text(user_id, "msg_payment_received_notification", amount=amount)
+                
+                # Send async using asyncio to not block
+                # Since we are in an async FastAPI handler, we can await directly?
+                # python-telegram-bot async methods are awaitable.
+                await bot.send_message(chat_id=user_id, text=msg, parse_mode=ParseMode.HTML)
+                print(f"✅ Notification sent to user {user_id}")
+            except Exception as notify_error:
+                print(f"❌ Failed to send notification: {notify_error}")
+        
+        # 5. Success Response
+        return "*ok*"
+        
+    except Exception as e:
+        print(f"❌ Webhook Error: {e}")
+        return "error"
 
 # --- STATIC FILES ---
 # Mount webapp to root

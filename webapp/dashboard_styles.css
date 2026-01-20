@@ -1,0 +1,121 @@
+/* === ACTIVE STRATEGIES DASHBOARD === */
+.section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.view-all {
+    font-size: 13px;
+    color: #467EE7;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.strategy-item {
+    background: #1A1926;
+    /* Dark Card Background */
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    /* Subtle border */
+    transition: transform 0.2s ease, background 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.strategy-item:active {
+    transform: scale(0.98);
+    background: #201f30;
+}
+
+.strat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    overflow: hidden;
+    padding: 4px;
+    /* White padding around icon if needed */
+}
+
+.strat-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.strat-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.strat-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.strat-desc {
+    font-size: 12px;
+    color: #9CA3AF;
+    /* Gray text */
+    margin-top: 2px;
+}
+
+.strat-status {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+    line-height: 1.3;
+}
+
+.strat-status.text-yellow {
+    color: #FFD166;
+    /* Warning Yellow */
+}
+
+
+/* === SLIDER STYLES === */
+.slider-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    outline: none;
+    opacity: 0.9;
+    transition: opacity .2s;
+}
+
+.slider-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #467EE7;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(70, 126, 231, 0.5);
+}
+
+.slider-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #467EE7;
+    cursor: pointer;
+}

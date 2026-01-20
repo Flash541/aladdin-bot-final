@@ -1,0 +1,86 @@
+/* === COPY TRADING MODAL STYLES === */
+.strategy-selector-btn:hover {
+    border-color: #0660F9 !important;
+    background: rgba(6, 96, 249, 0.1) !important;
+}
+
+.ct-step {
+    width: 100%;
+}
+
+.modal-back-btn {
+    background: transparent;
+    border: none;
+    color: #467EE7;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 16px;
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: opacity 0.2s;
+}
+
+.modal-back-btn:hover {
+    opacity: 0.8;
+}
+
+.ct-input-group {
+    margin-bottom: 20px;
+}
+
+.ct-label {
+    display: block;
+    font-size: 13px;
+    color: #9CA3AF;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.ct-input {
+    width: 100%;
+    background: #1A1926;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 15px;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.ct-input:focus {
+    outline: none;
+    border-color: #0660F9;
+    background: rgba(6, 96, 249, 0.05);
+}
+
+.ct-input::placeholder {
+    color: #6B7280;
+}
+
+.ct-submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #0660F9 0%, #0550D9 100%);
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.ct-submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(6, 96, 249, 0.4);
+}
+
+.ct-submit-btn:active {
+    transform: translateY(0);
+}

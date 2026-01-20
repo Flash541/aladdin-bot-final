@@ -9,245 +9,619 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&family=Orbitron:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&family=Orbitron:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="settings_styles.css">
+    <link rel="stylesheet" href="copytrading_styles.css">
+    <link rel="stylesheet" href="dashboard_styles.css">
 </head>
 
 <body>
 
+    <!-- === SPLASH SCREEN === -->
+    <div id="splash-screen" onclick="dismissSplash()">
+        <div class="splash-content">
+            <div class="splash-glow-circle">
+                <span class="splash-logo-text">Black<br>Aladdin</span>
+            </div>
+            <div class="splash-footer">
+                <div class="splash-hint">click to start</div>
+            </div>
+        </div>
+        <div class="splash-bg"></div>
+    </div>
+
     <!-- === PAGE: HOME === -->
     <div id="home" class="page active animate-enter">
-        <header>
-            <div class="user-info">
-                <img id="user-avatar" src="https://ui-avatars.com/api/?name=Aladdin&background=A500E1&color=fff"
-                    class="avatar">
-                <div>
+        <header class="home-header">
+            <div class="user-profile-left">
+                <div id="user-avatar" class="avatar-circle">K</div>
+                <div class="user-texts">
                     <div class="text-caption" data-i18n="welcome">Welcome Back</div>
-                    <div id="user-name" class="item-title">Trader</div>
+                    <div id="user-name" class="user-name-text">Trader</div>
                 </div>
-            </div>
-            <!-- Settings Icon -->
-            <div onclick="document.querySelectorAll('.nav-item')[2].click()" style="font-size:24px; cursor:pointer;">⚙️
             </div>
         </header>
 
-        <section class="balance-section">
-            <div class="balance-label" data-i18n="total_balance">Total Portfolio Balance</div>
-            <div id="total-balance" class="balance-amount">$0.00</div>
-            <div class="balance-change">▲ +0.0% (24h)</div>
-        </section>
+        <!-- === PORTFOLIO SECTION === -->
+        <div class="portfolio-section">
+            <div class="portfolio-label" data-i18n="lbl_total_balance">Portfolio Value</div>
+            <div id="total-balance" class="portfolio-amount">$0.00</div>
+            <!-- Removed 24h change as requested -->
+        </div>
 
-        <section class="actions animate-enter delay-1">
-            <div class="btn-action" data-action="topup">
-                <span class="btn-icon">💰</span>
-                <span class="btn-label" data-i18n="top_up">Top Up</span>
-            </div>
-            <div class="btn-action" id="btn-copy-trading">
-                <span class="btn-icon">🧞‍♂️</span>
-                <span class="btn-label" data-i18n="copy_trading">Copy Trading</span>
-            </div>
-        </section>
-
-        <div style="padding: 24px 20px 0;">
-            <div class="card animate-enter delay-2">
-                <div class="list-header" style="padding:0 0 16px;" data-i18n="active_strategies">Active Strategies</div>
-                <div id="active-strategies-list">
-                    <div style="text-align:center; padding:10px; color:#666;">No active strategies</div>
+        <!-- === ACTION BUTTONS === -->
+        <div class="home-actions">
+            <!-- TOP UP -->
+            <div class="action-card" data-action="topup">
+                <div class="icon-circle">
+                    <img src="top_up.svg" class="action-icon-svg">
                 </div>
+                <div class="action-label" data-i18n="btn_topup">Top Up Fees</div> <!-- Updated Text -->
+            </div>
+
+            <!-- COPY TRADING -->
+            <div id="btn-copy-trading" class="action-card">
+                <div class="icon-circle">
+                    <img src="copy_trade.svg" class="action-icon-svg">
+                </div>
+                <div class="action-label" data-i18n="btn_copy_trade">Copy Trading</div>
+            </div>
+        </div>
+
+        <div style="padding: 24px 20px 80px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div class="section-title" data-i18n="active_strategies">Active Strategies</div>
+                <div class="view-all" data-i18n="view_all">View All</div>
+            </div>
+            <div id="active-strategies-list">
+                <!-- Example Item (Populated by JS) -->
+                <!-- 
+                <div class="strategy-item">
+                    <div class="strat-icon">
+                        <img src="logo_bots/okx.png">
+                    </div>
+                    <div class="strat-info">
+                        <div class="strat-title">TradeMax</div>
+                        <div class="strat-desc">OKX Spot</div>
+                    </div>
+                    <div class="strat-status text-yellow">Waiting TopUp</div>
+                </div> 
+                -->
+                <div style="text-align:center; padding:20px; color:#888; font-size:14px;">No active strategies</div>
             </div>
         </div>
     </div>
 
+    <!-- ... EXCHANGES & PROFILE PAGES (Unchanged structure, mainly CSS) ... -->
+
     <!-- === PAGE: EXCHANGES === -->
     <div id="exchanges" class="page">
-        <header>
-            <h1 data-i18n="my_exchanges">My Exchanges</h1>
+        <!-- Header (Replicated from Home) -->
+        <header class="home-header">
+            <div class="user-profile-left">
+                <div id="user-avatar-exchanges" class="avatar-circle">K</div>
+                <div class="user-texts">
+                    <div class="text-caption" data-i18n="welcome">Welcome Back</div>
+                    <div id="user-name-exchanges" class="user-name-text">Trader</div>
+                </div>
+            </div>
         </header>
-        <div style="padding: 0 20px;">
-            <div id="exchange-list" class="card">
+
+        <div style="padding: 24px 20px 80px;">
+            <div class="section-title" data-i18n="my_exchanges" style="margin-bottom:16px;">My Exchanges</div>
+            <div id="exchange-list">
                 <!-- Populated by JS -->
             </div>
         </div>
     </div>
 
-    <!-- === PAGE: PROFILE === -->
+    <!-- === PAGE: PROFILE (Settings) === -->
     <div id="profile" class="page">
-        <header>
-            <h1 data-i18n="settings">Settings</h1>
+        <!-- Replicated Header from Home -->
+        <header class="home-header" style="padding-top: 20px;">
+            <div class="user-profile-left">
+                <div id="user-avatar-settings" class="avatar-circle">K</div>
+                <div class="user-texts">
+                    <div class="text-caption" data-i18n="welcome">Welcome Back</div>
+                    <div id="user-name-settings" class="user-name-text">Trader</div>
+                </div>
+            </div>
         </header>
+
         <div style="padding: 20px;">
-            <div class="card">
-                <div class="list-item">
-                    <div class="item-content" data-i18n="user_id">User ID</div>
-                    <div class="item-value" id="user-id-disp">Loading...</div>
-                </div>
-                <div class="list-item">
-                    <div class="item-content" data-i18n="credits">Aladdin Credits</div>
-                    <div class="item-value text-gold" id="credits-bal">0.00</div>
+            <!-- Settings Title -->
+            <div style="font-size: 20px; font-weight: 400; color: #fff; margin-bottom: 16px; font-family: 'Montserrat', sans-serif;"
+                data-i18n="settings">Settings</div>
+
+            <!-- Settings Info Card (Glass) -->
+            <div class="settings-card">
+                <!-- Row 1: User ID -->
+                <div class="settings-row">
+                    <span class="settings-label" data-i18n="user_id">User ID</span>
+                    <span id="user-id-disp-settings" class="settings-value">Loading...</span>
                 </div>
 
-                <!-- Language Selector -->
-                <div class="list-header" style="padding: 10px 0;" data-i18n="language">Language</div>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <div class="btn-action lang-btn" data-lang="en" style="flex:1; padding:10px;">🇬🇧 EN</div>
-                    <div class="btn-action lang-btn" data-lang="ru" style="flex:1; padding:10px;">🇷🇺 RU</div>
-                    <div class="btn-action lang-btn" data-lang="uk" style="flex:1; padding:10px;">🇺🇦 UK</div>
+                <!-- Divider -->
+                <div class="settings-divider"></div>
+
+                <!-- Row 2: Fees Balance -->
+                <div class="settings-row">
+                    <span class="settings-label" data-i18n="lbl_alladeen_fees">USDT Balance</span>
+                    <!-- "Balance USDT" requested, using key which maps to it -->
+                    <span id="credits-bal-settings" class="settings-value">0.0</span>
                 </div>
+            </div>
+
+            <!-- Language Section -->
+            <div style="margin-top: 32px;">
+                <div style="font-size: 16px; color: #fff; margin-bottom: 12px; font-family: 'Montserrat', sans-serif;"
+                    data-i18n="language">Language</div>
+                <div style="display:flex; gap:12px;">
+                    <div class="lang-btn" data-lang="en">EN</div>
+                    <div class="lang-btn" data-lang="ru">RU</div>
+                    <div class="lang-btn" data-lang="uk">UK</div>
+                </div>
+            </div>
+
+            <!-- Withdraw Funds Section -->
+            <div style="margin-top: 32px;">
+                <button id="btn-withdraw-funds"
+                    style="width: 100%; padding: 16px; background: linear-gradient(135deg, #FF6B6B 0%, #EE5A52 100%); border: none; border-radius: 16px; color: white; font-weight: 600; font-size: 16px; cursor: pointer; font-family: 'Montserrat', sans-serif; box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3); transition: transform 0.2s;"
+                    data-i18n="btn_withdraw">
+                    Withdraw Funds
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- === WIZARD MODAL === -->
-    <div id="modal-wizard" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 id="wizard-title" data-i18n="wiz_title">Setup</h2>
-                <div id="btn-close-wizard" style="font-size:24px; cursor:pointer;">✕</div>
-            </div>
-
-            <form id="form-wizard-api" onsubmit="return false;">
-                <!-- Step 1: Strategy -->
-                <div id="step-1" class="wizard-step">
-                    <div class="strategy-card" data-strategy="bro-bot">
-                        <div class="item-title" data-i18n="strat_ratner">Bro-Bot (Futures)</div>
-                        <div class="text-sm" data-i18n="strat_ratner_desc">Binance, Bybit, BingX</div>
-                    </div>
-                    <div class="strategy-card" data-strategy="cgt">
-                        <div class="item-title" data-i18n="strat_cgt">TradeMax (Spot)</div>
-                        <div class="text-sm" data-i18n="strat_cgt_desc">OKX Only</div>
-                    </div>
-                </div>
-
-                <!-- Step 2: Exchange -->
-                <div id="step-2" class="wizard-step" style="display:none;">
-                    <h2 style="margin-bottom:20px; text-align:center;">Select Exchange</h2>
-                    <div class="exchange-grid">
-                        <!-- Binance -->
-                        <div class="exchange-option" data-exchange="binance" data-filter="bro-bot">
-                            <img src="logo_bots/binance.png?v=2" class="exchange-logo"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">🔸</div>
-                            <div class="exchange-name">Binance</div>
-                        </div>
-                        <!-- OKX -->
-                        <div class="exchange-option" data-exchange="okx" data-filter="cgt">
-                            <img src="logo_bots/okx.png?v=2" class="exchange-logo"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">⚫</div>
-                            <div class="exchange-name">OKX</div>
-                        </div>
-                        <!-- Bybit -->
-                        <div class="exchange-option" data-exchange="bybit" data-filter="bro-bot">
-                            <img src="logo_bots/bybit.png?v=2" class="exchange-logo"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">⬛</div>
-                            <div class="exchange-name">Bybit</div>
-                        </div>
-                        <!-- BingX -->
-                        <div class="exchange-option" data-exchange="bingx" data-filter="bro-bot">
-                            <img src="logo_bots/bingx.png?v=2" class="exchange-logo"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
-                            <div class="exchange-logo-fallback" style="font-size:30px; display:none">🟦</div>
-                            <div class="exchange-name">BingX</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 3: API Keys & Reserve -->
-                <div id="step-3" class="wizard-step" style="display:none;">
-                    <div class="input-group">
-                        <label class="input-label">API Key</label>
-                        <input type="text" id="inp-key" class="input-field" placeholder="Paste API Key">
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label">Secret Key</label>
-                        <input type="password" id="inp-secret" class="input-field" placeholder="Paste Secret Key">
-                    </div>
-                    <div class="input-group" id="group-pass" style="display:none;">
-                        <label class="input-label">Passphrase</label>
-                        <input type="password" id="inp-pass" class="input-field">
-                    </div>
-                    <div class="input-group" style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
-                        <label class="input-label text-gold" data-i18n="reserve_title">Reserve Amount (USDT)</label>
-                        <input type="number" id="inp-reserve-init" class="input-field" placeholder="0.00">
-                        <div class="text-caption" style="margin-top:4px;" data-i18n="reserve_desc">Amount NOT to trade
-                        </div>
-                    </div>
-
-                    <button id="btn-submit-api" class="btn-primary" data-i18n="btn_connect">Connect</button>
-                </div>
-            </form>
-
-            <!-- Step 4: Success -->
-            <div id="step-4" class="wizard-step" style="display:none; text-align:center;">
-                <div style="font-size:50px; margin-bottom:20px;">✅</div>
-                <h3 data-i18n="success">Success!</h3>
-            </div>
-        </div>
-    </div>
+    <!-- (Obsolete Wizard Removed) -->
 
     <!-- === RESERVE MODAL === -->
     <div id="modal-reserve" class="modal-overlay">
         <div class="modal-content">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 data-i18n="reserve_title">Set Reserve</h2>
+                <h2 data-i18n="reserve_title">Trading Capital</h2>
                 <div id="btn-close-reserve" style="font-size:24px; cursor:pointer;">✕</div>
             </div>
-            <div style="margin-bottom:20px; text-align:center; color:#888;" id="reserve-exchange-title">EXCHANGE</div>
 
-            <div class="input-group">
-                <label class="input-label">USDT Amount</label>
-                <input type="number" id="inp-reserve-edit" class="input-field" placeholder="0.00">
-            </div>
-
-            <button id="btn-save-reserve" class="btn-primary" data-i18n="save">Save</button>
-        </div>
-    </div>
-
-    <!-- === TOPUP MODAL === -->
-    <div id="modal-topup" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 data-i18n="topup_title">Top Up Credits</h2>
-                <div id="btn-close-topup" style="font-size:24px; cursor:pointer;">✕</div>
-            </div>
-            <div class="text-sm" style="margin-bottom:16px; color:#888; line-height:1.5;">
-                <b style="color:#fff;">1. Send USDT (BEP-20)</b> to this address:<br>
-                <div class="copy-box" onclick="copyAddress()"
-                    style="background:#1c212b; padding:12px; border-radius:12px; margin-top:8px; word-break:break-all; font-family:monospace; color:var(--primary); cursor:pointer; border:1px dashed #444;">
-                    0x6c639cac616254232d9c4d51b1c3646132b46c4a
-                    <span style="float:right">📋</span>
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span style="color:#888;">Exchange Balance:</span>
+                    <span id="reserve-balance-display" style="font-weight:bold;">$0.00</span>
                 </div>
-                <br>
-                <b style="color:#fff;">2. Paste Transaction Hash (TxID)</b> below:
+
+                <div style="text-align:center; padding: 20px 0;">
+                    <input type="range" id="inp-reserve-slider" min="0" step="0.01"
+                        style="width:100%; accent-color:var(--primary);">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Set Trading Capital (USDT)</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="inp-reserve-edit" class="input-field" placeholder="0.00" step="0.01">
+                        <div class="btn-max" id="btn-reserve-max">MAX</div>
+                    </div>
+                    <div class="text-caption" style="margin-top:4px; color:#f00; display:none;" id="err-reserve-max">
+                        Cannot exceed balance</div>
+                </div>
             </div>
 
-            <div class="input-group">
-                <input type="text" id="inp-topup-txid" class="input-field" placeholder="0x..." style="font-size:14px;">
-            </div>
+            <button id="btn-save-reserve" class="btn-primary" data-i18n="save">Save Capital</button>
 
-            <button id="btn-pay" class="btn-primary">Verify Transaction</button>
+            <button id="btn-disconnect" class="btn-danger"
+                style="margin-top:12px; width:100%; background:rgba(255, 59, 48, 0.1); color:#ff3b30; border:1px solid #ff3b30; padding:12px; border-radius:12px; font-weight:600;">
+            </button>
         </div>
     </div>
 
-    <!-- === BOTTOM NAV === -->
-    <nav class="bottom-nav animate-enter delay-3">
-        <div class="nav-item active" data-target="home">
-            <div class="nav-icon">🏠</div>
-            <div data-i18n="home">Home</div>
+    <!-- === TOPUP MODAL (Bottom Sheet) === -->
+    <div id="modal-topup" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; height: 580px; width: 100%; max-width: 480px; margin: 0 auto;">
+
+            <!-- Close Button -->
+            <div id="btn-close-topup" class="close-modal-btn" onclick="closeModal('modal-topup')">✕</div>
+
+            <!-- Header -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; margin-bottom: 24px; text-align: center;"
+                data-i18n="top_up_title">Top Up Balance</h2>
+
+            <!-- Coin Selector Button -->
+            <div class="coin-selector-btn"
+                style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <img src="usdt_bep_icon.svg" width="32" height="32">
+                <span style="font-size: 16px; font-weight: 600;">USDT (BEP 20)</span>
+            </div>
+
+            <!-- Instruction (Moved Up) -->
+            <div style="margin-bottom: 24px; text-align: left;">
+                <h3 style="font-size: 14px; color: #fff; margin-bottom: 8px;" data-i18n="top_up_purpose_header">Purpose
+                    of Top Up</h3>
+                <div style="color: #9CA3AF; font-size: 13px; line-height: 1.5;" data-i18n="top_up_purpose_desc">
+                    This balance is used to pay for service fees and copy-trading commissions.
+                    <br><br>
+                    Sending USDT to the address below will automatically credit your account.
+                </div>
+            </div>
+
+            <!-- Address Section -->
+            <div class="address-section" style="margin-bottom: 24px;">
+                <div style="color: #467EE7; font-size: 12px; margin-bottom: 8px;" data-i18n="address_label">Address
+                </div>
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #2A2938;">
+                    <div id="deposit-address-text"
+                        style="font-family: 'Inconsolata', monospace; font-size: 14px; word-break: break-all; color: #fff;">
+                        Generating...
+                    </div>
+                    <div onclick="copyAddress()" style="cursor: pointer; padding: 4px;">
+                        <img src="copy_icon.svg" width="20" height="20">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instruction -->
+            <div style="color: #6B7280; font-size: 13px; line-height: 1.5; text-align: center;"
+                data-i18n="instruction_bottom">
+                Send USDT (BEP-20) to this address.<br>
+                The balance will be credited automatically.
+            </div>
+
+            <!-- Spacing for safe area -->
+            <div style="height: 20px;"></div>
         </div>
-        <div class="nav-item" data-target="exchanges">
-            <div class="nav-icon">🏦</div>
-            <div data-i18n="exchanges">Exchanges</div>
+    </div>
+
+    <!-- === MODAL: WITHDRAW FUNDS === -->
+    <div id="modal-withdraw" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; width: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto;">
+
+            <!-- Close Button -->
+            <div class="close-modal-btn" onclick="closeWithdrawModal()">✕</div>
+
+            <!-- Header -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
+                data-i18n="withdraw_title">Withdraw USDT</h2>
+
+            <!-- Available Balance Display -->
+            <div
+                style="background: rgba(255, 107, 107, 0.1); border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: center;">
+                <div style="color: #9CA3AF; font-size: 12px; margin-bottom: 4px;" data-i18n="available_balance">
+                    Available Balance</div>
+                <div id="withdraw-available-balance" style="color: #FF6B6B; font-size: 24px; font-weight: 700;">0.00
+                    USDT</div>
+            </div>
+
+            <!-- Amount Input -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="color: #fff; font-size: 14px; font-weight: 500;" data-i18n="withdraw_amount_label">
+                        Amount (USDT)</div>
+                </div>
+
+                <div
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <input type="number" id="withdraw-amount" placeholder="0.00" step="0.01"
+                        style="background: transparent; border: none; color: #fff; font-size: 16px; font-weight: 600; width: 100%; outline: none; font-family: 'Montserrat', sans-serif;">
+
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button onclick="setWithdrawMax()"
+                            style="background: rgba(255, 107, 107, 0.1); color: #FF6B6B; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 600; cursor: pointer;">MAX</button>
+                        <span style="font-size: 16px; font-weight: 600; color: #fff;">USDT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wallet Address Input -->
+            <div style="margin-bottom: 24px;">
+                <div style="color: #fff; font-size: 14px; margin-bottom: 8px; font-weight: 500;"
+                    data-i18n="withdraw_wallet_label">
+                    Wallet Address (BEP-20)
+                </div>
+                <div style="background: #1A1926; border-radius: 16px; padding: 16px;">
+                    <input type="text" id="withdraw-wallet" placeholder="0x..."
+                        style="background: transparent; border: none; color: #fff; font-size: 14px; width: 100%; outline: none; font-family: 'Inconsolata', monospace;">
+                </div>
+                <div style="font-size: 12px; color: #6B7280; margin-top: 8px;">
+                    Enter your BEP-20 wallet address (starts with 0x)
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="margin-top: auto;">
+                <button onclick="submitWithdrawRequest()" class="btn-primary"
+                    style="width: 100%; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, #FF6B6B 0%, #EE5A52 100%); color: white; border: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3); font-family: 'Montserrat', sans-serif;"
+                    data-i18n="withdraw_submit">
+                    Submit Request
+                </button>
+
+                <!-- Spacing for safe area -->
+                <div style="height: 100px;"></div>
+            </div>
         </div>
-        <div class="nav-item" data-target="profile">
-            <div class="nav-icon">👤</div>
-            <div data-i18n="profile">Profile</div>
+    </div>
+
+
+    <!-- === MODAL: COPY TRADING === -->
+    <div id="modal-copytrading" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; height: 580px; width: 100%; max-width: 480px; margin: 0 auto;">
+
+            <!-- Close Button -->
+            <div class="close-modal-btn" onclick="closeCopyTradingModal()">✕</div>
+            <!-- <div id="btn-close-topup" class="close-modal-btn" onclick="closeModal('modal-copytrading')">✕</div> -->
+
+
+            <!-- Title -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; margin-bottom: 24px; text-align: center;"
+                data-i18n="wiz_title">Setup Copytrading</h2>
+
+            <!-- Step 1: Strategy Selection -->
+            <div id="ct-step-strategy" class="ct-step">
+
+                <!-- BingBot Strategy -->
+                <div class="strategy-selector-btn" data-strategy="bingbot" data-exchange="bingx"
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="usdt_bep_icon.svg" width="32" height="32">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;">BingBot</div>
+                            <div style="font-size: 13px; color: #9CA3AF;">BingX Only</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Futures</div>
+                </div>
+
+                <!-- TradeMax Strategy -->
+                <div class="strategy-selector-btn" data-strategy="trademax" data-exchange="okx"
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="usdt_bep_icon.svg" width="32" height="32">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;">TradeMax</div>
+                            <div style="font-size: 13px; color: #9CA3AF;">OKX Only</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Spot</div>
+                </div>
+            </div>
+
+            <!-- Step 2: API Configuration (BingX) -->
+            <div id="ct-step-bingx-api" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('strategy')">← Back</button>
+
+                <h2
+                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                    BingX API Setup</h2>
+
+                <!-- 1. Get API Link -->
+                <a href="https://www.bingx.com/en-us/account/api/" target="_blank"
+                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;">
+                    Get API Keys ↗
+                </a>
+
+                <!-- 2. Whitelist IP Box -->
+                <div style="margin-bottom:24px;">
+                    <label class="ct-label" style="text-align:center;">Whitelist this IP Address</label>
+                    <div class="address-box" onclick="copyText('167.99.130.80')"
+                        style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
+                        <span
+                            style="font-family: 'Inconsolata', monospace; font-size: 16px; letter-spacing: 1px; color:#fff;">167.99.130.80</span>
+                        <img src="copy_icon.svg" width="20" height="20" style="opacity: 0.7;">
+                    </div>
+                </div>
+
+
+                <div class="ct-input-group">
+                    <label class="ct-label">API Key</label>
+                    <input type="text" id="bingx-api-key" class="ct-input" placeholder="Enter API Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Secret Key</label>
+                    <input type="password" id="bingx-secret-key" class="ct-input" placeholder="Enter Secret Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Trading Capital (USDT)</label>
+                    <input type="number" id="bingx-capital" class="ct-input" placeholder="0.00" step="0.01">
+                    <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
+                        Set the amount you want to allocate for trading
+                    </div>
+                </div>
+
+                <button class="ct-submit-btn" onclick="submitBingXAPI()">Connect BingX</button>
+            </div>
+
+            <!-- Step 3: API Configuration (OKX) -->
+            <div id="ct-step-okx-api" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('strategy')">← Back</button>
+
+                <h2
+                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                    OKX Setup</h2>
+
+                <!-- 1. Get API Link -->
+                <a href="https://www.okx.com/account/my-api" target="_blank"
+                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;">
+                    Get API Keys ↗
+                </a>
+
+                <!-- 2. Whitelist IP Box -->
+                <div style="margin-bottom:24px;">
+                    <label class="ct-label" style="text-align:center;">Whitelist this IP Address</label>
+                    <div class="address-box" onclick="copyText('167.99.130.80')"
+                        style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
+                        <span
+                            style="font-family: 'Inconsolata', monospace; font-size: 16px; letter-spacing: 1px; color:#fff;">167.99.130.80</span>
+                        <img src="copy_icon.svg" width="20" height="20" style="opacity: 0.7;">
+                    </div>
+                </div>
+
+
+                <div class="ct-input-group">
+                    <label class="ct-label">API Key</label>
+                    <input type="text" id="okx-api-key" class="ct-input" placeholder="Enter API Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Secret Key</label>
+                    <input type="password" id="okx-secret-key" class="ct-input" placeholder="Enter Secret Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Passphrase</label>
+                    <input type="password" id="okx-passphrase" class="ct-input" placeholder="Enter Passphrase">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Trading Capital (USDT)</label>
+                    <input type="number" id="okx-capital" class="ct-input" placeholder="0.00" step="0.01">
+
+                </div>
+
+                <button class="ct-submit-btn" onclick="submitOKXAPI()">Connect OKX</button>
+            </div>
+
+            <!-- Spacing for safe area -->
+            <div style="height: 100px;"></div>
+        </div>
+    </div>
+    <!-- === MODAL: STRATEGY SETTINGS === -->
+    <div id="modal-strategy-settings" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; width: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto;">
+
+            <!-- Close Button (Top Right) -->
+            <div class="close-modal-btn" onclick="closeStrategySettings()">✕</div>
+
+            <!-- Header -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
+                data-i18n="settings">Strategy Settings</h2>
+
+            <!-- Exchange Card (Matches Coin Selector) -->
+            <div
+                style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <div id="st-set-icon"
+                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                    <img src="" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div style="flex: 1;">
+                    <div id="st-set-name" style="font-size: 16px; font-weight: 600; color: #fff;">Exchange</div>
+                </div>
+                <!-- Status Pilled on the right -->
+                <div id="st-set-status"
+                    style="font-size: 13px; font-weight: 600; color: #06D6A0; background: rgba(6, 214, 160, 0.1); padding: 4px 8px; border-radius: 6px;">
+                    Active
+                </div>
+            </div>
+
+            <!-- Capital Input Section -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="color: #fff; font-size: 14px; font-weight: 500;" data-i18n="lbl_trading_capital">Trading
+                        Capital</div>
+                    <div id="st-set-balance" style="color: #9CA3AF; font-size: 12px;">Available: 0.00 USDT</div>
+                </div>
+
+                <div
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <input type="number" id="st-set-reserve" placeholder="0.00" step="0.01"
+                        style="background: transparent; border: none; color: #fff; font-size: 16px; font-weight: 600; width: 100%; outline: none; font-family: 'Montserrat', sans-serif;">
+
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button onclick="setCapitalMax()"
+                            style="background: rgba(70, 126, 231, 0.1); color: #467EE7; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 600; cursor: pointer;">MAX</button>
+                        <span style="font-size: 16px; font-weight: 600; color: #fff;">USDT</span>
+                    </div>
+                </div>
+
+                <!-- Capital Slider -->
+                <div style="position: relative; height: 24px; display: flex; align-items: center;">
+                    <input type="range" id="st-set-reserve-slider" min="0" step="0.01" value="0" class="slider-range"
+                        style="z-index: 2;">
+                </div>
+
+                <div style="font-size: 13px; color: #9CA3AF; margin-top: 8px; line-height: 1.4;"
+                    data-i18n="msg_edit_reserve_prompt">
+                    Amount reserved for this strategy.
+                </div>
+            </div>
+
+            <!-- Risk Slider -->
+            <div style="margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center;">
+                    <span style="font-size: 14px; color: #fff; font-weight: 500;" data-i18n="lbl_risk_per_trade">Risk
+                        per Trade</span>
+                    <span id="st-set-risk-val" style="font-size: 14px; font-weight: 600; color: #06D6A0;">1%</span>
+                </div>
+
+                <!-- Custom Slider Track -->
+                <div style="position: relative; height: 24px; display: flex; align-items: center;">
+                    <input type="range" id="st-set-risk" min="0.5" max="5" step="0.5" value="1" class="slider-range"
+                        style="z-index: 2;">
+                </div>
+
+                <div style="font-size: 13px; color: #9CA3AF; margin-top: 8px;" data-i18n="msg_edit_risk_prompt">
+                    Percentage of capital risking per trade.
+                </div>
+            </div>
+
+            <!-- Actions (Disconnect ABOVE Apply) -->
+            <div style="margin-top: auto; padding-bottom: 20px;">
+                <button onclick="disconnectStrategy()"
+                    style="width: 100%; padding: 16px; background: rgba(255, 77, 77, 0.05); color: #FF4D4D; border: none; border-radius: 16px; font-weight: 500; font-size: 15px; margin-bottom: 12px;"
+                    data-i18n="btn_disconnect">
+                    Disconnect Strategy
+                </button>
+
+                <button class="btn-primary" onclick="saveStrategySettings()"
+                    style="width: 100%; padding: 16px; border-radius: 16px; background: #467EE7; color: white; border: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(70, 126, 231, 0.3); font-family: 'Montserrat', sans-serif;"
+                    data-i18n="btn_apply_changes">
+                    Apply Changes
+                </button>
+
+                <!-- Spacing for safe area -->
+                <div style="height: 100px;"></div>
+            </div>
+        </div>
+    </div>
+    <!-- === TOAST NOTIFICATION === -->
+    <div id="toast-notification" class="toast-notification">Address Copied!</div>
+    <div id="toast" class="toast hidden"
+        style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #06D6A0; color: white; padding: 12px 24px; border-radius: 8px; z-index: 10000; display: none;">
+        Toast</div>
+
+    <!-- ... Modals (Reserve/Topup) ... -->
+
+    <!-- === BOTTOM NAV (Animated) === -->
+    <nav class="bottom-nav-bar">
+        <div class="nav-items-container">
+            <div class="nav-item" data-target="exchanges">
+                <div class="nav-circle"></div> <!-- Per-item Circle -->
+                <div class="nav-icon-box">
+                    <img src="exchange_icon.svg" class="nav-icon-svg">
+                </div>
+            </div>
+            <div class="nav-item active" data-target="home">
+                <div class="nav-circle"></div> <!-- Per-item Circle -->
+                <div class="nav-icon-box">
+                    <img src="home_icon.svg" class="nav-icon-svg-home">
+                </div>
+            </div>
+            <div class="nav-item" data-target="profile">
+                <div class="nav-circle"></div> <!-- Per-item Circle -->
+                <div class="nav-icon-box">
+                    <img src="settings_icon.svg" class="nav-icon-svg">
+                </div>
+            </div>
         </div>
     </nav>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=73"></script>
 </body>
 
 </html>
