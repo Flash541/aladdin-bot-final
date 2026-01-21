@@ -250,8 +250,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         await fetchUserData(user.id);
     } else {
         // Fallback for non-TG environment (e.g. Browser)
-        console.warn("[WARN] TG User not found, using fallback ID 502483421");
-        const fallbackId = 502483421;
+        console.error("[ERROR] TG User not found. Please open this app from Telegram bot.");
+        tg.showAlert("Please open this app from Telegram bot.");
+        return; // Stop execution if no user
 
         if (document.getElementById("user-name")) document.getElementById("user-name").innerText = "Kamron";
         if (document.getElementById("user-name-settings")) document.getElementById("user-name-settings").innerText = "Kamron";
@@ -683,7 +684,11 @@ window.submitWithdrawRequest = async function () {
 
     // Submit request
     try {
-        const user_id = tg.initDataUnsafe?.user?.id || 502483421;
+        const user_id = tg.initDataUnsafe?.user?.id;
+        if (!user_id) {
+            tg.showAlert("Please open this app from Telegram bot.");
+            return;
+        }
         const response = await fetch(`${API_BASE}/api/withdraw`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -701,7 +706,11 @@ window.submitWithdrawRequest = async function () {
             // Close modal
             closeWithdrawModal();
             // Refresh data
-            const userId = tg.initDataUnsafe?.user?.id || 502483421;
+            const userId = tg.initDataUnsafe?.user?.id;
+            if (!userId) {
+                tg.showAlert("Please open this app from Telegram bot.");
+                return;
+            }
             await fetchUserData(userId);
         } else {
             alert(data.message || 'Error submitting withdrawal request');
@@ -930,7 +939,7 @@ async function saveStrategySettings() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: user.id || 502483421, // Fallback if tested locally
+                user_id: user.id,
                 exchange: currentStrategySettings.name,
                 reserve: reserve,
                 risk_pct: risk
@@ -940,7 +949,7 @@ async function saveStrategySettings() {
         if (res.ok) {
             closeStrategySettings();
             showToast("Changes Applied ✅");
-            fetchUserData(user.id || 502483421); // Refresh UI
+            if (user.id) fetchUserData(user.id); // Refresh UI
         } else {
             alert("Failed to save settings");
         }
@@ -973,7 +982,7 @@ async function disconnectStrategy() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: user.id || 502483421,
+                        user_id: user.id,
                         exchange: currentStrategySettings.name
                     })
                 });
@@ -981,7 +990,7 @@ async function disconnectStrategy() {
                 if (res.ok) {
                     closeStrategySettings();
                     showToast("Strategy Disconnected 🔌");
-                    fetchUserData(user.id || 502483421); // Refresh UI
+                    if (user.id) fetchUserData(user.id); // Refresh UI
                 } else {
                     tg.showAlert("Failed to disconnect strategy. Please try again.");
                 }
