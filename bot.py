@@ -30,7 +30,8 @@ BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID")) 
 WEBAPP_URL = os.getenv("WEBAPP_URL") 
-NGROK_URL = "https://53f4a1267c1f.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
+# NGROK_URL = "https://blackaladdin.xyz" # Temporary hardcoded ID for DigitalOcean
+NGROK_URL = "https://30c8898b1fc5.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
 PAYMENT_AMOUNT = 49
 # PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
@@ -507,38 +508,76 @@ def has_access(user_id: int) -> bool:
 # --- Enhanced Bot Command Handlers ---
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Simplified /start command - shows only Mini App button.
+    All features are now in the Mini App.
+    Shows message in ALL 3 languages (EN/RU/UK) since we don't know user's preference yet.
+    """
     user = update.effective_user
     
     # Check for referral code in start parameter
     referrer_id = None
-    if context.args and context.args[0].startswith('ref_'):
-        code = context.args[0]
-        referrer_id = get_user_by_referral_code(code)
+    if context.args and len(context.args) > 0:
+        arg = context.args[0]
+        if arg.startswith('ref_'):
+            referrer_id = get_user_by_referral_code(arg)
+        elif arg.isdigit():
+            # Direct user ID referral
+            referrer_id = int(arg)
     
-    is_new_user = add_user(user.id, user.username, referrer_id)
+    # Add user to database (sets default language to 'en')
+    add_user(user.id, user.username, referrer_id)
     
-    if is_new_user:
-        keyboard = [["🇬🇧 English", "🇷🇺 Русский"], ["🇺🇦 Українська"]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-        # Initial prompt in English/Russian as we don't know the language yet
-        await update.message.reply_text("Please select your language / Пожалуйста, выберите язык:", reply_markup=reply_markup)
-        return SELECT_LANG_START
-
-    await send_welcome(update, context)
+    # Create Mini App button
+    webapp_button = InlineKeyboardButton(
+        text="🚀 Launch Mini App",
+        web_app=WebAppInfo(url=WEBAPP_URL)
+    )
+    keyboard = InlineKeyboardMarkup([[webapp_button]])
+    
+    # Show message in ALL 3 languages since we don't know preference yet
+    welcome_message = (
+        f"🧞‍♂️ <b>Welcome to Black Aladdin</b>, {user.first_name}!\n"
+        f"🧞‍♂️ <b>Добро пожаловать в Black Aladdin</b>, {user.first_name}!\n"
+        f"🧞‍♂️ <b>Ласкаво просимо до Black Aladdin</b>, {user.first_name}!\n\n"
+        
+        f"🪙 <b>EN:</b> Your all-in-one crypto trading assistant.\n"
+        f"🪙 <b>RU:</b> Ваш универсальный криптотрейдинг ассистент.\n"
+        f"🪙 <b>UK:</b> Ваш універсальний криптотрейдинг асистент.\n\n"
+        
+        f"✨ <b>Features / Возможности / Можливості:</b>\n"
+        f"• 📊 AI Chart Analysis\n"
+        f"• 🤖 BingX Copy Trading (Futures)\n"
+        f"• 💰 TradeMax Copy Trading (Spot)\n"
+        f"• 🎁 Referral Program (3 levels)\n"
+        f"• 📈 Real-time Portfolio Tracking\n\n"
+        
+        f"👇 Click the button below / Нажмите кнопку ниже / Натисніть кнопку нижче"
+    )
+    
+    await update.message.reply_text(
+        welcome_message,
+        parse_mode=ParseMode.HTML,
+        reply_markup=keyboard
+    )
+    
     return ConversationHandler.END
 
-async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    main_keyboard = [
-        [get_text(user.id, "btn_copytrade")],
-        [get_text(user.id, "btn_viewchart"), get_text(user.id, "btn_profile")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
-    welcome_text = get_text(user.id, "welcome_back")
-    await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
+# === COMMENTED OUT OLD FUNCTIONS ===
+# These are no longer needed as all functionality is in Mini App
+
+# async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user = update.effective_user
+#     main_keyboard = [
+#         [get_text(user.id, "btn_copytrade")],
+#         [get_text(user.id, "btn_viewchart"), get_text(user.id, "btn_profile")]
+#     ]
+#     reply_markup = ReplyKeyboardMarkup(main_keyboard, resize_keyboard=True)
+#     welcome_text = get_text(user.id, "welcome_back")
+#     await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
 
-async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from database import get_user_exchanges
     user_id = update.effective_user.id
     profile = get_user_profile(user_id)
@@ -2395,33 +2434,37 @@ def main():
         ]
     )
     
+    
+    # Simplified start handler - just shows Mini App button
     start_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_command)],
-        states={
-            SELECT_LANG_START: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_initial_language)]
-        },
-        fallbacks=[CommandHandler("start", start_command)] # Allow restarting start if needed
+        states={},  # No states needed - just show Mini App
+        fallbacks=[CommandHandler("start", start_command)]
     )
     
+    
+    # === ONLY /start COMMAND IS ACTIVE ===
+    # All other features are now in the Mini App
     application.add_handler(start_conv_handler)
-    # application.add_handler(CommandHandler("start", start_command)) # Removed simple handler
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("profile", profile_command))
-    application.add_handler(CommandHandler("admin", admin_command))  # Новая админ-команда
-    application.add_handler(connect_conv_handler)
-    application.add_handler(withdraw_conv_handler)
-    application.add_handler(lang_conv_handler)
-    application.add_handler(risk_conv_handler)
-    application.add_handler(promo_conv_handler)
-    application.add_handler(edit_reserve_conv_handler) # NEW
-    application.add_handler(broadcast_conv_handler)
-    application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ОБЪЯСНЕНИЯ ---
-    application.add_handler(CallbackQueryHandler(explain_analysis_handler, pattern="^explain_analysis$"))
+    # === COMMENTED OUT - ALL FEATURES NOW IN MINI APP ===
+    # application.add_handler(CommandHandler("help", help_command))
+    # application.add_handler(CommandHandler("profile", profile_command))
+    # application.add_handler(CommandHandler("admin", admin_command))
+    # application.add_handler(connect_conv_handler)
+    # application.add_handler(withdraw_conv_handler)
+    # application.add_handler(lang_conv_handler)
+    # application.add_handler(risk_conv_handler)
+    # application.add_handler(promo_conv_handler)
+    # application.add_handler(edit_reserve_conv_handler)
+    # application.add_handler(broadcast_conv_handler)
+    # application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+    # application.add_handler(CallbackQueryHandler(explain_analysis_handler, pattern="^explain_analysis$"))
     
-    print("Bot is running...")
+    print("✅ Bot is running in Mini App mode...")
+    print(f"✅ Mini App URL: {WEBAPP_URL}")
+    print("✅ All features available in Mini App")
     application.run_polling()
 
 if __name__ == "__main__":

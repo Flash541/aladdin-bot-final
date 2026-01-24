@@ -4,6 +4,11 @@
     background: rgba(6, 96, 249, 0.1) !important;
 }
 
+.market-type-selector:hover {
+    border-color: #0660F9 !important;
+    background: rgba(6, 96, 249, 0.1) !important;
+}
+
 .ct-step {
     width: 100%;
 }

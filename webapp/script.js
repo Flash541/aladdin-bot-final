@@ -1,5 +1,5 @@
 // --- INITIAL VARIABLES ---
-const API_BASE = "";
+const API_BASE = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') ? 'http://127.0.0.1:8001' : '';
 let tg = null;
 
 // --- SPLASH LOGIC (Defined early to ensure availability) ---
@@ -126,7 +126,32 @@ const translations = {
         lbl_risk_per_trade: "Risk per Trade",
         msg_edit_risk_prompt: "Percentage of capital risking per trade.",
         btn_disconnect: "Disconnect Strategy",
-        btn_apply_changes: "Apply Changes"
+        btn_apply_changes: "Apply Changes",
+
+        // Analyzer Modal
+        analyzer_title: "AI Chart Analyzer",
+        analyzer_description: "<strong style='color: #0660F9;'>Black Aladdin</strong> — is an AI analyst that studies your charts and provides trading signals.<br><br><strong>How it works:</strong><br>• Upload a chart screenshot<br>• AI identifies ticker and timeframe<br>• Get entry points, targets and stop-loss<br>• See confidence level and detailed notes",
+        upload_chart: "Tap to upload chart",
+        analyzing_market: "Analyzing market structure...",
+        timeframe: "Timeframe",
+        confidence: "Confidence",
+        entry: "Entry:",
+        target: "Target:",
+        stop: "Stop:",
+        explain_logic: "Explain Logic",
+
+        // Referral Modal
+        referral_program: "Referral Program",
+        referral_earn_text: "Earn commission from your referrals' profitable trades:",
+        level_1: "Level 1",
+        level_2: "Level 2",
+        level_3: "Level 3",
+        commission_20: "20% commission",
+        commission_7: "7% commission",
+        commission_3: "3% commission",
+        referrals: "referrals",
+        get_referral_link: "Get Your Referral Link",
+        btn_analyze: "Analyze"
     },
     ru: {
         welcome: "С возвращением",
@@ -163,9 +188,33 @@ const translations = {
         lbl_trading_capital: "Торговый капитал",
         msg_edit_reserve_prompt: "Сумма, зарезервированная для этой стратегии.",
         lbl_risk_per_trade: "Риск на сделку",
-        msg_edit_risk_prompt: "Процент капитала, рискуемый на каждую сделку.",
+        msg_edit_risk_prompt: "Процент капитала, рискуemый на каждую сделку.",
         btn_disconnect: "Отключить стратегию",
-        btn_apply_changes: "Применить изменения"
+        btn_apply_changes: "Применить изменения",
+
+        // Analyzer Modal
+        analyzer_title: "AI Анализ графиков",
+        analyzer_description: "<strong style='color: #0660F9;'>Black Aladdin</strong> — это AI-аналитик, который изучает ваши графики и предоставляет торговые сигналы.<br><br><strong>Как работает:</strong><br>• Загрузите скриншот графика<br>• AI определит тикер и таймфрейм<br>• Получите точки входа, цели и стоп-лосс<br>• См. уровень уверенности и детальные заметки",
+        upload_chart: "Нажмите для загрузки графика",
+        analyzing_market: "Анализируем рыночную структуру...",
+        timeframe: "Таймфрейм",
+        confidence: "Уверенность",
+        entry: "Вход:",
+        target: "Цель:",
+        stop: "Стоп:",
+        explain_logic: "Объяснить логику",
+        btn_analyze: "Анализ",
+        // Referral Modal
+        referral_program: "Реферальная программа",
+        referral_earn_text: "Зарабатывайте комиссию с прибыльных сделок ваших рефералов:",
+        level_1: "Уровень 1",
+        level_2: "Уровень 2",
+        level_3: "Уровень 3",
+        commission_20: "20% комиссия",
+        commission_7: "7% комиссия",
+        commission_3: "3% комиссия",
+        referrals: "рефералов",
+        get_referral_link: "Получить реферальную ссылку"
     },
     uk: {
         welcome: "З поверненням",
@@ -175,6 +224,7 @@ const translations = {
         active_strategies: "Активні Стратегії",
         view_all: "Всі",
         my_exchanges: "Мої Біржі",
+        btn_analyze: "Аналіз",
         settings: "Налаштування",
         language: "Мова",
         user_id: "ID користувача",
@@ -204,7 +254,31 @@ const translations = {
         lbl_risk_per_trade: "Ризик на угоду",
         msg_edit_risk_prompt: "Відсоток капіталу, що ризикується на кожну угоду.",
         btn_disconnect: "Від'єднати стратегію",
-        btn_apply_changes: "Застосувати зміни"
+        btn_apply_changes: "Застосувати зміни",
+
+        // Analyzer Modal
+        analyzer_title: "AI Аналіз графіків",
+        analyzer_description: "<strong style='color: #0660F9;'>Black Aladdin</strong> — це AI-аналітик, який вивчає ваші графіки та надає торгові сигнали.<br><br><strong>Як це працює:</strong><br>• Завантажте скріншот графіка<br>• AI визначить тикер та таймфрейм<br>• Отримайте точки входу, цілі та стоп-лосс<br>• Див. рівень впевненості та детальні нотатки",
+        upload_chart: "Натисніть для завантаження графіка",
+        analyzing_market: "Аналізуємо ринкову структуру...",
+        timeframe: "Таймфрейм",
+        confidence: "Впевненість",
+        entry: "Вхід:",
+        target: "Ціль:",
+        stop: "Стоп:",
+        explain_logic: "Пояснити логіку",
+
+        // Referral Modal
+        referral_program: "Реферальна програма",
+        referral_earn_text: "Заробляйте комісію з прибуткових угод ваших рефералів:",
+        level_1: "Рівень 1",
+        level_2: "Рівень 2",
+        level_3: "Рівень 3",
+        commission_20: "20% комісія",
+        commission_7: "7% комісія",
+        commission_3: "3% комісія",
+        referrals: "рефералів",
+        get_referral_link: "Отримати реферальне посилання"
     }
 };
 
@@ -560,7 +634,7 @@ function setupTopUpModal() {
         const user = tg.initDataUnsafe.user;
         tg.MainButton.showProgress();
         try {
-            await fetch(`${API_BASE} /api/topup`, {
+            await fetch(`${API_BASE}/api/topup`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: user.id, tx_id: txId })
             });
@@ -723,6 +797,7 @@ window.submitWithdrawRequest = async function () {
 
 function setupWithdrawButton() {
     const withdrawBtn = document.getElementById('btn-withdraw-funds');
+
     if (withdrawBtn) {
         withdrawBtn.onclick = () => {
             openWithdrawModal();
@@ -732,49 +807,46 @@ function setupWithdrawButton() {
 
 // === ACTION BUTTONS & BOTTOM SHEET ===
 function setupActionButtons() {
-    console.log('[DEBUG] setupActionButtons called');
-
     // Top Up Card
     const topUpCard = document.querySelector('.action-card[data-action="topup"]');
-    console.log('[DEBUG] topUpCard found:', topUpCard);
 
     if (topUpCard) {
         topUpCard.addEventListener('click', () => {
-            console.log('[DEBUG] Top Up clicked!');
             const modal = document.getElementById('modal-topup');
-            console.log('[DEBUG] Modal element:', modal);
 
             if (modal) {
                 modal.classList.add('sheet-mode');
                 modal.style.display = 'flex';
                 fetchDepositAddress();
-            } else {
-                console.error('[ERROR] modal-topup not found!');
             }
         });
-        console.log('[DEBUG] Top Up click listener attached');
-    } else {
-        console.error('[ERROR] Top Up card not found!');
     }
 
     const ctCard = document.getElementById('btn-copy-trading');
     if (ctCard) {
         ctCard.addEventListener('click', () => {
-            try {
-                console.log('[DEBUG] Copy Trade Btn Clicked (ID)');
-                const modal = document.getElementById('modal-copytrading');
-                if (!modal) throw new Error("Modal not found");
-
+            const modal = document.getElementById('modal-copytrading');
+            if (modal) {
                 modal.style.display = 'flex';
-                if (typeof showCTStep === 'function') showCTStep('strategy');
+                // Show market type selection first
+                if (typeof showCTStep === 'function') showCTStep('market-type');
 
                 if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            } catch (e) {
-                alert("CT ERROR: " + e.message);
             }
         });
-    } else {
-        console.error('[ERROR] Copy Trade ID not found');
+    }
+
+    // Analyze Chart Card
+    const analyzeCard = document.querySelector('.action-card[data-action="analyze"]');
+
+    if (analyzeCard) {
+        analyzeCard.onclick = () => {
+            const modal = document.getElementById('modal-analyzer');
+            if (modal) {
+                modal.style.display = 'flex';
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            }
+        };
     }
 
     // View All Strategies Button (Dashboard)
@@ -1028,7 +1100,7 @@ async function fetchDepositAddress() {
     try {
         const uid = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 0;
 
-        const res = await fetch('/api/create_payment', {
+        const res = await fetch(`${API_BASE}/api/create_payment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: uid })
@@ -1048,35 +1120,65 @@ async function fetchDepositAddress() {
 }
 
 // === COPY TRADING MODAL ===
+// === COPY TRADING MODAL ===
+let selectedMarketType = null; // Track selected market type: 'futures' or 'spot'
+
 function setupCopyTradingModal() {
     const modal = document.getElementById('modal-copytrading');
     if (!modal) {
-        console.error("[ERROR] Modal #modal-copytrading NOT found in DOM.");
         return;
     }
-    console.log("[DEBUG] setupCopyTradingModal: Modal found. Attaching delegated click listener.");
 
-    // Event Delegation: Listen on the modal for clicks on .strategy-selector-btn
-    modal.addEventListener('click', (e) => {
-        // Look for the closest strategy button (in case user clicks on image or text inside)
-        const btn = e.target.closest('.strategy-selector-btn');
-        if (btn) {
-            const strategy = btn.dataset.strategy;
-            const exchange = btn.dataset.exchange;
-            console.log(`[DEBUG] CLICK detected on Strategy Button. Strategy: ${strategy}, Exchange: ${exchange}`);
+    // Event Delegation for all clicks in the modal
+    modal.onclick = (e) => {
+        // Handle market type selection
+        const marketBtn = e.target.closest('.market-type-selector');
+        if (marketBtn) {
+            const marketType = marketBtn.dataset.market;
+            selectedMarketType = marketType;
+
+            // Show strategy step
+            showCTStep('strategy');
+
+            // Filter strategies based on market type
+            filterStrategiesByMarket(marketType);
+
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            return;
+        }
+
+        // Handle strategy selection
+        const strategyBtn = e.target.closest('.strategy-selector-btn');
+        if (strategyBtn) {
+            const strategy = strategyBtn.dataset.strategy;
+            const exchange = strategyBtn.dataset.exchange;
 
             if (exchange === 'bingx') showCTStep('bingx-api');
             else if (exchange === 'okx') showCTStep('okx-api');
-            else console.warn(`[WARN] Unknown exchange: ${exchange}`);
 
             if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
-    });
+    };
 }
 
-function showCTStep(stepName) {
-    console.log(`[DEBUG] showCTStep called with: ${stepName}`);
+// Filter strategies based on market type
+function filterStrategiesByMarket(marketType) {
+    const bingbotCard = document.querySelector('.strategy-selector-btn[data-strategy="bingbot"]');
+    const trademaxCard = document.querySelector('.strategy-selector-btn[data-strategy="trademax"]');
 
+    if (marketType === 'futures') {
+        // Show only BingBot
+        if (bingbotCard) bingbotCard.style.display = 'flex';
+        if (trademaxCard) trademaxCard.style.display = 'none';
+    } else if (marketType === 'spot') {
+        // Show only TradeMax
+        if (bingbotCard) bingbotCard.style.display = 'none';
+        if (trademaxCard) trademaxCard.style.display = 'flex';
+    }
+}
+
+
+function showCTStep(stepName) {
     const steps = document.querySelectorAll('.ct-step');
     steps.forEach(step => step.style.display = 'none');
 
@@ -1100,11 +1202,6 @@ function showCTStep(stepName) {
 
     if (targetStep) {
         targetStep.style.display = 'block';
-        console.log(`[DEBUG] SUCCESS: Switched to step #${targetId}`);
-    } else {
-        console.error(`[ERROR] FAILED to find step with ID #${targetId}`);
-        // Debug: list available IDs
-        console.log("Available steps:", Array.from(steps).map(s => s.id));
     }
 }
 
@@ -1147,8 +1244,9 @@ function closeCopyTradingModal() {
     const modal = document.getElementById('modal-copytrading');
     if (modal) {
         modal.style.display = 'none';
-        // Always reset to strategy step
-        showCTStep('strategy');
+        // Reset to market type selection
+        showCTStep('market-type');
+        selectedMarketType = null;
         // Clear form inputs
         document.getElementById('bingx-api-key').value = '';
         document.getElementById('bingx-secret-key').value = '';
@@ -1381,6 +1479,14 @@ window.onload = function () {
     if (typeof setupActionButtons === 'function') setupActionButtons();
     if (typeof setupLanguageSelector === 'function') setupLanguageSelector();
     if (typeof setupModals === 'function') setupModals();
+    if (typeof setupWithdrawButton === 'function') setupWithdrawButton();
+    if (typeof setupCopyTradingModal === 'function') setupCopyTradingModal();
+    if (typeof setupReferralButton === 'function') setupReferralButton();
+
+    // GLOBAL DEBUG CLICK LISTENER
+    document.addEventListener('click', (e) => {
+        console.log('[GLOBAL CLICK DEBUG]', e.target, 'Closest ID:', e.target.id || e.target.closest('[id]')?.id);
+    });
 
     // SPLASH SCREEN HANDLING
     const splash = document.getElementById('splash-screen');
@@ -1401,3 +1507,287 @@ window.onload = function () {
     }
 };
 
+
+// === ANALYZER LOGIC ===
+let currentAnalysisContext = null;
+
+
+
+window.openAnalyzer = function () {
+    const modal = document.getElementById('modal-analyzer');
+    if (!modal) {
+        console.error('Modal analyzer not found');
+        return;
+    }
+    modal.style.display = 'flex'; // Sheet mode display
+
+    // Reset state
+    const uploadStep = document.getElementById('analyzer-step-upload');
+    const loadingStep = document.getElementById('analyzer-step-loading');
+    const resultStep = document.getElementById('analyzer-step-result');
+    const input = document.getElementById('chart-input');
+    const explainBox = document.getElementById('explanation-text');
+
+    if (uploadStep) uploadStep.style.display = 'block';
+    if (loadingStep) loadingStep.style.display = 'none';
+    if (resultStep) resultStep.style.display = 'none';
+    if (input) input.value = '';
+    if (explainBox) {
+        explainBox.style.display = 'none';
+        explainBox.innerText = '';
+    }
+    currentAnalysisContext = null;
+
+    if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.impactOccurred('light');
+};
+
+window.closeAnalyzer = function () {
+    const modal = document.getElementById('modal-analyzer');
+    if (modal) modal.style.display = 'none'; // Sheet mode compatibility
+};
+
+window.handleChartUpload = async function (input) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    // Safe access to user id
+    const user = (window.tg && window.tg.initDataUnsafe && window.tg.initDataUnsafe.user) ? window.tg.initDataUnsafe.user : { id: 0 };
+
+    // Show Loading
+    document.getElementById('analyzer-step-upload').style.display = 'none';
+    document.getElementById('analyzer-step-loading').style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('user_id', user.id);
+
+    try {
+        const response = await fetch(`${API_BASE}/api/analyze?user_id=${user.id}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'error') {
+            alert(data.msg || 'Analysis failed');
+            window.openAnalyzer(); // Reset
+            return;
+        }
+
+        // Render Result
+        const plan = data.plan;
+
+        const tickerEl = document.getElementById('res-ticker');
+        if (tickerEl) tickerEl.innerText = (data.ticker || 'UNKNOWN') + " (" + (data.timeframe || '') + ")";
+
+        const viewEl = document.getElementById('res-view');
+        if (viewEl) {
+            viewEl.className = 'res-view';
+            if (plan.view === 'long') {
+                viewEl.classList.add('view-long');
+                viewEl.innerText = 'LONG';
+            } else if (plan.view === 'short') {
+                viewEl.classList.add('view-short');
+                viewEl.innerText = 'SHORT';
+            } else {
+                viewEl.classList.add('view-neutral');
+                viewEl.innerText = 'NEUTRAL';
+            }
+        }
+
+        const tfEl = document.getElementById('res-tf');
+        if (tfEl) tfEl.innerText = data.timeframe;
+
+        const confEl = document.getElementById('res-conf');
+        if (confEl) confEl.innerText = Math.round((plan.confidence || 0) * 100) + "%";
+
+        const entryEl = document.getElementById('res-entry');
+        if (entryEl) entryEl.innerText = plan.entry_zone ? plan.entry_zone.join(' - ') : '-';
+
+        const targetEl = document.getElementById('res-target');
+        if (targetEl) targetEl.innerText = plan.targets ? plan.targets[0] : '-';
+
+        const stopEl = document.getElementById('res-stop');
+        if (stopEl) stopEl.innerText = plan.stop || '-';
+
+        const notesEl = document.getElementById('res-notes');
+        if (notesEl) notesEl.innerText = plan.notes || 'No description available.';
+
+        currentAnalysisContext = data.context;
+
+        // Show Result
+        document.getElementById('analyzer-step-loading').style.display = 'none';
+        document.getElementById('analyzer-step-result').style.display = 'block';
+
+        if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.notificationOccurred('success');
+
+    } catch (e) {
+        console.error(e);
+        alert("Network Error: " + e.message);
+        window.openAnalyzer();
+    }
+};
+
+// Markdown parser for explanation text
+function parseMarkdown(text) {
+    if (!text) return '';
+
+    let html = text;
+
+    // Convert ### Headers to styled divs
+    html = html.replace(/###\s+(.+)/g, '<div class="exp-heading">$1</div>');
+
+    // Convert **bold** to <strong>
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Convert numbered lists (1. 2. 3.) to styled list items
+    html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<div class="exp-list-item"><span class="exp-num">$1.</span> $2</div>');
+
+    // Convert line breaks to <br> for paragraphs
+    html = html.replace(/\n\n/g, '<br><br>');
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
+}
+
+window.explainSignal = async function () {
+    if (!currentAnalysisContext) return;
+
+    const btn = document.querySelector('.explain-btn');
+    const box = document.getElementById('explanation-text');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-small"></span> Thinking...`;
+    }
+
+    try {
+        const user = (window.tg && window.tg.initDataUnsafe && window.tg.initDataUnsafe.user) ? window.tg.initDataUnsafe.user : { id: 0 };
+        const response = await fetch(`${API_BASE}/api/explain`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id, context: currentAnalysisContext })
+        });
+
+        const data = await response.json();
+
+        if (box) {
+            box.style.display = 'block';
+            // Parse markdown and render as HTML
+            box.innerHTML = parseMarkdown(data.explanation || "Could not generate explanation.");
+        }
+
+    } catch (e) {
+        alert("Explain Error: " + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span>💡</span> Explain Logic`;
+        }
+    }
+};
+
+
+
+
+
+// === REFERRAL SYSTEM ===
+
+// Open referral modal and fetch stats
+function openReferralModal() {
+    const modal = document.getElementById('modal-referral');
+    if (modal) {
+        modal.style.display = 'flex';
+        fetchReferralStats();
+
+        if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+}
+
+// Close referral modal
+function closeReferralModal() {
+    const modal = document.getElementById('modal-referral');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Fetch referral statistics from backend
+// Fetch referral statistics from backend
+// Fetch referral statistics from backend
+async function fetchReferralStats() {
+    try {
+        let userId = 0;
+
+        // Try getting user from Telegram WebApp
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            userId = tg.initDataUnsafe.user.id;
+        }
+
+        // Fallback: Check URL parameters (common in browser testing)
+        if (!userId || userId === 0) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlUserId = urlParams.get('user_id');
+            if (urlUserId) {
+                userId = parseInt(urlUserId);
+            }
+        }
+
+        if (!userId || userId === 0) {
+            console.warn('[WARN] No valid user_id found. Cannot fetch referral stats.');
+            document.getElementById('referral-link').innerText = 'Please open in Telegram';
+            return;
+        }
+
+        const response = await fetch(`${API_BASE}/api/referral_stats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server returned fail status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Update UI
+        document.getElementById('referral-link').innerText = data.referral_link || 'https://t.me/bot?start=...';
+        document.getElementById('level-1-count').innerText = `${data.level_1 || 0} ${translations[currentLang].referrals || 'referrals'}`;
+        document.getElementById('level-2-count').innerText = `${data.level_2 || 0} ${translations[currentLang].referrals || 'referrals'}`;
+        document.getElementById('level-3-count').innerText = `${data.level_3 || 0} ${translations[currentLang].referrals || 'referrals'}`;
+    } catch (e) {
+        console.error('[ERROR] Failed to fetch referral stats:', e);
+        document.getElementById('referral-link').innerText = 'Error loading stats';
+    }
+}
+
+// Copy referral link to clipboard
+function copyReferralLink() {
+    const link = document.getElementById('referral-link').innerText;
+
+    if (link && link !== 'https://t.me/bot?start=...') {
+        navigator.clipboard.writeText(link).then(() => {
+            // Show toast notification
+            const toast = document.getElementById('toast-notification');
+            if (toast) {
+                toast.innerText = 'Referral link copied!';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }).catch(err => {
+            console.error('[ERROR] Failed to copy:', err);
+        });
+    }
+}
+
+// Setup referral button listener
+function setupReferralButton() {
+    const referralBtn = document.getElementById('btn-referral');
+    if (referralBtn) {
+        referralBtn.onclick = openReferralModal;
+    }
+}

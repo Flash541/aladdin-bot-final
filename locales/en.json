@@ -175,5 +175,7 @@
     "wiz_title": "Setup Copytrading",
     "btn_connect": "Connect",
     "success": "Success!",
-    "reserve_title": "Trading Capital"
+    "reserve_title": "Trading Capital",
+    "start_welcome_title": "🧞‍♂️ Welcome to <b>Black Aladdin</b>",
+    "start_welcome_message": "🪙 Your all-in-one crypto trading assistant.\n\n✨ <b>Features:</b>\n• 📊 AI Chart Analysis\n• 🤖 BingX Copy Trading (Futures)\n• 💰 TradeMax Copy Trading (Spot)\n• 🎁 Referral Program (3 levels)\n• 📈 Real-time Portfolio Tracking\n\nClick the button below to get started:"
 }

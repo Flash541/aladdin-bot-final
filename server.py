@@ -1,21 +1,30 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import asyncio
 import os
+import shutil
+import uuid
 import requests
 from urllib.parse import urlencode
-from database import get_user_exchanges, get_user_decrypted_keys, get_user_language, save_user_language, execute_write_query
+
+# --- OUR MODULES ---
+from database import get_user_exchanges, get_user_decrypted_keys, get_user_language, save_user_language, execute_write_query, check_analysis_limit, get_user_risk_profile, get_referral_count
 from exchange_utils import fetch_exchange_balance_safe, validate_exchange_credentials
 from tx_verifier import verify_bsc_tx
 import sqlite3
 from database import DB_NAME
 
+# --- ANALYZER MODULES ---
+from chart_analyzer import analyze_chart_with_gpt
+from core_analyzer import fetch_data, compute_features, generate_decisive_signal
+from llm_explainer import get_explanation
+
 # --- CONSTANTS ---
 NGROK_URL = "http://167.99.130.80:8080"
-YOUR_WALLET = os.getenv("YOUR_WALLET_ADDRESS") # Ensure this is loaded
+YOUR_WALLET = os.getenv("YOUR_WALLET_ADDRESS")
 
 app = FastAPI()
 
@@ -25,6 +34,88 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ... (Previous API code) ...
+
+@app.post("/api/analyze")
+async def analyze_chart_endpoint(file: UploadFile = File(...), user_id: int = 0):
+    """
+    1. Check daily limit
+    2. Save image
+    3. Analyze with GPT (OpenRouter) -> Ticker/TF
+    4. Fetch market data -> Technical Analysis
+    5. Return result
+    """
+    # 1. Check Limits (if user_id provided)
+    if user_id > 0:
+        can_analyze = check_analysis_limit(user_id)
+        if not can_analyze:
+             raise HTTPException(status_code=429, detail="Daily limit reached")
+
+    # 2. Save File Temporarily
+    temp_filename = f"temp_{uuid.uuid4()}.jpg"
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    try:
+        # 3. Vision Analysis (Ticker & Timeframe)
+        vision_result = analyze_chart_with_gpt(temp_filename)
+        
+        if not vision_result:
+            return {"status": "error", "msg": "Could not recognize chart"}
+        
+        ticker = vision_result['ticker']
+        timeframe = vision_result['timeframe']
+        
+        print(f"🔍 Analyzing {ticker} on {timeframe}...")
+
+        # 4. Technical Analysis (Core Engine)
+        # Fetch Data
+        df = fetch_data(ticker, timeframe=timeframe, limit=200)
+        if df.empty:
+             return {"status": "error", "msg": f"Could not fetch data for {ticker}"}
+        
+        # Compute Features
+        df = compute_features(df)
+        
+        # Get Risk Profile (Balance/Risk%)
+        risk_profile = get_user_risk_profile(user_id) if user_id > 0 else {'balance': 1000, 'risk_pct': 1.0}
+        
+        # Generate Signal
+        trade_plan, context = generate_decisive_signal(df, ticker, risk_profile, timeframe)
+        
+        if not trade_plan:
+            return {"status": "error", "msg": "Not enough data for analysis"}
+
+        # 5. Return Result
+        return {
+            "status": "ok",
+            "ticker": ticker,
+            "timeframe": timeframe,
+            "plan": trade_plan,
+            "context": context
+        }
+
+    except Exception as e:
+        print(f"❌ Analysis Error: {e}")
+        return {"status": "error", "msg": str(e)}
+    finally:
+        # Cleanup
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+
+class ExplainRequest(BaseModel):
+    user_id: int
+    context: dict
+
+@app.post("/api/explain")
+async def explain_signal_endpoint(req: ExplainRequest):
+    lang = get_user_language(req.user_id)
+    explanation = get_explanation(req.context, lang)
+    return {"status": "ok", "explanation": explanation}
+
+
+@app.get("/cryptapi_webhook")
 
 # --- MODELS ---
 class ConnectRequest(BaseModel):
@@ -315,6 +406,41 @@ async def withdraw_funds(req: WithdrawRequest):
         raise
     except Exception as e:
         print(f"Withdrawal error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/referral_stats")
+async def get_referral_stats(data: dict):
+    """
+    Get referral statistics for a user.
+    Returns referral link and counts for each level.
+    """
+    try:
+        user_id = data.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id required")
+        
+        # Get bot username from environment
+        bot_username = os.getenv('BOT_USERNAME', 'BlackAladinBot')
+        
+        # Generate referral link
+        referral_link = f"https://t.me/{bot_username}?start={user_id}"
+        
+        # Get referral counts from database
+        level_1_count = get_referral_count(user_id, level=1)
+        level_2_count = get_referral_count(user_id, level=2)
+        level_3_count = get_referral_count(user_id, level=3)
+        
+        return {
+            'referral_link': referral_link,
+            'level_1': level_1_count,
+            'level_2': level_2_count,
+            'level_3': level_3_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Referral stats error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/cryptapi_webhook")

@@ -581,22 +581,20 @@ class TradeCopier:
             
             # ВХОД / УСРЕДНЕНИЕ / РУЧНОЕ ЗАКРЫТИЕ
             elif order_type in ['MARKET', 'LIMIT']:
+                # FIX: Calculate master balance BEFORE using it
+                master_bal = self._get_master_balance(master_exchange)
+                
                 # Decoupled Mode: Ratio is only used for logging/master context, not for User sizing.
                 # User sizing happens inside _execute_single_user using Capital * Risk
                 ratio = 0 
                 if master_bal > 0:
                      ratio = min((qty * price) / master_bal, 0.99)
                 
-                # --- APPLY RESERVE LOGIC HERE OR INSIDE _execute_single_user? ---
-                # The prompt said: "worker.py before calculating ratio will do: trading_balance = total_balance - reserved_amount"
-                # But ratio is calculated based on MASTER balance.
-                # The USER position size is calculated inside _execute_single_user based on USER balance * ratio.
-                # So we apply reserve logic inside _execute_single_user.
-                
                 print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
                 
                 # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only ДАЛЬШЕ ---
                 self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'bro-bot', is_reduce_only=is_reduce_only)
+
 
 
     def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot', is_reduce_only=False):
@@ -615,15 +613,15 @@ class TradeCopier:
             executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only, exchange_name, reserve, risk_pct)
 
     def close_all_positions_parallel(self, symbol, executor):
-        # Закрываем для всех активных подключений (Ratner по умолчанию для Futures закрытия)
-        connections = get_active_exchange_connections(strategy='ratner') 
-        # Если нужно закрывать и Spot, нужно отдельно вызывать. Но close_all обычно для Futures.
+        # Закрываем для всех активных подключений (BingBot/Bybit = bro-bot strategy)
+        connections = get_active_exchange_connections(strategy='bro-bot') 
         
         print(f"⚡ [WORKER] Closing concurrently for {len(connections)} connections...")
         for conn in connections:
             user_id = conn['user_id']
             exchange = conn['exchange_name']
             executor.submit(self._close_single_user, user_id, symbol, exchange)
+
 
 
     # def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner'):

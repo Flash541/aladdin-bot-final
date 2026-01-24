@@ -73,6 +73,24 @@ def execute_write_query(query, params=()):
     
     print(f"❌ CRITICAL: Database locked after {max_retries} retries. Query failed.")
 
+def execute_read_query(query, params=()):
+    """
+    Выполняет чтение из базы.
+    Использует WAL режим, поэтому не блокирует запись.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row # Позволяет обращаться к полям по имени
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, params)
+        result = cursor.fetchall()
+        return result
+    except Exception as e:
+        print(f"❌ Read Query Error: {e}")
+        return []
+    finally:
+        conn.close()
+
 def initialize_db():
     conn = sqlite3.connect(DB_NAME)
     
@@ -210,6 +228,8 @@ def initialize_db():
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'")
     except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
+    except: pass
     
     # Init Transactions Table (for migration)
     try:
@@ -317,14 +337,14 @@ def get_users_for_copytrade(strategy: str = None) -> list:
     return user_ids
 
 def get_active_exchange_connections(strategy: str = None) -> list:
-    """Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy}"""
+    """Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy, risk_pct}"""
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     # Мы берем только те биржи, которые активны, И у которых юзер включил копитрейдинг, И есть токены
     query = """
-        SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy 
+        SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy, ue.risk_pct
         FROM user_exchanges ue
         JOIN users u ON ue.user_id = u.user_id
         WHERE ue.is_active = 1 AND u.is_copytrading_enabled = 1 AND u.token_balance > 0
@@ -339,6 +359,7 @@ def get_active_exchange_connections(strategy: str = None) -> list:
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
 
 
 # def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
@@ -607,8 +628,8 @@ def add_user(user_id: int, username: str = None, referrer_id: int = None) -> boo
         # Используем execute_write_query для INSERT
         conn.close() # Закрываем читалку
         execute_write_query(
-            "INSERT INTO users (user_id, username, join_date, referrer_id, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, 'active', 1000.0, 1.0)", 
-            (user_id, username, join_date, referrer_id, ref_code)
+            "INSERT INTO users (user_id, username, join_date, referrer_id, referred_by, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, ?, 'active', 1000.0, 1.0)", 
+            (user_id, username, join_date, referrer_id, referrer_id, ref_code)
         )
         return True
     else:
@@ -884,3 +905,39 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
     except Exception as e:
         print(f"Error in get_text: {e}")
         return key
+
+def get_referral_count(user_id: int, level: int) -> int:
+    """
+    Get count of referrals at a specific level for a user.
+    Level 1: Direct referrals (people invited by this user)
+    Level 2: Referrals of referrals (people invited by Level 1)
+    Level 3: Third level referrals (people invited by Level 2)
+    
+    Uses recursive CTE to traverse the referral tree.
+    """
+    query = """
+        WITH RECURSIVE referral_tree AS (
+            -- Base case: Direct referrals (Level 1)
+            SELECT user_id, referred_by, 1 as level
+            FROM users
+            WHERE referred_by = ?
+            
+            UNION ALL
+            
+            -- Recursive case: Subsequent levels
+            SELECT u.user_id, u.referred_by, rt.level + 1
+            FROM users u
+            INNER JOIN referral_tree rt ON u.referred_by = rt.user_id
+            WHERE rt.level < 3
+        )
+        SELECT COUNT(*) as count
+        FROM referral_tree
+        WHERE level = ?
+    """
+    
+    try:
+        result = execute_read_query(query, (user_id, level))
+        return result[0]['count'] if result else 0
+    except Exception as e:
+        print(f"[ERROR] get_referral_count failed for user {user_id}, level {level}: {e}")
+        return 0

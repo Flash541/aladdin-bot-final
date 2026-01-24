@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="dark only">
+    <meta name="theme-color" content="#0B0B0B">
     <title>Aladdin Bot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,6 +55,15 @@
 
         <!-- === ACTION BUTTONS === -->
         <div class="home-actions">
+
+            <!-- COPY TRADING -->
+            <div id="btn-copy-trading" class="action-card">
+                <div class="icon-circle">
+                    <img src="exchange_icon_white.svg" class="action-icon-svg">
+                </div>
+                <div class="action-label" data-i18n="btn_copy_trade">Copy Trading</div>
+            </div>
+
             <!-- TOP UP -->
             <div class="action-card" data-action="topup">
                 <div class="icon-circle">
@@ -61,12 +72,14 @@
                 <div class="action-label" data-i18n="btn_topup">Top Up Fees</div> <!-- Updated Text -->
             </div>
 
-            <!-- COPY TRADING -->
-            <div id="btn-copy-trading" class="action-card">
+
+
+            <!-- ANALYZE CHART -->
+            <div class="action-card" data-action="analyze">
                 <div class="icon-circle">
                     <img src="copy_trade.svg" class="action-icon-svg">
                 </div>
-                <div class="action-label" data-i18n="btn_copy_trade">Copy Trading</div>
+                <div class="action-label" data-i18n="btn_analyze">Analyze</div>
             </div>
         </div>
 
@@ -140,7 +153,7 @@
                 <!-- Row 1: User ID -->
                 <div class="settings-row">
                     <span class="settings-label" data-i18n="user_id">User ID</span>
-                    <span id="user-id-disp-settings" class="settings-value">Loading...</span>
+                    <span id="user-id-disp-settings" class="settings-value">7777777</span>
                 </div>
 
                 <!-- Divider -->
@@ -173,46 +186,15 @@
                     Withdraw Funds
                 </button>
             </div>
-        </div>
-    </div>
 
-    <!-- (Obsolete Wizard Removed) -->
-
-    <!-- === RESERVE MODAL === -->
-    <div id="modal-reserve" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 data-i18n="reserve_title">Trading Capital</h2>
-                <div id="btn-close-reserve" style="font-size:24px; cursor:pointer;">✕</div>
+            <!-- Referral Section -->
+            <div style="margin-top: 16px;">
+                <button id="btn-referral"
+                    style="width: 100%; padding: 16px; background: linear-gradient(135deg, #0660F9 0%, #0550D9 100%); border: none; border-radius: 16px; color: white; font-weight: 600; font-size: 16px; cursor: pointer; font-family: 'Montserrat', sans-serif; box-shadow: 0 4px 12px rgba(6, 96, 249, 0.3); transition: transform 0.2s;"
+                    data-i18n="get_referral_link">
+                    Get Your Referral Link
+                </button>
             </div>
-
-            <div style="margin-bottom:20px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                    <span style="color:#888;">Exchange Balance:</span>
-                    <span id="reserve-balance-display" style="font-weight:bold;">$0.00</span>
-                </div>
-
-                <div style="text-align:center; padding: 20px 0;">
-                    <input type="range" id="inp-reserve-slider" min="0" step="0.01"
-                        style="width:100%; accent-color:var(--primary);">
-                </div>
-
-                <div class="input-group">
-                    <label class="input-label">Set Trading Capital (USDT)</label>
-                    <div class="input-wrapper">
-                        <input type="number" id="inp-reserve-edit" class="input-field" placeholder="0.00" step="0.01">
-                        <div class="btn-max" id="btn-reserve-max">MAX</div>
-                    </div>
-                    <div class="text-caption" style="margin-top:4px; color:#f00; display:none;" id="err-reserve-max">
-                        Cannot exceed balance</div>
-                </div>
-            </div>
-
-            <button id="btn-save-reserve" class="btn-primary" data-i18n="save">Save Capital</button>
-
-            <button id="btn-disconnect" class="btn-danger"
-                style="margin-top:12px; width:100%; background:rgba(255, 59, 48, 0.1); color:#ff3b30; border:1px solid #ff3b30; padding:12px; border-radius:12px; font-weight:600;">
-            </button>
         </div>
     </div>
 
@@ -344,6 +326,74 @@
         </div>
     </div>
 
+    <!-- === MODAL: REFERRAL === -->
+    <div id="modal-referral" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; width: 100%; max-width: 480px; margin: 0 auto;">
+
+            <!-- Close Button -->
+            <div class="close-modal-btn" onclick="closeReferralModal()">✕</div>
+
+            <!-- Header -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; margin-bottom: 24px; text-align: center; color: white;"
+                data-i18n="referral_program">
+                Referral Program
+            </h2>
+
+            <!-- Referral Link Box -->
+            <div class="referral-link-box"
+                style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <span id="referral-link"
+                    style="font-family: 'Inconsolata', monospace; font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
+                    https://t.me/bot?start=...
+                </span>
+                <img src="copy_icon.svg" width="20" height="20" onclick="copyReferralLink()"
+                    style="cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-left: 12px;">
+            </div>
+
+            <!-- Commission Tiers Info -->
+            <div
+                style="background: rgba(6, 96, 249, 0.1); border-left: 3px solid #0660F9; border-radius: 8px; padding: 12px; margin-bottom: 24px;">
+                <div style="font-size: 13px; color: #9CA3AF; line-height: 1.5;" data-i18n="referral_earn_text">
+                    Earn commission from your referrals' profitable trades:
+                </div>
+            </div>
+
+            <!-- Tier List -->
+            <div class="tier-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <div class="tier-item"
+                    style="background: rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 15px; color: #fff; font-weight: 600;" data-i18n="level_1">Level 1</div>
+                        <div style="font-size: 12px; color: #9CA3AF;" data-i18n="commission_20">20% commission</div>
+                    </div>
+                    <div id="level-1-count" style="font-size: 16px; font-weight: 700; color: #0660F9;">0 referrals</div>
+                </div>
+
+                <div class="tier-item"
+                    style="background: rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 15px; color: #fff; font-weight: 600;" data-i18n="level_2">Level 2</div>
+                        <div style="font-size: 12px; color: #9CA3AF;" data-i18n="commission_7">7% commission</div>
+                    </div>
+                    <div id="level-2-count" style="font-size: 16px; font-weight: 700; color: #0660F9;">0 referrals</div>
+                </div>
+
+                <div class="tier-item"
+                    style="background: rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 15px; color: #fff; font-weight: 600;" data-i18n="level_3">Level 3</div>
+                        <div style="font-size: 12px; color: #9CA3AF;" data-i18n="commission_3">3% commission</div>
+                    </div>
+                    <div id="level-3-count" style="font-size: 16px; font-weight: 700; color: #0660F9;">0 referrals</div>
+                </div>
+            </div>
+
+            <!-- Spacing for safe area -->
+            <div style="height: 100px;"></div>
+        </div>
+    </div>
+
 
     <!-- === MODAL: COPY TRADING === -->
     <div id="modal-copytrading" class="modal-overlay sheet-mode" style="display:none;">
@@ -359,8 +409,46 @@
             <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; margin-bottom: 24px; text-align: center;"
                 data-i18n="wiz_title">Setup Copytrading</h2>
 
+            <!-- Step 0: Market Type Selection -->
+            <div id="ct-step-market-type" class="ct-step">
+
+                <!-- Futures Card -->
+                <div class="market-type-selector" data-market="futures"
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div
+                            style="width: 40px; height: 40px; background: rgba(6, 96, 249, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                            <img src="usdt_bep_icon.svg" width="32" height="32">
+                        </div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;">Futures</div>
+                            <div style="font-size: 13px; color: #9CA3AF;">Leverage trading</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 20px; color: #467EE7;">→</div>
+                </div>
+
+                <!-- Spot Card -->
+                <div class="market-type-selector" data-market="spot"
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div
+                            style="width: 40px; height: 40px; background: rgba(6, 96, 249, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                            <img src="usdt_bep_icon.svg" width="32" height="32">
+                        </div>
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;">Spot</div>
+                            <div style="font-size: 13px; color: #9CA3AF;">Direct trading</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 20px; color: #467EE7;">→</div>
+                </div>
+            </div>
+
             <!-- Step 1: Strategy Selection -->
-            <div id="ct-step-strategy" class="ct-step">
+            <div id="ct-step-strategy" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('market-type')">← Back</button>
+
 
                 <!-- BingBot Strategy -->
                 <div class="strategy-selector-btn" data-strategy="bingbot" data-exchange="bingx"
@@ -621,7 +709,100 @@
         </div>
     </nav>
 
-    <script src="script.js?v=74"></script>
+
+    <!-- === MODAL: ANALYZER (Bottom Sheet) === -->
+    <div id="modal-analyzer" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; height: 580px; width: 100%; max-width: 480px; margin: 0 auto;">
+
+            <!-- Close Button -->
+            <div class="close-modal-btn" onclick="closeAnalyzer()">✕</div>
+
+            <!-- Title -->
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; margin-bottom: 16px; text-align: center;"
+                data-i18n="analyzer_title">AI Chart Analyzer</h2>
+
+            <!-- Description Block -->
+            <div
+                style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 24px; border-left: 3px solid #0660F9;">
+                <div style="font-size: 14px; line-height: 1.6; color: rgba(255, 255, 255, 0.9);"
+                    data-i18n="analyzer_description">
+                    <strong style="color: #0660F9;">Black Aladdin</strong> — это AI-аналитик, который изучает ваши
+                    графики и предоставляет торговые сигналы.
+                    <br><br>
+                    <strong>Как работает:</strong>
+                    <br>• Загрузите скриншот графика
+                    <br>• AI определит тикер и таймфрейм
+                    <br>• Получите точки входа, цели и стоп-лосс
+                    <br>• См. уровень уверенности и детальные заметки
+                </div>
+            </div>
+
+            <!-- STEP 1: UPLOAD -->
+            <div id="analyzer-step-upload">
+                <div class="upload-area" onclick="document.getElementById('chart-input').click()">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text" data-i18n="upload_chart">Tap to upload chart</div>
+                    <input type="file" id="chart-input" accept="image/*" style="display: none;"
+                        onchange="handleChartUpload(this)">
+                </div>
+            </div>
+
+            <!-- STEP 2: LOADING -->
+            <div id="analyzer-step-loading" style="display: none; text-align: center; padding: 40px 0;">
+                <div class="spinner"></div>
+                <div style="margin-top: 16px; color: var(--text-secondary); font-size: 14px;"
+                    data-i18n="analyzing_market">Analyzing market
+                    structure...</div>
+            </div>
+
+            <!-- STEP 3: RESULT -->
+            <div id="analyzer-step-result" style="display: none;">
+                <div class="result-header">
+                    <div id="res-ticker" class="res-ticker">BTC/USDT</div>
+                    <div id="res-view" class="res-view view-long">LONG</div>
+                </div>
+
+                <div class="result-stats">
+                    <div class="stat-item">
+                        <div class="stat-label" data-i18n="timeframe">Timeframe</div>
+                        <div id="res-tf" class="stat-value">1h</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label" data-i18n="confidence">Confidence</div>
+                        <div id="res-conf" class="stat-value">85%</div>
+                    </div>
+                </div>
+
+                <div class="signal-details">
+                    <div class="sig-row">
+                        <span data-i18n="entry">Entry:</span>
+                        <span id="res-entry" class="sig-val">65000 - 65100</span>
+                    </div>
+                    <div class="sig-row">
+                        <span data-i18n="target">Target:</span>
+                        <span id="res-target" class="sig-val highlight-green">66500</span>
+                    </div>
+                    <div class="sig-row">
+                        <span data-i18n="stop">Stop:</span>
+                        <span id="res-stop" class="sig-val highlight-red">64200</span>
+                    </div>
+                </div>
+
+                <div id="res-notes" class="result-notes">
+                    Bullish divergence on RSI combined with support bounce.
+                </div>
+
+                <button onclick="explainSignal()" class="explain-btn">
+                    <span style="font-size: 18px;">💡</span> <span data-i18n="explain_logic">Explain Logic</span>
+                </button>
+                <div id="explanation-text" class="explanation-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script src="script.js?v=92"></script>
 </body>
 
 </html>

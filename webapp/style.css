@@ -1,5 +1,8 @@
 /* --- VARIABLES & THEME (CYBERPUNK) --- */
 :root {
+    /* Force Dark Theme */
+    color-scheme: dark only;
+
     /* Colors */
     --bg-color: #0D0D0D;
     --primary: #A500E1;
@@ -35,8 +38,8 @@ body {
     background: #000 url('back_image.png') no-repeat top center;
     background-size: 480px auto;
     /* Fits width, natural height. Black below. */
-    background-color: var(--tg-theme-bg, #0B0B0B);
-    color: var(--tg-theme-text, #ffffff);
+    background-color: #000000 !important;
+    color: #ffffff !important;
     font-family: 'Montserrat', sans-serif;
     margin: 0;
     padding-bottom: 80px;
@@ -48,6 +51,8 @@ body {
     margin: 0 auto;
     position: relative;
     box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    /* Force dark background in all cases */
+    -webkit-text-size-adjust: 100%;
 }
 
 /* === HOME HEADER === */
@@ -169,6 +174,11 @@ body {
 }
 
 #btn-copy-trading .action-icon-svg {
+    width: 40px;
+    height: 40px;
+}
+
+.action-card[data-action="analyze"] .action-icon-svg {
     width: 40px;
     height: 40px;
 }
@@ -422,6 +432,8 @@ body {
     animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     border: none;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    max-height: 85vh;
+    overflow-y: auto;
 }
 
 .modal-content.sheet-content.closing {
@@ -806,4 +818,271 @@ body {
     font-size: 20px;
     flex-shrink: 0;
     overflow: hidden;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    z-index: 2000;
+    display: none;
+    /* RESTORED - was causing click blocking */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-card {
+    background: #1a1a1a;
+    width: 100%;
+    max-width: 480px;
+    /* Force max width */
+    border-radius: 30px 30px 0 0;
+    padding: 24px;
+    position: relative;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 0 auto;
+    /* Center if container is larger */
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-overlay.active .modal-card {
+    transform: translateY(0);
+}
+
+.modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 24px;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Upload Area */
+.upload-area {
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.upload-area:active {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #0660F9;
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+}
+
+.upload-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* Result Styles */
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.res-ticker {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.res-view {
+    padding: 6px 16px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.view-long {
+    background: rgba(0, 255, 157, 0.15);
+    color: #00ff9d;
+}
+
+.view-short {
+    background: rgba(255, 0, 85, 0.15);
+    color: #ff0055;
+}
+
+.view-neutral {
+    background: rgba(255, 255, 255, 0.1);
+    color: #aaa;
+}
+
+.result-stats {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.signal-details {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.sig-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.sig-row:last-child {
+    margin-bottom: 0;
+}
+
+.sig-val {
+    font-weight: 600;
+    color: #fff;
+    font-family: 'Inconsolata', monospace;
+    font-size: 15px;
+}
+
+.highlight-green {
+    color: #00ff9d;
+}
+
+.highlight-red {
+    color: #ff0055;
+}
+
+.result-notes {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    background: rgba(255, 255, 255, 0.05);
+    /* Neutral background */
+    padding: 12px;
+    border-radius: 12px;
+    border-left: 3px solid #666;
+    /* Neutral border */
+    margin-bottom: 20px;
+}
+
+.explain-btn {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Explanation Box Styling */
+.explanation-box {
+    margin-top: 15px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #e0e0e0;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 3px solid #0660F9;
+}
+
+.exp-heading {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin: 16px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exp-heading:first-child {
+    margin-top: 0;
+}
+
+.explanation-box strong {
+    color: #0660F9;
+    font-weight: 600;
+}
+
+.exp-list-item {
+    margin: 8px 0;
+    padding-left: 8px;
+    line-height: 1.6;
+}
+
+.exp-num {
+    color: #0660F9;
+    font-weight: 700;
+    margin-right: 6px;
+}
+
+.explanation-box br {
+    display: block;
+    content: "";
+    margin: 6px 0;
 }
