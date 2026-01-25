@@ -403,7 +403,13 @@ function renderExchanges(exchanges) {
 
     active.forEach((ex, idx) => {
         const isConnected = ex.status === "Connected";
-        const stratName = (ex.strategy === 'cgt' || ex.strategy === 'trademax') ? 'TradeMax' : 'Bing-Bot';
+        let stratName = 'BingBot';
+        const exNameLow = ex.name.toLowerCase();
+        if (exNameLow === 'okx' || ex.strategy === 'trademax' || ex.strategy === 'cgt') {
+            stratName = 'TradeMax';
+        } else if (exNameLow === 'bingx') {
+            stratName = 'BingBot';
+        }
         // Logic for "Waiting TopUp" vs "Active"
         let statusText = t.status_active || "Active";
 
@@ -459,7 +465,13 @@ function renderActiveStrategies(exchanges) {
     }
 
     active.forEach((ex, idx) => {
-        const stratName = (ex.strategy === 'cgt' || ex.strategy === 'trademax') ? 'TradeMax' : 'Bing-Bot';
+        let stratName = 'BingBot';
+        const exNameLow = ex.name.toLowerCase();
+        if (exNameLow === 'okx' || ex.strategy === 'trademax' || ex.strategy === 'cgt') {
+            stratName = 'TradeMax';
+        } else if (exNameLow === 'bingx') {
+            stratName = 'BingBot';
+        }
         let typeDesc = 'Spot';
         if (ex.name.toLowerCase() === 'bingx') typeDesc = 'BingX Futures';
         else if (ex.name.toLowerCase() === 'okx') typeDesc = 'OKX Spot';
