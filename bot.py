@@ -31,7 +31,7 @@ WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID")) 
 WEBAPP_URL = os.getenv("WEBAPP_URL") 
 NGROK_URL = "https://blackaladdin.xyz" # Temporary hardcoded ID for DigitalOcean
-# NGROK_URL = "https://30c8898b1fc5.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
+# NGROK_URL = "https://4013e2cf2c7d.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
 PAYMENT_AMOUNT = 49
 # PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
@@ -1827,7 +1827,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         ["User Stats 👥", "Withdrawals 🏧"], 
         ["Generate Promos 🎟️", "Broadcast 📢"], 
-        ["Back to Main Menu ⬅️"]
+        ["Top Up UNC 💰", "Back to Main Menu ⬅️"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👑 Welcome to the Admin Panel!", reply_markup=reply_markup)
@@ -2358,6 +2358,16 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel)]
     )
 
+    # UNC Top-Up conversation handler
+    unc_topup_conv_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex('^Top Up UNC 💰$'), top_up_unc_start)],
+        states={
+            ASK_UNC_USER_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_unc_user_id)],
+            ASK_UNC_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_unc_amount)],
+        },
+        fallbacks=[CommandHandler('cancel', cancel_unc)]
+    )
+
     # Edit Reserve conversation handler
     # Catch buttons like "Edit Reserve (Binance) 🛡️", "Изм. Резерв (Binance) 🛡️"
     edit_reserve_conv_handler = ConversationHandler(
@@ -2450,8 +2460,11 @@ def main():
     # === COMMENTED OUT - ALL FEATURES NOW IN MINI APP ===
     # application.add_handler(CommandHandler("help", help_command))
     # application.add_handler(CommandHandler("profile", profile_command))
-    # application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("admin", admin_command))
     # application.add_handler(connect_conv_handler)
+    application.add_handler(broadcast_conv_handler)
+    application.add_handler(unc_topup_conv_handler)
+    application.add_handler(start_conv_handler)
     # application.add_handler(withdraw_conv_handler)
     # application.add_handler(lang_conv_handler)
     # application.add_handler(risk_conv_handler)
@@ -2467,5 +2480,92 @@ def main():
     print("✅ All features available in Mini App")
     application.run_polling()
 
-if __name__ == "__main__":
+# --- UNC TOP-UP CONVERSATION ---
+ASK_UNC_USER_ID, ASK_UNC_AMOUNT = range(100, 102)
+
+async def top_up_unc_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # query = update.callback_query
+    # await query.answer()
+    
+    if update.effective_user.id != ADMIN_USER_ID:
+        return ConversationHandler.END
+        
+    await update.message.reply_text("🆔 <b>Enter User ID to top up UNC:</b>", parse_mode=ParseMode.HTML)
+    return ASK_UNC_USER_ID
+
+async def ask_unc_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id_text = update.message.text.strip()
+    if not user_id_text.isdigit():
+        await update.message.reply_text("❌ User ID must be a number. Try again.")
+        return ASK_UNC_USER_ID
+        
+    target_id = int(user_id_text)
+    # Check if user exists
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users WHERE user_id = ?", (target_id,))
+    res = cursor.fetchone()
+    conn.close()
+    
+    if not res:
+        await update.message.reply_text(f"❌ User ID {target_id} not found in database. Try again.")
+        return ASK_UNC_USER_ID
+        
+    context.user_data['unc_target_id'] = target_id
+    username = res[0] or "Unknown"
+    
+    await update.message.reply_text(
+        f"✅ User found: <b>{username}</b> ({target_id})\n"
+        f"💰 <b>Enter UNC Amount to credit:</b>",
+        parse_mode=ParseMode.HTML
+    )
+    return ASK_UNC_AMOUNT
+
+async def ask_unc_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    amount_text = update.message.text.strip()
+    try:
+        amount = float(amount_text)
+        if amount <= 0: raise ValueError
+    except:
+        await update.message.reply_text("❌ Invalid amount. Enter a positive number (e.g. 100 or 50.5)")
+        return ASK_UNC_AMOUNT
+        
+    target_id = context.user_data['unc_target_id']
+    
+    # Update DB
+    execute_write_query("UPDATE users SET unc_balance = unc_balance + ? WHERE user_id = ?", (amount, target_id))
+    
+    # Get new balance
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT unc_balance FROM users WHERE user_id = ?", (target_id,))
+    new_bal = cursor.fetchone()[0]
+    conn.close()
+    
+    await update.message.reply_text(
+        f"🎉 <b>Success!</b>\n"
+        f"Credited <b>{amount} UNC</b> to user <code>{target_id}</code>.\n"
+        f"New Balance: <b>{new_bal:.2f} UNC</b>",
+        parse_mode=ParseMode.HTML
+    )
+    
+    # Notify User
+    try:
+        await context.bot.send_message(
+            target_id,
+            f"🎁 <b>Balance Top Up</b>\n\n"
+            f"Admin has credited your account with <b>{amount} UNC</b>.\n"
+            f"Current Balance: <b>{new_bal:.2f} UNC</b>",
+            parse_mode=ParseMode.HTML
+        )
+    except:
+        await update.message.reply_text("⚠️ Could not notify user (bot blocked?). But balance updated.")
+        
+    return ConversationHandler.END
+
+async def cancel_unc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("❌ UNC Top-Up Cancelled.")
+    return ConversationHandler.END
+
+if __name__ == '__main__':
     main()

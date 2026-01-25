@@ -1204,26 +1204,107 @@ class TradeCopier:
 
     def _handle_pnl_and_billing(self, user_id, symbol, entry, exit_p, qty, side):
         """
-        Расчет PnL, списание комиссии 40% и распределение реферальных наград.
+        Расчет PnL, списание комиссии 40% (UNC или USDT) и распределение реферальных наград.
         """
         pnl = (exit_p - entry) * qty if side == 'buy' else (entry - exit_p) * qty
         
         if pnl > 0:
             total_fee = pnl * 0.40
-            new_bal = deduct_performance_fee(user_id, total_fee)
             
-            print(f"   💰 User {user_id} Profit: ${pnl:.2f} | Total Fee: {total_fee:.2f}")
+            # --- ПРОВЕРЯЕМ БАЛАНС UNC ---
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute("SELECT unc_balance, token_balance FROM users WHERE user_id = ?", (user_id,))
+            res = cursor.fetchone()
+            unc_bal = res[0] if res and res[0] else 0.0
+            usdt_bal = res[1] if res and res[1] else 0.0
             
+            fee_currency = "USDT"
+            used_unc = False
+            
+            # ЛОГИКА ОПЛАТЫ КОМИССИИ
+            if unc_bal >= total_fee:
+                # 1. ПЛАТИМ ПОЛНОСТЬЮ UNC (Рефералки НЕТ)
+                execute_write_query("UPDATE users SET unc_balance = unc_balance - ? WHERE user_id = ?", (total_fee, user_id))
+                new_bal = usdt_bal
+                new_unc_bal = unc_bal - total_fee
+                fee_currency = "UNC"
+                used_unc = True
+                print(f"   💰 User {user_id} Paid Fee: {total_fee:.2f} UNC.")
+                
+            elif unc_bal > 0:
+                 # 2. ПЛАТИМ ЧАСТИЧНО UNC (Рефералки НЕТ, так как часть покрыта UNC - упрощение)
+                 # Либо можно списать все UNC и остаток с USDT. 
+                 # По ТЗ: "пока есть UNC, рефералки не работают".
+                 # Спишем все UNC и остаток с USDT.
+                 remaining_fee = total_fee - unc_bal
+                 execute_write_query("UPDATE users SET unc_balance = 0 WHERE user_id = ?", (user_id,))
+                 execute_write_query("UPDATE users SET token_balance = token_balance - ? WHERE user_id = ?", (remaining_fee, user_id))
+                 
+                 new_unc_bal = 0.0
+                 # Читаем новый баланс USDT
+                 cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
+                 new_bal = cursor.fetchone()[0]
+                 
+                 used_unc = True # Считаем, что использовался UNC, поэтому рефералки нет? 
+                 # Уточнение юзера: "пока у нашего клиента есть баланс UNC никакие рефки не будут срабатыывать"
+                 # Раз мы использовали UNC (даже часть), значит рефки нет.
+                 fee_currency = "MIXED"
+                 print(f"   💰 User {user_id} Paid Fee: {unc_bal:.2f} UNC + {remaining_fee:.2f} USDT.")
+                 
+            else:
+                # 3. ПЛАТИМ ТОЛЬКО USDT (Рефералка ЕСТЬ)
+                execute_write_query("UPDATE users SET token_balance = token_balance - ? WHERE user_id = ?", (total_fee, user_id))
+                
+                # Читаем новый баланс
+                cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
+                new_bal = cursor.fetchone()[0]
+                new_unc_bal = 0.0
+                
+                print(f"   💰 User {user_id} Paid Fee: {total_fee:.2f} USDT.")
+                
+                # MLM (ТОЛЬКО ЕСЛИ НЕ ЗАДЕЙСТВОВАН UNC)
+                try:
+                    upline = get_referrer_upline(user_id, levels=3)
+                    percentages = [0.20, 0.07, 0.03]
+                    
+                    for i, referrer_id in enumerate(upline):
+                        if i < len(percentages):
+                            reward = pnl * percentages[i]
+                            credit_referral_tokens(referrer_id, reward)
+                            print(f"     -> MLM Level {i+1}: Sent {reward:.2f} to {referrer_id}")
+                            if self.bot:
+                                try:
+                                    ref_msg = (
+                                        f"🎉 <b>Referral Bonus!</b>\n"
+                                        f"Level {i+1} referral closed a profitable trade.\n"
+                                        f"💵 You earned: <b>{reward:.2f} USDT</b>"
+                                    )
+                                    loop = asyncio.new_event_loop()
+                                    asyncio.set_event_loop(loop)
+                                    loop.run_until_complete(self.bot.send_message(referrer_id, ref_msg, parse_mode=ParseMode.HTML))
+                                    loop.close()
+                                except: pass
+                except Exception as e:
+                    print(f"   ❌ MLM Error: {e}")
+
+            conn.close()
+
             # Уведомление
             if self.bot:
                 try:
-                    msg = get_text(
-                        user_id, "msg_profit_notification",
-                        symbol=symbol,
-                        pnl=f"{pnl:.2f}",
-                        fee=f"{total_fee:.2f}",
-                        balance=f"{new_bal:.2f}"
+                    # Формируем текст балансов
+                    bal_text = f"{new_bal:.2f} USDT"
+                    if new_unc_bal > 0:
+                        bal_text += f"\nUNC Balance: {new_unc_bal:.2f}"
+                        
+                    msg = (
+                        f"✅ <b>Trade Closed ({symbol})</b>\n"
+                        f"💵 Profit: <b>${pnl:.2f}</b>\n"
+                        f"💳 Fee Paid: <b>{total_fee:.2f} {fee_currency}</b>\n"
+                        f"💰 Balance: <b>{bal_text}</b>"
                     )
+                    
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     loop.run_until_complete(self.bot.send_message(user_id, msg, parse_mode=ParseMode.HTML))
@@ -1231,33 +1312,8 @@ class TradeCopier:
                 except Exception as e:
                     print(f"   ⚠️ Failed to send user notification: {e}")
 
-            # MLM
-            try:
-                upline = get_referrer_upline(user_id, levels=3)
-                percentages = [0.20, 0.07, 0.03]
-                
-                for i, referrer_id in enumerate(upline):
-                    if i < len(percentages):
-                        reward = pnl * percentages[i]
-                        credit_referral_tokens(referrer_id, reward)
-                        print(f"     -> MLM Level {i+1}: Sent {reward:.2f} to {referrer_id}")
-                        if self.bot:
-                            try:
-                                ref_msg = (
-                                    f"🎉 <b>Referral Bonus!</b>\n"
-                                    f"Level {i+1} referral closed a profitable trade.\n"
-                                    f"💵 You earned: <b>{reward:.2f} USDT</b>"
-                                )
-                                loop = asyncio.new_event_loop()
-                                asyncio.set_event_loop(loop)
-                                loop.run_until_complete(self.bot.send_message(referrer_id, ref_msg, parse_mode=ParseMode.HTML))
-                                loop.close()
-                            except: pass
-            except Exception as e:
-                print(f"   ❌ MLM Error: {e}")
-
-            # Блокировка
-            if new_bal <= 0:
+            # Блокировка (Если USDT кончился и UNC кончился)
+            if new_bal <= 0 and new_unc_bal <= 0:
                 print(f"   ⛔ User {user_id} balance empty. Pausing.")
                 set_copytrading_status(user_id, is_enabled=False)
                 if self.bot:

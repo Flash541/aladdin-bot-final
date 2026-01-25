@@ -358,6 +358,10 @@ async function fetchUserData(userId) {
         const elCredSet = document.getElementById("credits-bal-settings");
         if (elCredSet) elCredSet.innerText = data.credits.toFixed(2);
 
+        // Settings page shows UNC balance
+        const elUncSet = document.getElementById("unc-bal-settings");
+        if (elUncSet) elUncSet.innerText = (data.unc_balance || 0).toFixed(2);
+
         renderExchanges(data.exchanges);
         renderActiveStrategies(data.exchanges);
     } catch (e) { console.error(e); }

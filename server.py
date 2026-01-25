@@ -148,12 +148,13 @@ async def get_user_data(user_id: int):
     exchanges = get_user_exchanges(user_id)
     language = get_user_language(user_id)
     
-    # Get internal token balance
+    # Get internal token balance & UNC balance
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT token_balance, unc_balance FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone()
     token_balance = res[0] if res else 0.0
+    unc_balance = res[1] if (res and len(res) > 1 and res[1] is not None) else 0.0
     conn.close()
     
     total_balance = 0.0
@@ -205,7 +206,8 @@ async def get_user_data(user_id: int):
         "pnl": "+0.0%", # Todo: calculate PnL
         "exchanges": ex_list,
         "language": language,
-        "credits": token_balance
+        "credits": token_balance,
+        "unc_balance": unc_balance
     }
 
 class PaymentRequest(BaseModel):

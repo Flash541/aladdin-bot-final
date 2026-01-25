@@ -230,6 +230,8 @@ def initialize_db():
     except: pass
     try: cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
     except: pass
+    try: cursor.execute("ALTER TABLE users ADD COLUMN unc_balance REAL DEFAULT 0")
+    except: pass
     
     # Init Transactions Table (for migration)
     try:
@@ -628,7 +630,7 @@ def add_user(user_id: int, username: str = None, referrer_id: int = None) -> boo
         # Используем execute_write_query для INSERT
         conn.close() # Закрываем читалку
         execute_write_query(
-            "INSERT INTO users (user_id, username, join_date, referrer_id, referred_by, referral_code, status, account_balance, risk_per_trade_pct) VALUES (?, ?, ?, ?, ?, ?, 'active', 1000.0, 1.0)", 
+            "INSERT INTO users (user_id, username, join_date, referrer_id, referred_by, referral_code, status, account_balance, risk_per_trade_pct, unc_balance) VALUES (?, ?, ?, ?, ?, ?, 'active', 1000.0, 1.0, 0.0)", 
             (user_id, username, join_date, referrer_id, referrer_id, ref_code)
         )
         return True
