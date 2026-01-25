@@ -11,23 +11,47 @@ async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase
             if exchange_name == 'binance':
                 c = UMFutures(key=api_key, secret=secret, base_url="https://fapi.binance.com")
                 acc = c.account()
-                # Use 'walletBalance' (Total)
+                # If USDT not found, balance is 0.0 (Status: Connected)
                 return float(next((a['walletBalance'] for a in acc['assets'] if a['asset']=='USDT'), 0))
+            
             elif exchange_name == 'okx':
-                ex = ccxt.okx({'apiKey': api_key, 'secret': secret, 'password': passphrase, 'options': {'defaultType': 'spot'}})
+                ex = ccxt.okx({
+                    'apiKey': api_key, 'secret': secret, 'password': passphrase, 
+                    'options': {'defaultType': 'spot'} # OKX spot for TradeMax
+                })
                 bal = ex.fetch_balance()
-                return float(bal['USDT']['total']) # Total
+                # Handle possible missing keys if wallet empty
+                if 'USDT' in bal and 'free' in bal['USDT']:
+                     return float(bal['USDT']['free'])
+                return 0.0
+
             else: # bybit, bingx
                 ex_class = getattr(ccxt, exchange_name)
-                # Ensure correct options for futures
-                options = {'defaultType': 'future'}
-                if exchange_name == 'bingx': options['defaultType'] = 'swap' # Standardize if using ccxt
+                options = {}
+                if exchange_name == 'bingx': 
+                    options['defaultType'] = 'swap' # Start with swap for BingBot
+                elif exchange_name == 'bybit':
+                    options['defaultType'] = 'future'
                 
                 ex = ex_class({'apiKey': api_key, 'secret': secret, 'options': options})
-                bal = ex.fetch_balance() # Type might be needed for some
-                return float(bal['USDT']['total']) # Total
+                # ex.load_markets() # Optional: verify connectivity
+                bal = ex.fetch_balance() 
+                
+                # Check structure
+                if 'USDT' in bal:
+                    if 'total' in bal['USDT']: return float(bal['USDT']['total'])
+                    if 'free' in bal['USDT']: return float(bal['USDT']['free'])
+                
+                # If we got here, fetch_balance succeeded but no USDT found -> Success (0.0)
+                return 0.0
+
+        except (ccxt.AuthenticationError, ccxt.PermissionDenied, ccxt.AccountSuspended) as e:
+            print(f"🔐 Auth Error ({exchange_name}): {e}")
+            return None # Invalid Keys
         except Exception as e:
-            print(f"Fetch Error ({exchange_name}): {e}")
+            print(f"❌ Connection Error ({exchange_name}): {e}")
+            # If it's a generic logic error but not Auth, it might be connectivity. 
+            # We return None to be safe, but log it.
             return None
             
     return await asyncio.to_thread(_fetch)

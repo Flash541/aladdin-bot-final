@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional, List, Any, Dict
 import uvicorn
 import asyncio
 import os
@@ -26,7 +27,24 @@ from llm_explainer import get_explanation
 NGROK_URL = "http://167.99.130.80:8080"
 YOUR_WALLET = os.getenv("YOUR_WALLET_ADDRESS")
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 app = FastAPI()
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    error_details = exc.errors()
+    print(f"❌ Validation Error: {error_details}")
+    try:
+        body = await request.body()
+        print(f"📥 Received Body: {body.decode()}")
+    except:
+        pass
+    return JSONResponse(
+        status_code=422,
+        content={"detail": error_details},
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,12 +138,15 @@ async def explain_signal_endpoint(req: ExplainRequest):
 # --- MODELS ---
 class ConnectRequest(BaseModel):
     user_id: int
-    exchange: str
+    exchange: Optional[str] = None
+    exchange_name: Optional[str] = None # Legacy support
     api_key: str
-    secret: str
-    password: str = None
+    secret: Optional[str] = None
+    secret_key: Optional[str] = None # Legacy support
+    password: Optional[str] = None
     strategy: str = 'ratner'
-    reserve: float = 0.0
+    reserve: Optional[float] = None
+    reserve_amount: Optional[float] = None # Legacy support
 
 class LanguageRequest(BaseModel):
     user_id: int
@@ -310,8 +331,16 @@ async def disconnect_exchange(req: DisconnectRequest):
 
 @app.post("/api/connect")
 async def connect_exchange(req: ConnectRequest):
+    # Resolve fields (Legacy support)
+    exchange = req.exchange or req.exchange_name
+    secret = req.secret or req.secret_key
+    reserve = req.reserve if req.reserve is not None else (req.reserve_amount if req.reserve_amount is not None else 0.0)
+    
+    if not exchange or not secret:
+        raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")
+
     # 1. Validate
-    is_valid = await validate_exchange_credentials(req.exchange, req.api_key, req.secret, req.password)
+    is_valid = await validate_exchange_credentials(exchange, req.api_key, secret, req.password)
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid API Keys or Connection Failed")
     
@@ -319,7 +348,7 @@ async def connect_exchange(req: ConnectRequest):
     try:
         from database import encrypt_data
         
-        enc_secret = encrypt_data(req.secret)
+        enc_secret = encrypt_data(secret)
         enc_pass = encrypt_data(req.password) if req.password else None
         
         conn = sqlite3.connect(DB_NAME)
@@ -336,7 +365,7 @@ async def connect_exchange(req: ConnectRequest):
             strategy=excluded.strategy,
             reserved_amount=excluded.reserved_amount,
             is_active=1
-        """, (req.user_id, req.exchange.lower(), req.api_key, enc_secret, enc_pass, req.strategy, req.reserve))
+        """, (req.user_id, exchange.lower(), req.api_key, enc_secret, enc_pass, req.strategy, reserve))
         
         conn.commit()
         conn.close()

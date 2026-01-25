@@ -1267,8 +1267,9 @@ async function submitBingXAPI() {
     const secretKey = document.getElementById('bingx-secret-key').value.trim();
     const capital = parseFloat(document.getElementById('bingx-capital').value);
 
-    if (!apiKey || !secretKey || !capital || capital <= 0) {
-        alert('Please fill all fields correctly');
+    // Allow 0 capital (means no trading yet)
+    if (!apiKey || !secretKey || isNaN(capital)) {
+        alert('Please fill API rules correctly');
         return;
     }
 
@@ -1279,17 +1280,17 @@ async function submitBingXAPI() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user.id,
-                exchange_name: 'bingx',
+                exchange: 'bingx',
                 strategy: 'bingbot',
                 api_key: apiKey,
-                secret_key: secretKey,
+                secret: secretKey,
                 password: '',
-                reserve_amount: capital
+                reserve: capital
             })
         });
 
         const data = await response.json();
-        if (data.success) {
+        if (data.status === 'ok') {
             showToast('BingX Connected!');
             closeCopyTradingModal();
             await fetchUserData(user.id);
@@ -1308,8 +1309,9 @@ async function submitOKXAPI() {
     const passphrase = document.getElementById('okx-passphrase').value.trim();
     const capital = parseFloat(document.getElementById('okx-capital').value);
 
-    if (!apiKey || !secretKey || !passphrase || !capital || capital <= 0) {
-        alert('Please fill all fields correctly');
+    // Allow 0 capital (means no trading yet)
+    if (!apiKey || !secretKey || !passphrase || isNaN(capital)) {
+        alert('Please fill API rules correctly');
         return;
     }
 
@@ -1320,17 +1322,17 @@ async function submitOKXAPI() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user.id,
-                exchange_name: 'okx',
+                exchange: 'okx',
                 strategy: 'trademax',
                 api_key: apiKey,
-                secret_key: secretKey,
+                secret: secretKey,
                 password: passphrase,
-                reserve_amount: capital
+                reserve: capital
             })
         });
 
         const data = await response.json();
-        if (data.success) {
+        if (data.status === 'ok') {
             showToast('OKX Connected!');
             closeCopyTradingModal();
             await fetchUserData(user.id);

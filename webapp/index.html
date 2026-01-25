@@ -13,10 +13,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&family=Orbitron:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;600&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="settings_styles.css">
-    <link rel="stylesheet" href="copytrading_styles.css">
-    <link rel="stylesheet" href="dashboard_styles.css">
+    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="settings_styles.css?v=100">
+    <link rel="stylesheet" href="copytrading_styles.css?v=100">
+    <link rel="stylesheet" href="dashboard_styles.css?v=100">
 </head>
 
 <body>
@@ -36,8 +36,16 @@
 
     <!-- === PAGE: HOME === -->
     <div id="home" class="page active animate-enter">
-        <header class="home-header">
-            <div class="user-profile-left">
+        <header class="home-header"
+            style="display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 40px;">
+            <h1
+                style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 32px; letter-spacing: -0.5px; margin: 0; color: white;">
+                Black Aladin</h1>
+            <p
+                style="font-family: 'Montserrat', sans-serif; font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 4px;">
+                🧞‍♂️ Your Smart Trading Genie...</p>
+
+            <div class="user-profile-left" style="display:none;">
                 <div id="user-avatar" class="avatar-circle">K</div>
                 <div class="user-texts">
                     <div class="text-caption" data-i18n="welcome">Welcome Back</div>
@@ -811,7 +819,7 @@
     </div>
     </div>
 
-    <script src="script.js?v=92"></script>
+    <script src="script.js?v=100"></script>
 </body>
 
 </html>
