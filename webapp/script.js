@@ -156,7 +156,7 @@ const translations = {
     ru: {
         welcome: "С возвращением",
         lbl_total_balance: "Стоимость портфеля",
-        btn_topup: "Пополнить баланс",
+        btn_topup: "Пополнить",
         btn_copy_trade: "Копитрейдинг",
         active_strategies: "Активные стратегии",
         view_all: "Все",
@@ -170,7 +170,7 @@ const translations = {
         success: "Успешно!",
         reserve_title: "Торговый капитал",
         save: "Сохранить",
-        top_up_title: "Пополнить баланс",
+        top_up_title: "Пополнить",
         top_up_purpose_header: "Для чего это нужно?",
         top_up_purpose_desc: "Этот баланс используется для оплаты сервисных сборов и комиссий копитрейдинга.<br><br>Отправьте USDT на адрес ниже для автоматического пополнения счета.",
         address_label: "Адрес",
@@ -220,7 +220,7 @@ const translations = {
         welcome: "З поверненням",
         lbl_total_balance: "Портфель",
         btn_topup: "Поповнити",
-        btn_copy_trade: "Копітрейдинг",
+        btn_copy_trade: "Копі-Трейд",
         active_strategies: "Активні Стратегії",
         view_all: "Всі",
         my_exchanges: "Мої Біржі",
@@ -234,7 +234,7 @@ const translations = {
         success: "Успіх!",
         reserve_title: "Торговий Капітал",
         save: "Зберегти",
-        top_up_title: "Поповнити баланс",
+        top_up_title: "Поповнити",
         top_up_purpose_header: "Для чого це потрібно?",
         top_up_purpose_desc: "Цей баланс використовується для оплати сервісних зборів та комісій копітрейдингу.<br><br>Надішліть USDT на адресу нижче для автоматичного поповнення рахунку.",
         address_label: "Адреса",
@@ -403,7 +403,7 @@ function renderExchanges(exchanges) {
 
     active.forEach((ex, idx) => {
         const isConnected = ex.status === "Connected";
-        const stratName = ex.strategy === 'cgt' ? 'TradeMax' : 'Bing-Bot';
+        const stratName = (ex.strategy === 'cgt' || ex.strategy === 'trademax') ? 'TradeMax' : 'Bing-Bot';
         // Logic for "Waiting TopUp" vs "Active"
         let statusText = t.status_active || "Active";
 
@@ -459,7 +459,7 @@ function renderActiveStrategies(exchanges) {
     }
 
     active.forEach((ex, idx) => {
-        const stratName = ex.strategy === 'cgt' ? 'TradeMax' : 'Bing-Bot';
+        const stratName = (ex.strategy === 'cgt' || ex.strategy === 'trademax') ? 'TradeMax' : 'Bing-Bot';
         let typeDesc = 'Spot';
         if (ex.name.toLowerCase() === 'bingx') typeDesc = 'BingX Futures';
         else if (ex.name.toLowerCase() === 'okx') typeDesc = 'OKX Spot';
