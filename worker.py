@@ -9,8 +9,8 @@ import concurrent.futures
 from telegram.constants import ParseMode
 
 # --- Библиотеки ---
-from binance.um_futures import UMFutures
-from binance.error import ClientError
+# from binance.um_futures import UMFutures
+# from binance.error import ClientError
 
 # --- База Данных ---
 from database import (
@@ -107,59 +107,6 @@ class TradeCopier:
                 except Exception as e: print(f"❌ Worker Error: {e}")
                 finally: queue.task_done()
         print("--- [Worker] Stopped ---")
-        
-    # def process_signal(self, event_data, executor):
-    #     master_exchange = event_data.get('master_exchange', 'binance')
-    #     strategy = event_data.get('strategy', 'bro-bot') # bro-bot (futures) или cgt (spot)
-        
-    #     symbol = event_data.get('s'); side = event_data.get('S')
-    #     order_type = event_data.get('o'); status = event_data.get('X')
-    #     orig_type = event_data.get('ot')
-    #     qty = float(event_data.get('q', 0))
-    #     price = float(event_data.get('ap', 0)) or float(event_data.get('p', 0))
-
-    #     # --- ЛОГИКА ДЛЯ OKX (SPOT) ---
-    #     if master_exchange == 'okx':
-    #         if status == 'FILLED':
-    #             master_bal = self._get_master_balance('okx')
-    #             if master_bal == 0: master_bal = 1000.0
-                
-    #             trade_cost = qty * price
-    #             ratio = trade_cost / master_bal
-    #             ratio = min(ratio, 0.99)
-
-    #             print(f"\n🚀 [QUEUE] SIGNAL (OKX SPOT): {side} {symbol} | Ratio: {ratio*100:.2f}%")
-    #             # Передаем strategy='cgt'
-    #             self.execute_trade_parallel(symbol, side.lower(), ratio, executor, strategy='cgt')
-    #         return
-
-    #     # --- ЛОГИКА ДЛЯ FUTURES ---
-    #     if status in ['FILLED', 'PARTIALLY_FILLED']:
-    #         # ЗАКРЫТИЕ (SL/TP)
-    #         if orig_type in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
-    #             print(f"\n🚨 [QUEUE] CLOSE ALL ({master_exchange}): {symbol}")
-    #             self.close_all_positions_parallel(symbol, executor)
-            
-    #         # ВХОД / УСРЕДНЕНИЕ
-    #         elif order_type in ['MARKET', 'LIMIT']:
-    #             master_bal = self._get_master_balance(master_exchange)
-    #             if master_bal > 0:
-    #                 raw_ratio = (qty * price) / master_bal
-    #                 ratio = min(raw_ratio, 0.99) 
-    #             else:
-    #                 ratio = 0
-                
-    #             print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}%")
-    #             # Передаем strategy='bro-bot'
-    #             self.execute_trade_parallel(symbol, side.lower(), ratio, executor, strategy='bro-bot')
-
-    # # --- PARALLEL EXECUTORS ---
-    # def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot'):
-    #     # Фильтруем юзеров по стратегии (кто выбрал CGT, а кто Ratner)
-    #     subscribers = get_users_for_copytrade(strategy=strategy)
-    #     print(f"⚡ [WORKER] Executing ({strategy}) for {len(subscribers)} users...")
-    #     for user_id in subscribers:
-    #         executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy)
 
     def process_signal(self, event_data, executor):
         master_exchange = event_data.get('master_exchange', 'binance')
@@ -241,258 +188,129 @@ class TradeCopier:
             executor.submit(self._close_single_user, user_id, symbol, exchange)
 
 
-
-    # def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner'):
-    #     keys = get_user_decrypted_keys(user_id)
-    #     if not keys: return
-    #     exchange_id = keys.get('exchange', 'binance').lower()
-
-    #     # >>> СЦЕНАРИЙ 1: CGT (OKX SPOT) <<<
-    #     # ВОТ ЭТОГО НЕ БЫЛО В ТВОЕМ ПРОШЛОМ КОДЕ
-    #     if strategy == 'cgt':
-    #         if exchange_id != 'okx': return # CGT только для OKX клиентов
-    #         try:
-    #             # ВАЖНО: Передаем password для OKX
-    #             client = ccxt.okx({
-    #                 'apiKey': keys['apiKey'], 
-    #                 'secret': keys['secret'], 
-    #                 'password': keys.get('password', ''), # <--- ПАРОЛЬ
-    #                 'options': {'defaultType': 'spot'}
-    #             })
-                
-    #             bal = client.fetch_balance()
-    #             # Для спота свободный баланс это USDT
-    #             usdt = float(bal['USDT']['free']) if 'USDT' in bal else 0
-    #             amt_usd = usdt * percentage_used
-                
-    #             if amt_usd < 2: return 
-
-    #             ticker = client.fetch_ticker(symbol)
-    #             price = ticker['last']
-                
-    #             if side == 'buy':
-    #                 amount_coin = amt_usd / price
-    #                 # tdMode: cash для спота
-    #                 params = {'tdMode': 'cash'}
-    #                 order = client.create_order(symbol, 'market', 'buy', amount_coin, params=params)
-                    
-    #                 time.sleep(1)
-    #                 filled = client.fetch_order(order['id'], symbol)
-    #                 exec_p = filled['average'] or price
-    #                 exec_q = filled['filled']
-                    
-    #                 record_trade_entry(user_id, symbol, side, exec_p, exec_q)
-    #                 print(f"   ✅ User {user_id} [OKX SPOT]: BUY {exec_q} @ {exec_p}")
-
-    #             elif side == 'sell':
-    #                 # Продаем всё, что есть
-    #                 base_currency = symbol.split('/')[0]
-    #                 coin_bal = float(bal[base_currency]['free']) if base_currency in bal else 0
-                    
-    #                 if coin_bal > 0:
-    #                     params = {'tdMode': 'cash'}
-    #                     order = client.create_order(symbol, 'market', 'sell', coin_bal, params=params)
-                        
-    #                     time.sleep(1)
-    #                     filled = client.fetch_order(order['id'], symbol)
-    #                     exit_price = filled['average'] or price
-                        
-    #                     open_trade = get_open_trade(user_id, symbol)
-    #                     if open_trade:
-    #                         # Для Spot PnL = (Exit - Entry) * Qty. Передаем side='buy' чтобы формула сработала верно
-    #                         self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, open_trade['quantity'], 'buy')
-                        
-    #                     close_trade_in_db(user_id, symbol)
-    #                     print(f"   ✅ User {user_id} [OKX SPOT]: SOLD ALL")
-
-    #         except Exception as e:
-    #             print(f"   ❌ User {user_id} OKX Error: {e}")
-    #         return
-
-
-    #     # >>> СЦЕНАРИЙ 2: RATNER (FUTURES) - BINANCE <<<
-    #     if exchange_id == 'binance':
-    #         try:
-    #             # REAL URL
-    #             client = UMFutures(key=keys['apiKey'], secret=keys['secret'], base_url="https://fapi.binance.com")
-                
-    #             open_trade = get_open_trade(user_id, symbol)
-    #             is_closing = False
-    #             if open_trade and open_trade['side'] != side: is_closing = True
-
-    #             acc = client.account()
-    #             usdt = float(next((a['availableBalance'] for a in acc['assets'] if a['asset']=='USDT'), 0))
-    #             amt_usd = usdt * percentage_used
-    #             if amt_usd < 5 and not is_closing: return
-
-    #             ticker = float(client.ticker_price(symbol)['price'])
-    #             prec = 3 if symbol.startswith("BTC") else (2 if symbol.startswith("ETH") else 0)
-    #             qty = round(amt_usd / ticker, prec)
-    #             if qty == 0: return
-
-    #             try: client.change_leverage(symbol=symbol, leverage=20)
-    #             except: pass
-                
-    #             resp = client.new_order(symbol=symbol, side=side.upper(), type="MARKET", quantity=qty)
-    #             time.sleep(0.5)
-    #             det = client.query_order(symbol=symbol, orderId=resp['orderId'])
-    #             exec_p = float(det['avgPrice']) or ticker
-    #             exec_q = float(det['executedQty'])
-
-    #             print(f"   ✅ User {user_id} [BINANCE REAL]: {side.upper()} {exec_q} @ {exec_p}")
-    #             self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
-    #         except Exception as e:
-    #             print(f"   ❌ User {user_id} Binance Error: {e}")
-
-    #     # >>> СЦЕНАРИЙ 3: RATNER (FUTURES) - CCXT (BYBIT/BINGX) <<<
-    #     else:
-    #         try:
-    #             ex_class = getattr(ccxt, exchange_id)
-    #             config = {
-    #                 'apiKey': keys['apiKey'], 
-    #                 'secret': keys['secret'], 
-    #                 'password': keys.get('password', ''), # <--- ПАРОЛЬ ДЛЯ ДРУГИХ БИРЖ (ЕСЛИ НАДО)
-    #                 'options': {'defaultType': 'future'}, 
-    #                 'enableRateLimit': True
-    #             }
-    #             client = ex_class(config)
-
-    #             ccxt_sym = symbol
-    #             if 'USDT' in symbol and '/' not in symbol: ccxt_sym = symbol.replace('USDT', '/USDT:USDT')
-
-    #             open_trade = get_open_trade(user_id, symbol)
-    #             is_closing = False
-    #             if open_trade and open_trade['side'] != side: is_closing = True
-
-    #             bal = client.fetch_balance({'type': 'future'})
-    #             usdt = float(bal['USDT']['free'])
-    #             amt_usd = usdt * percentage_used
-    #             if amt_usd < 2 and not is_closing: return 
-
-    #             ticker = client.fetch_ticker(ccxt_sym)
-    #             price = float(ticker['last'])
-    #             qty_raw = amt_usd / price
-    #             qty_str = client.amount_to_precision(ccxt_sym, qty_raw)
-    #             qty = float(qty_str)
-    #             if qty == 0: return
-
-    #             target_leverage = 20
-    #             if exchange_id == 'bingx': target_leverage = 4
-    #             try: client.set_leverage(target_leverage, ccxt_sym)
-    #             except: pass
-
-    #             params = {}
-    #             if exchange_id in ['bingx', 'bybit']:
-    #                 if is_closing:
-    #                     pos_side = 'LONG' if open_trade['side'] == 'buy' else 'SHORT'
-    #                     params['positionSide'] = pos_side
-    #                     params['reduceOnly'] = True
-    #                 else:
-    #                     pos_side = 'LONG' if side == 'buy' else 'SHORT'
-    #                     params['positionSide'] = pos_side
-
-    #             order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
-    #             time.sleep(0.5)
-    #             filled = client.fetch_order(order['id'], ccxt_sym)
-    #             exec_p = filled['average'] or price
-    #             exec_q = filled['filled']
-
-    #             print(f"   ✅ User {user_id} [{exchange_id}]: {side.upper()} {exec_q} @ {exec_p}")
-    #             self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
-
-    #         except Exception as e:
-    #             print(f"   ❌ User {user_id} {exchange_id} Error: {e}")
-
-
     def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner', is_reduce_only=False, exchange_name=None, reserve=0.0, risk_pct=1.0):
         """
-        Executes a single user trade.
-        - TradeMax (Spot): Entry = Trading Capital * Risk% (Decoupled).
-        - Ratner (Futures): Entry = Balance * MasterRatio (Mirrored).
+        Единичная задача исполнения. 
+        Логика расчета суммы:
+        - CGT (Spot): Сумма = Резерв (Капитал) * (Риск % / 100)
+        - Ratner (Futures): Сумма = Резерв (Капитал) * Пропорция_Мастера (percentage_used)
         """
         keys = get_user_decrypted_keys(user_id, exchange_name)
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
 
-        # --- RISK MANAGEMENT SETUP ---
-        # "reserve" holds the "Trading Capital" (Amount TO Trade).
-        trading_capital = reserve 
-        
-        # Calculate Position Size (USDT)
-        target_entry_usd = 0.0
-        
-        if strategy == 'cgt':
-            # DECOUPLED: Capital * Risk%
-            target_entry_usd = trading_capital * (risk_pct / 100.0)
-        else:
-            # MIRRORED (Ratner): Capital * MasterRatio
-            # percentage_used is the ratio (e.g. 0.05 for 5%)
-            target_entry_usd = trading_capital * percentage_used
-
-        # --- CHECK OPEN POSITION ---
+        # 1. ЗАЩИТА ОТ ПОЗДНЕГО ВХОДА
         open_trade = get_open_trade(user_id, symbol)
-        
-        # If ReduceOnly and No Position -> Ignore
         if is_reduce_only and not open_trade:
             print(f"   ⚠️ User {user_id}: Ignoring ReduceOnly signal (no open position).")
             return
             
-        # Determine if Closing
-        is_closing = False
-        if open_trade and open_trade['side'] != side:
-            is_closing = True
+        is_closing = True if open_trade and open_trade['side'] != side else False
 
-        # >>> SCENARIO 1: CGT (OKX SPOT) <<<
-        if strategy == 'cgt':
-            if exchange_id != 'okx': return
-            try:
-                client = ccxt.okx({'apiKey': keys['apiKey'], 'secret': keys['secret'], 'password': keys.get('password', ''), 'options': {'defaultType': 'spot'}})
-                
+        try:
+            # 2. Инициализация клиента
+            ex_class = getattr(ccxt, exchange_id)
+            config = {
+                'apiKey': keys['apiKey'], 
+                'secret': keys['secret'], 
+                'password': keys.get('password', ''), 
+                'enableRateLimit': True
+            }
+            config['options'] = {'defaultType': 'spot' if strategy == 'cgt' else 'future'}
+            client = ex_class(config)
+
+            # 3. ПРОВЕРКА РЕАЛЬНОГО БАЛАНСА
+            bal_data = client.fetch_balance()
+            actual_free_usdt = float(bal_data['USDT']['free']) if 'USDT' in bal_data else 0
+            
+            # Торговый пул — это то, что юзер ввел как "Резерв"
+            trading_pool = reserve 
+            
+            # 4. РАСЧЕТ СУММЫ СДЕЛКИ (USD)
+            if strategy == 'cgt':
+                # Для Спота: Капитал * Риск_на_сделку
+                target_entry_usd = trading_pool * (risk_pct / 100.0)
+            else:
+                # Для Фьючерсов: Капитал * Процент_входа_Мастера
+                target_entry_usd = trading_pool * percentage_used
+
+            # Проверка, чтобы не попытаться потратить больше, чем реально есть на счету
+            if not is_closing:
+                if target_entry_usd > actual_free_usdt:
+                    print(f"   ⚠️ User {user_id}: Target ${target_entry_usd:.2f} exceeds free balance ${actual_free_usdt:.2f}. Adjusting...")
+                    target_entry_usd = actual_free_usdt
+
+                if target_entry_usd < 2: # Минимальный порог биржи
+                    print(f"   ⚠️ User {user_id}: Order too small (${target_entry_usd:.2f}). Skip.")
+                    return
+
+            # --- СЦЕНАРИЙ: OKX SPOT (CGT) ---
+            if strategy == 'cgt' and exchange_id == 'okx':
                 ticker = client.fetch_ticker(symbol)
                 price = ticker['last']
                 
                 if side == 'buy':
-                    # ENTRY: Use Calculated logic
-                    if target_entry_usd < 2: return # Min order size check
-                    
+                    # Покупаем монету на target_entry_usd
                     amount_coin = target_entry_usd / price
-                    params = {'tdMode': 'cash'}
+                    print(f"   🚀 User {user_id} [OKX SPOT]: BUY {amount_coin:.6f} {symbol} (from pool ${trading_pool})")
                     
-                    print(f"   🚀 User {user_id} [OKX]: BUY {amount_coin:.6f} {symbol} (${target_entry_usd:.2f})")
-                    order = client.create_order(symbol, 'market', 'buy', amount_coin, params=params)
-                    
-                    # Record
+                    order = client.create_order(symbol, 'market', 'buy', amount_coin, params={'tdMode': 'cash'})
                     time.sleep(1)
                     filled = client.fetch_order(order['id'], symbol)
                     exec_p = filled['average'] or price
                     exec_q = filled['filled']
+                    
                     record_trade_entry(user_id, symbol, side, exec_p, exec_q)
-                    print(f"   ✅ User {user_id} [OKX] FILLED: {exec_q} @ {exec_p}")
+                    print(f"   ✅ User {user_id} Filled: {exec_q} @ {exec_p}")
 
                 elif side == 'sell':
-                    # EXIT: Sell 100% of holdings
-                    bal = client.fetch_balance()
+                    # Продаем весь баланс этой монеты
                     base_currency = symbol.split('/')[0]
-                    coin_bal = float(bal[base_currency]['free']) if base_currency in bal else 0
+                    coin_bal = float(bal_data[base_currency]['free']) if base_currency in bal_data else 0
                     
                     if coin_bal > 0:
-                        print(f"   🔻 User {user_id} [OKX]: SELL ALL {coin_bal:.6f} {symbol}")
-                        params = {'tdMode': 'cash'}
-                        order = client.create_order(symbol, 'market', 'sell', coin_bal, params=params)
-                        
+                        print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_bal} {symbol}")
+                        order = client.create_order(symbol, 'market', 'sell', coin_bal, params={'tdMode': 'cash'})
                         time.sleep(1)
                         filled = client.fetch_order(order['id'], symbol)
                         exit_price = filled['average'] or price
                         
-                        open_trade_spot = get_open_trade(user_id, symbol)
-                        if open_trade_spot:
-                            self._handle_pnl_and_billing(user_id, symbol, open_trade_spot['entry_price'], exit_price, open_trade_spot['quantity'], 'buy')
+                        if open_trade:
+                            self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, open_trade['quantity'], 'buy')
                         close_trade_in_db(user_id, symbol)
-                        print(f"   ✅ User {user_id} [OKX] SOLD ALL")
 
-            except Exception as e:
-                print(f"   ❌ User {user_id} OKX Error: {e}")
-            return
+            # --- СЦЕНАРИЙ: BINGX FUTURES (RATNER) ---
+            elif strategy == 'ratner' and exchange_id == 'bingx':
+                ccxt_sym = symbol.replace('USDT', '/USDT:USDT') if '/' not in symbol else symbol
+                ticker = client.fetch_ticker(ccxt_sym)
+                price = ticker['last']
+
+                try: client.set_leverage(4, ccxt_sym)
+                except: pass
+
+                params = {}
+                if is_closing or is_reduce_only:
+                    pos_side = 'LONG' if open_trade['side'] == 'buy' else 'SHORT'
+                    params['positionSide'] = pos_side
+                    params['reduceOnly'] = True
+                    # При закрытии фьючерсов используем объем из базы/позиции
+                    qty = open_trade['quantity'] if open_trade else 0
+                else:
+                    params['positionSide'] = 'LONG' if side == 'buy' else 'SHORT'
+                    qty_raw = target_entry_usd / price
+                    qty = float(client.amount_to_precision(ccxt_sym, qty_raw))
+
+                if qty > 0:
+                    print(f"   🚀 User {user_id} [BINGX FUT]: {side.upper()} {qty} (from pool ${trading_pool})")
+                    order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
+                    time.sleep(0.5)
+                    filled = client.fetch_order(order['id'], ccxt_sym)
+                    exec_p = filled['average'] or price
+                    exec_q = filled['filled']
+                    self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
+
+        except Exception as e:
+            print(f"   ❌ Execution Error for User {user_id}: {e}")
 
         # >>> SCENARIO 2: RATNER (FUTURES) - BINANCE <<<
         if exchange_id == 'binance':

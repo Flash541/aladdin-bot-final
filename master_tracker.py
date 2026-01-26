@@ -16,9 +16,9 @@ from telegram import Bot
 import ccxt 
 
 # --- Библиотеки бирж ---
-from binance.um_futures import UMFutures
-from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
-from pybit.unified_trading import WebSocket as BybitWS
+# from binance.um_futures import UMFutures
+# from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
+# from pybit.unified_trading import WebSocket as BybitWS
 
 # --- Наш Воркер ---
 from worker import TradeCopier
