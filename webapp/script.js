@@ -1293,7 +1293,7 @@ async function submitBingXAPI() {
             body: JSON.stringify({
                 user_id: user.id,
                 exchange: 'bingx',
-                strategy: 'bingbot',
+                strategy: 'ratner',
                 api_key: apiKey,
                 secret: secretKey,
                 password: '',

@@ -220,6 +220,7 @@ def start_bingx_listener():
                         "p": float(order.get("price") or 0),
                         "ap": float(order.get("avgPrice") or 0),
                         "ot": orig_type,
+                        "strategy": "ratner", # Defined strategy for BingX Futures
                         'ro': order.get('reduceOnly', False)
                     })
                     print(f"🚀 BingX Signal: {symbol} ({status})")

@@ -203,10 +203,14 @@ class TradeCopier:
                 if master_bal > 0:
                      ratio = min((qty * price) / master_bal, 0.99)
                 
+                
+                # Use strategy from event (default to 'ratner' if missing)
+                use_strategy = event_data.get('strategy', 'ratner') 
+
                 print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
                 
                 # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only ДАЛЬШЕ ---
-                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'bro-bot', is_reduce_only=is_reduce_only)
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, use_strategy, is_reduce_only=is_reduce_only)
 
 
 
@@ -226,8 +230,8 @@ class TradeCopier:
             executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only, exchange_name, reserve, risk_pct)
 
     def close_all_positions_parallel(self, symbol, executor):
-        # Закрываем для всех активных подключений (BingBot/Bybit = bro-bot strategy)
-        connections = get_active_exchange_connections(strategy='bro-bot') 
+        # Закрываем для всех активных подключений (BingBot/Bybit = ratner strategy)
+        connections = get_active_exchange_connections(strategy='ratner') 
         
         print(f"⚡ [WORKER] Closing concurrently for {len(connections)} connections...")
         for conn in connections:

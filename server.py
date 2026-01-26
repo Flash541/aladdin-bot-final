@@ -336,9 +336,14 @@ async def connect_exchange(req: ConnectRequest):
     secret = req.secret or req.secret_key
     reserve = req.reserve if req.reserve is not None else (req.reserve_amount if req.reserve_amount is not None else 0.0)
     
-    # Resolve strategy (frontend sends 'trademax' for OKX, backend uses 'cgt')
-    if req.strategy == 'trademax':
-        req.strategy = 'cgt'
+    # Resolve strategy
+    # 1. OKX: 'trademax' -> 'cgt'
+    if req.strategy == 'trademax': req.strategy = 'cgt'
+    
+    # 2. BingX/Futures: 'bingbot' -> 'ratner' (Standardization)
+    if req.strategy == 'bingbot': req.strategy = 'ratner'
+    if exchange.lower() == 'bingx' and req.strategy not in ['ratner']:
+        req.strategy = 'ratner'
     
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")
