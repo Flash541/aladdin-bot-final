@@ -1335,7 +1335,7 @@ async function submitOKXAPI() {
             body: JSON.stringify({
                 user_id: user.id,
                 exchange: 'okx',
-                strategy: 'trademax',
+                strategy: 'cgt',
                 api_key: apiKey,
                 secret: secretKey,
                 password: passphrase,

@@ -65,8 +65,8 @@ async def analyze_chart_endpoint(file: UploadFile = File(...), user_id: int = 0)
     5. Return result
     """
     # 1. Check Limits (if user_id provided)
-    if user_id > 0:
-        can_analyze = check_analysis_limit(user_id)
+    if req.user_id > 0:
+        can_analyze = check_analysis_limit(req.user_id)
         if not can_analyze:
              raise HTTPException(status_code=429, detail="Daily limit reached")
 
@@ -335,6 +335,10 @@ async def connect_exchange(req: ConnectRequest):
     exchange = req.exchange or req.exchange_name
     secret = req.secret or req.secret_key
     reserve = req.reserve if req.reserve is not None else (req.reserve_amount if req.reserve_amount is not None else 0.0)
+    
+    # Resolve strategy (frontend sends 'trademax' for OKX, backend uses 'cgt')
+    if req.strategy == 'trademax':
+        req.strategy = 'cgt'
     
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")

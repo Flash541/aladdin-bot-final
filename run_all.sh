@@ -11,7 +11,7 @@ osascript -e "tell application \"Terminal\" to do script \"cd '$DIR' && python3 
 # Open Telegram Bot
 osascript -e "tell application \"Terminal\" to do script \"cd '$DIR' && python3 bot.py\""
 
-# Open Background Worker
-osascript -e "tell application \"Terminal\" to do script \"cd '$DIR' && python3 worker.py\""
+# Open Master Tracker (Worker + Listeners)
+osascript -e "tell application \"Terminal\" to do script \"cd '$DIR' && python3 master_tracker.py\""
 
 echo "✅ All services started in separate windows."

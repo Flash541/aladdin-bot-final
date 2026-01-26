@@ -159,7 +159,7 @@ def start_bingx_listener():
             if data.get('code') == 0:
                 return data['data']['listenKey']
             
-            print(f"❌ BingX ListenKey Error: {data}")
+            # print(f"❌ BingX ListenKey Error: {data}")
             return None
 
         except Exception as e:
@@ -364,7 +364,7 @@ def start_okx_listener():
                             'S': order['side'].upper(), 
                             'o': 'MARKET',            
                             'X': 'FILLED',
-                            'q': float(order['amount']),
+                            'q': float(order['filled']),
                             'p': float(order['average'] or order['price'] or 0),
                             'ap': float(order['average'] or 0),
                             'ot': 'SPOT',
@@ -394,8 +394,8 @@ def main():
 
     #threading.Thread(target=start_binance_listener, daemon=True).start()
     
-    if os.getenv("BYBIT_MASTER_KEY") and len(os.getenv("BYBIT_MASTER_KEY")) > 10:
-        threading.Thread(target=start_bybit_listener, daemon=True).start()
+    # if os.getenv("BYBIT_MASTER_KEY") and len(os.getenv("BYBIT_MASTER_KEY")) > 10:
+    #     threading.Thread(target=start_bybit_listener, daemon=True).start()
         
     if os.getenv("BINGX_MASTER_KEY") and len(os.getenv("BINGX_MASTER_KEY")) > 10:
         threading.Thread(target=start_bingx_listener, daemon=True).start()
