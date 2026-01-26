@@ -393,7 +393,7 @@ def main():
     threading.Thread(target=copier.start_consuming, args=(event_queue,), daemon=True).start()
     print("✅ Worker Thread: RUNNING")
 
-    #threading.Thread(target=start_binance_listener, daemon=True).start()
+    # threading.Thread(target=start_binance_listener, daemon=True).start()
     
     # if os.getenv("BYBIT_MASTER_KEY") and len(os.getenv("BYBIT_MASTER_KEY")) > 10:
     #     threading.Thread(target=start_bybit_listener, daemon=True).start()

@@ -41,16 +41,16 @@ class TradeCopier:
         self._init_masters()
 
     def _init_masters(self):
-        # 1. Binance (Futures)
-        key_b = os.getenv("BINANCE_MASTER_KEY")
-        sec_b = os.getenv("BINANCE_MASTER_SECRET")
-        if key_b:
-            self.masters['binance'] = UMFutures(
-                key=key_b, 
-                secret=sec_b, 
-                base_url="https://fapi.binance.com"
-            )
-            print("✅ Master [binance] initialized (REAL).")
+        # 1. Binance (Futures) - DISABLED
+        # key_b = os.getenv("BINANCE_MASTER_KEY")
+        # sec_b = os.getenv("BINANCE_MASTER_SECRET")
+        # if key_b:
+        #     self.masters['binance'] = UMFutures(
+        #         key=key_b, 
+        #         secret=sec_b, 
+        #         base_url="https://fapi.binance.com"
+        #     )
+        #     print("✅ Master [binance] initialized (REAL).")
 
         # 2. OKX (Spot)
         key_o = os.getenv("OKX_MASTER_KEY")
@@ -66,7 +66,8 @@ class TradeCopier:
             except: pass
 
         # 3. Bybit/BingX (Futures)
-        for name in ['bybit', 'bingx']:
+        # ONLY BINGX ENABLED
+        for name in ['bingx']: # Removed 'bybit'
             key = os.getenv(f"{name.upper()}_MASTER_KEY")
             sec = os.getenv(f"{name.upper()}_MASTER_SECRET")
             if key:
