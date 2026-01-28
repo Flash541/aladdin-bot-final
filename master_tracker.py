@@ -11,6 +11,7 @@ import gzip
 import io
 from urllib.parse import urlencode
 from queue import Queue
+from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Bot
 import ccxt 
@@ -307,7 +308,7 @@ def start_bingx_listener():
         time.sleep(5)
 
 # ==========================================
-# 4. СЛУШАТЕЛЬ OKX (SPOT POLLING)
+# 4. СЛУШАТЕЛЬ OKX (SPOT - WEBSOCKET REAL-TIME)
 # ==========================================
 def start_okx_listener():
     key = os.getenv("OKX_MASTER_KEY")
@@ -318,7 +319,7 @@ def start_okx_listener():
         print("ℹ️ OKX Listener skipped (No keys).")
         return
 
-    print("🎧 Starting OKX Listener (Spot)...")
+    print("🎧 OKX Listener: WEBSOCKET REAL-TIME (<500ms latency)")
 
     try:
         okx = ccxt.okx({
@@ -331,53 +332,141 @@ def start_okx_listener():
         print(f"❌ OKX Init Error: {e}")
         return
 
-    last_processed_ids = set()
+    # OKX требует timestamp в секундах для подписи
+    import base64
+    
+    def get_ws_auth():
+        """Генерирует подпись для WebSocket аутентификации"""
+        timestamp = str(int(time.time()))
+        method = 'GET'
+        request_path = '/users/self/verify'
+        
+        # Подпись: timestamp + method + requestPath
+        message = timestamp + method + request_path
+        mac = hmac.new(
+            secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        )
+        signature = base64.b64encode(mac.digest()).decode()
+        
+        return {
+            "op": "login",
+            "args": [{
+                "apiKey": key,
+                "passphrase": password,
+                "timestamp": timestamp,
+                "sign": signature
+            }]
+        }
 
-    # --- ЭТАП 1: ПРОГРЕВ (ЗАПОМИНАЕМ СТАРЫЕ, НО НЕ КОПИРУЕМ) ---
-    print("⏳ OKX: Fetching history to sync...")
-    try:
-        initial_orders = okx.fetch_closed_orders(limit=10)
-        for order in initial_orders:
-            last_processed_ids.add(order['id'])
-        print(f"✅ OKX Synced. Ignoring {len(last_processed_ids)} historical orders.")
-    except Exception as e:
-        print(f"⚠️ OKX History sync failed: {e}")
+    def on_message(ws, message):
+        try:
+            # PING/PONG heartbeat (OKX требует ping каждые 25 сек)
+            if message == 'pong':
+                # print("[DEBUG] OKX: pong received")
+                return
+            
+            msg = json.loads(message)
+            
+            # 1. Логин успешен
+            if msg.get('event') == 'login':
+                if msg.get('code') == '0':
+                    print("✅ OKX WebSocket: Authenticated!")
+                    # Подписываемся на ордера
+                    ws.send(json.dumps({
+                        "op": "subscribe",
+                        "args": [{
+                            "channel": "orders",
+                            "instType": "SPOT"
+                        }]
+                    }))
+                else:
+                    print(f"❌ OKX Login Failed: {msg}")
+                return
+            
+            # 2. Подписка подтверждена
+            if msg.get('event') == 'subscribe':
+                print(f"✅ OKX: Subscribed to orders channel")
+                return
+            
+            # 3. ДАННЫЕ ОРДЕРОВ (главное!)
+            if msg.get('arg', {}).get('channel') == 'orders' and 'data' in msg:
+                for order in msg['data']:
+                    state = order.get('state')
+                    
+                    # Только исполненные ордера
+                    if state in ['filled', 'partially_filled']:
+                        symbol = order['instId'].replace('-', '/')  # BTC-USDT -> BTC/USDT
+                        side = order['side']  # buy/sell
+                        filled_qty = float(order['accFillSz'])  # Accumulated fill size
+                        avg_price = float(order['avgPx']) if order['avgPx'] else float(order['px'])
+                        trade_usd = filled_qty * avg_price
+                        
+                        # Время
+                        fill_time = int(order['fillTime']) / 1000 if order.get('fillTime') else time.time()
+                        dt = datetime.fromtimestamp(fill_time).strftime("%d.%m.%Y %H:%M:%S")
+                        
+                        print(f"\n🔔 OKX WEBSOCKET: {dt} | {symbol} | {side.upper()} | ${trade_usd:.2f}")
+                        
+                        # Отправляем в очередь воркеру
+                        event_queue.put({
+                            'master_exchange': 'okx',
+                            'strategy': 'cgt',
+                            's': symbol,
+                            'S': side.upper(),
+                            'o': 'MARKET',
+                            'X': 'FILLED',
+                            'q': filled_qty,
+                            'p': avg_price,
+                            'ap': avg_price,
+                            'ot': 'SPOT',
+                            'ro': False
+                        })
+        
+        except Exception as e:
+            print(f"⚠️ OKX WS Parse Error: {e}")
 
-    # --- ЭТАП 2: РАБОТА (ЛОВИМ ТОЛЬКО НОВЫЕ) ---
+    def on_error(ws, error):
+        print(f"❌ OKX WS Error: {error}")
+
+    def on_close(ws, close_code, close_msg):
+        print(f"⚠️ OKX WS Closed: {close_code} {close_msg}")
+
+    def on_open(ws):
+        print("🔗 OKX WebSocket Connected. Authenticating...")
+        auth_msg = get_ws_auth()
+        ws.send(json.dumps(auth_msg))
+        
+        # Ping thread - отправляет ping каждые 25 сек чтобы соединение не закрылось
+        def ping_loop():
+            while True:
+                time.sleep(25)
+                try:
+                    ws.send('ping')
+                except:
+                    break
+        
+        threading.Thread(target=ping_loop, daemon=True).start()
+
+    # Главный цикл с автореконнектом
     while True:
         try:
-            orders = okx.fetch_closed_orders(limit=5) 
+            ws = websocket.WebSocketApp(
+                "wss://ws.okx.com:8443/ws/v5/private",
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close,
+                on_open=on_open
+            )
             
-            for order in orders:
-                oid = order['id']
-                
-                # Если ордер НОВЫЙ (его нет в списке, который мы составили при старте)
-                if order['status'] == 'closed' and oid not in last_processed_ids:
-                    last_processed_ids.add(oid)
-                    
-                    if len(last_processed_ids) > 100: last_processed_ids.clear()
-
-                    if float(order['filled']) > 0:
-                        event_queue.put({
-                            'master_exchange': 'okx', 
-                            'strategy': 'cgt',        
-                            's': order['symbol'],     
-                            'S': order['side'].upper(), 
-                            'o': 'MARKET',            
-                            'X': 'FILLED',
-                            'q': float(order['filled']),
-                            'p': float(order['average'] or order['price'] or 0),
-                            'ap': float(order['average'] or 0),
-                            'ot': 'SPOT',
-                            'ro': False              
-                        })
-                        print(f"🚀 OKX Signal: {order['side']} {order['symbol']}")
-
-            time.sleep(2)
-
+            ws.run_forever()
+            
         except Exception as e:
-            # print(f"❌ OKX Error: {e}") # Можно скрыть, чтобы не спамило при плохом интернете
-            time.sleep(5)
+            print(f"❌ OKX WS Exception: {e}")
+        
+        print("♻️ Reconnecting OKX WebSocket in 5 sec...")
+        time.sleep(5)
 
 
 # ==========================================

@@ -151,7 +151,8 @@ const translations = {
         commission_3: "3% commission",
         referrals: "referrals",
         get_referral_link: "Get Your Referral Link",
-        btn_analyze: "Analyze"
+        btn_analyze: "Analyze",
+        min_balance_warning: "⚠️ Minimum trading balance: 100 USDT"
     },
     ru: {
         welcome: "С возвращением",
@@ -214,7 +215,8 @@ const translations = {
         commission_7: "7% комиссия",
         commission_3: "3% комиссия",
         referrals: "рефералов",
-        get_referral_link: "Получить реферальную ссылку"
+        get_referral_link: "Получить реферальную ссылку",
+        min_balance_warning: "⚠️ Минимальный баланс: 100 USDT"
     },
     uk: {
         welcome: "З поверненням",
@@ -278,7 +280,8 @@ const translations = {
         commission_7: "7% комісія",
         commission_3: "3% комісія",
         referrals: "рефералів",
-        get_referral_link: "Отримати реферальне посилання"
+        get_referral_link: "Отримати реферальне посилання",
+        min_balance_warning: "⚠️ Мінімальний баланс: 100 USDT"
     }
 };
 
