@@ -348,10 +348,13 @@ async def connect_exchange(req: ConnectRequest):
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")
 
-    # 1. Validate
+    # 1. Validate API keys AND minimum balance ($100)
     is_valid = await validate_exchange_credentials(exchange, req.api_key, secret, req.password)
     if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid API Keys or Connection Failed")
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid API Keys, Connection Failed, or Balance < $100 USDT minimum requirement"
+        )
     
     # 2. Save to DB
     try:

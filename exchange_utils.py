@@ -57,6 +57,24 @@ async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase
     return await asyncio.to_thread(_fetch)
 
 async def validate_exchange_credentials(exchange_name, api_key, secret, passphrase=None):
-    """validates keys by trying to fetch balance. Returns True/False."""
+    """
+    Validates API keys AND checks minimum balance requirement.
+    Returns True only if:
+    1. API keys are valid (can fetch balance)
+    2. Balance >= $100 (minimum trading requirement)
+    """
     bal = await fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase)
-    return bal is not None
+    
+    # Invalid keys or connection error
+    if bal is None:
+        print(f"❌ Validation Failed ({exchange_name}): Invalid API keys or connection error")
+        return False
+    
+    # Keys are valid but insufficient balance
+    if bal < 100:
+        print(f"⚠️ Validation Failed ({exchange_name}): Balance ${bal:.2f} < $100 minimum")
+        return False
+    
+    print(f"✅ Validation Success ({exchange_name}): Balance ${bal:.2f}")
+    return True
+
