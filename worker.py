@@ -24,12 +24,13 @@ from database import (
     get_referrer_upline,
     credit_referral_tokens,
     deduct_performance_fee,
-    credit_referral_tokens,
-    deduct_performance_fee,
     set_copytrading_status,
-    get_active_exchange_connections, # NEW
+    get_active_exchange_connections,
+    execute_write_query,
+    DB_NAME,
     get_user_risk_profile
 )
+
 
 import os
 from dotenv import load_dotenv
