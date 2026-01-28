@@ -268,13 +268,23 @@ class TradeCopier:
                     print(f"   ✅ User {user_id} Filled: {exec_q} @ {exec_p}")
 
                 elif side == 'sell':
-                    # Продаем ВЕСЬ баланс этой монеты (как в старом коде)
+                    # Продаем ВЕСЬ баланс этой монеты
                     bal = client.fetch_balance()
                     base_coin = symbol.split('/')[0]
                     coin_qty = float(bal[base_coin]['free']) if base_coin in bal else 0
                     
                     if coin_qty > 0:
                         print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_qty} {base_coin}")
+                        
+                        # DEBUG: Check if open_trade exists
+                        if not open_trade:
+                            print(f"   ⚠️ DEBUG: open_trade is None! Fetching from DB...")
+                            open_trade = get_open_trade(user_id, symbol)
+                            if open_trade:
+                                print(f"   ✅ DEBUG: Found open trade - Entry: {open_trade['entry_price']}, Qty: {open_trade['quantity']}")
+                            else:
+                                print(f"   ❌ DEBUG: NO open trade in DB for {symbol}! PnL calculation skipped.")
+                        
                         order = client.create_order(symbol, 'market', 'sell', coin_qty, params={'tdMode': 'cash'})
                         time.sleep(1)
                         filled = client.fetch_order(order['id'], symbol)
@@ -282,7 +292,11 @@ class TradeCopier:
                         
                         # Расчет PnL и списание комиссии
                         if open_trade:
+                            print(f"   💰 DEBUG: Calling billing - Entry: {open_trade['entry_price']}, Exit: {exit_price}")
                             self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, coin_qty, 'buy')
+                        else:
+                            print(f"   ❌ DEBUG: Skipping billing - no open_trade!")
+                        
                         close_trade_in_db(user_id, symbol)
                         print(f"   ✅ User {user_id} [OKX SPOT]: SOLD ALL")
                 return
@@ -597,7 +611,9 @@ class TradeCopier:
         """
         Расчет PnL, списание комиссии 40% (UNC или USDT) и распределение реферальных наград.
         """
+        print(f"   💰 [BILLING] User {user_id}, Entry: {entry}, Exit: {exit_p}, Qty: {qty}")
         pnl = (exit_p - entry) * qty if side == 'buy' else (entry - exit_p) * qty
+        print(f"   💰 [BILLING] PnL: {pnl:.4f} USDT")
         
         if pnl > 0:
             total_fee = pnl * 0.40
