@@ -131,7 +131,7 @@ def initialize_db():
     cursor.execute("CREATE TABLE IF NOT EXISTS withdrawals (request_id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, wallet_address TEXT, request_date TEXT, status TEXT DEFAULT 'pending')")
     cursor.execute("CREATE TABLE IF NOT EXISTS promo_codes (code TEXT PRIMARY KEY, duration_days INTEGER, is_used INTEGER DEFAULT 0, used_by_user_id INTEGER, activation_date TEXT)")
     
-    # Таблица сделок
+    # Таблица сделок (UNIQUE constraint убран - разрешаем множественные позиции)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS copied_trades (
             trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,8 +141,7 @@ def initialize_db():
             avg_entry_price REAL DEFAULT 0,
             total_quantity REAL DEFAULT 0,
             open_date TEXT, 
-            status TEXT DEFAULT 'open',
-            UNIQUE(user_id, symbol, status)
+            status TEXT DEFAULT 'open'
         )
     """)
 
@@ -539,7 +538,14 @@ def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quant
 def get_open_trade(user_id: int, symbol: str):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT side, avg_entry_price, total_quantity FROM copied_trades WHERE user_id = ? AND symbol = ? AND status = 'open'", (user_id, symbol))
+    # Выбрать ПОСЛЕДНЮЮ открытую позицию (если несколько)
+    cursor.execute("""
+        SELECT side, avg_entry_price, total_quantity 
+        FROM copied_trades 
+        WHERE user_id = ? AND symbol = ? AND status = 'open'
+        ORDER BY trade_id DESC
+        LIMIT 1
+    """, (user_id, symbol))
     result = cursor.fetchone()
     conn.close()
     if not result: return None
