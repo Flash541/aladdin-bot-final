@@ -335,6 +335,9 @@ def start_okx_listener():
     # OKX требует timestamp в секундах для подписи
     import base64
     
+    # Track processed order IDs to prevent duplicates
+    processed_order_ids = set()
+    
     def get_ws_auth():
         """Генерирует подпись для WebSocket аутентификации"""
         timestamp = str(int(time.time()))
@@ -390,26 +393,39 @@ def start_okx_listener():
                 print(f"✅ OKX: Subscribed to orders channel")
                 return
             
-            # 3. ДАННЫЕ ОРДЕРОВ (главное!)
+            # 3. ORDER DATA (main!)
             if msg.get('arg', {}).get('channel') == 'orders' and 'data' in msg:
                 for order in msg['data']:
                     state = order.get('state')
+                    order_id = order.get('ordId')  # Unique order ID
                     
-                    # Только исполненные ордера
+                    # Only filled orders
                     if state in ['filled', 'partially_filled']:
+                        # DEDUPLICATION CHECK
+                        if order_id in processed_order_ids:
+                            # print(f"   ⏭ Skipping duplicate order {order_id}")
+                            continue
+                        
+                        # Mark as processed
+                        processed_order_ids.add(order_id)
+                        
+                        # Keep only last 1000 IDs to prevent memory leak
+                        if len(processed_order_ids) > 1000:
+                            processed_order_ids.pop()
+                        
                         symbol = order['instId'].replace('-', '/')  # BTC-USDT -> BTC/USDT
                         side = order['side']  # buy/sell
                         filled_qty = float(order['accFillSz'])  # Accumulated fill size
                         avg_price = float(order['avgPx']) if order['avgPx'] else float(order['px'])
                         trade_usd = filled_qty * avg_price
                         
-                        # Время
+                        # Time
                         fill_time = int(order['fillTime']) / 1000 if order.get('fillTime') else time.time()
                         dt = datetime.fromtimestamp(fill_time).strftime("%d.%m.%Y %H:%M:%S")
                         
                         print(f"\n🔔 OKX WEBSOCKET: {dt} | {symbol} | {side.upper()} | ${trade_usd:.2f}")
                         
-                        # Отправляем в очередь воркеру
+                        # Send to worker queue
                         event_queue.put({
                             'master_exchange': 'okx',
                             'strategy': 'cgt',

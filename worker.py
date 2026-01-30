@@ -291,10 +291,11 @@ class TradeCopier:
                         filled = client.fetch_order(order['id'], symbol)
                         exit_price = filled['average'] or price
                         
-                        # Расчет PnL и списание комиссии
+                        # Calculate PnL and charge fee
+                        # CRITICAL FIX: Use original purchase quantity, not current balance
                         if open_trade:
-                            print(f"   💰 DEBUG: Calling billing - Entry: {open_trade['entry_price']}, Exit: {exit_price}")
-                            self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, coin_qty, 'buy')
+                            print(f"   💰 DEBUG: Calling billing - Entry: {open_trade['entry_price']}, Exit: {exit_price}, Qty: {open_trade['quantity']}")
+                            self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, open_trade['quantity'], 'buy')
                         else:
                             print(f"   ❌ DEBUG: Skipping billing - no open_trade!")
                         
