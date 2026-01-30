@@ -688,10 +688,14 @@ class TradeCopier:
                                         f"Level {i+1} referral closed a profitable trade.\n"
                                         f"💵 You earned: <b>{reward:.2f} USDT</b>"
                                     )
-                                    loop = asyncio.new_event_loop()
-                                    asyncio.set_event_loop(loop)
-                                    loop.run_until_complete(self.bot.send_message(referrer_id, ref_msg, parse_mode=ParseMode.HTML))
-                                    loop.close()
+                                    loop = None
+                                    try:
+                                        loop = asyncio.new_event_loop()
+                                        asyncio.set_event_loop(loop)
+                                        loop.run_until_complete(self.bot.send_message(referrer_id, ref_msg, parse_mode=ParseMode.HTML))
+                                    finally:
+                                        if loop and not loop.is_closed():
+                                            loop.close()
                                 except: pass
                 except Exception as e:
                     print(f"   ❌ MLM Error: {e}")
@@ -707,16 +711,20 @@ class TradeCopier:
                         bal_text += f"\nUNC Balance: {new_unc_bal:.2f}"
                         
                     msg = (
-                        f"✅ <b>Trade Closed ({symbol})</b>\n"
+                        f"✅ <b>TradeMax Trade Closed ({symbol})</b>\n"
                         f"💵 Profit: <b>${pnl:.2f}</b>\n"
-                        f"💳 Fee Paid: <b>{total_fee:.2f} {fee_currency}</b>\n"
                         f"💰 Balance: <b>{bal_text}</b>"
                     )
                     
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(self.bot.send_message(user_id, msg, parse_mode=ParseMode.HTML))
-                    loop.close()
+                    # Fix: Use try/finally to ensure loop cleanup
+                    loop = None
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(self.bot.send_message(user_id, msg, parse_mode=ParseMode.HTML))
+                    finally:
+                        if loop and not loop.is_closed():
+                            loop.close()
                 except Exception as e:
                     print(f"   ⚠️ Failed to send user notification: {e}")
 
@@ -725,11 +733,15 @@ class TradeCopier:
                 print(f"   ⛔ User {user_id} balance empty. Pausing.")
                 set_copytrading_status(user_id, is_enabled=False)
                 if self.bot:
-                    try: 
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(self.bot.send_message(user_id, "⚠️ <b>Balance Empty</b>\nCopy Trading Paused. Please Top Up.", parse_mode=ParseMode.HTML))
-                        loop.close()
+                    try:
+                        loop = None
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(self.bot.send_message(user_id, "⚠️ <b>Balance Empty</b>\nCopy Trading Paused. Please Top Up.", parse_mode=ParseMode.HTML))
+                        finally:
+                            if loop and not loop.is_closed():
+                                loop.close()
                     except: pass
         else:
             print(f"   📉 User {user_id} Loss: ${pnl:.2f}")
