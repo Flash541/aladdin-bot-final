@@ -220,3 +220,53 @@
 .validation-error.show {
     display: block;
 }
+
+/* === SCROLLABLE COIN CONFIG === */
+#coin-config-list {
+    scrollbar-width: thin;
+    scrollbar-color: #467EE7 rgba(255, 255, 255, 0.05);
+}
+
+#coin-config-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#coin-config-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+#coin-config-list::-webkit-scrollbar-thumb {
+    background: #467EE7;
+    border-radius: 10px;
+}
+
+#coin-config-list::-webkit-scrollbar-thumb:hover {
+    background: #5a8ff0;
+}
+
+/* === ICON BUTTONS (Edit/Delete) === */
+.icon-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.icon-btn.danger:hover {
+    background: rgba(255, 77, 77, 0.2);
+    color: #FF4D4D;
+}
