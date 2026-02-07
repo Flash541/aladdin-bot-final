@@ -12,7 +12,7 @@ import requests
 from urllib.parse import urlencode
 
 # --- OUR MODULES ---
-from database import get_user_exchanges, get_user_decrypted_keys, get_user_language, save_user_language, execute_write_query, check_analysis_limit, get_user_risk_profile, get_referral_count
+from database import get_user_exchanges, get_user_decrypted_keys, get_user_language, save_user_language, execute_write_query, check_analysis_limit, get_user_risk_profile, get_referral_count, get_coin_configs, add_coin_config, update_coin_config, delete_coin_config, validate_coin_allocation
 from exchange_utils import fetch_exchange_balance_safe, validate_exchange_credentials
 from tx_verifier import verify_bsc_tx
 import sqlite3
@@ -212,6 +212,9 @@ async def get_user_data(user_id: int):
         real_bal = bal if bal is not None else 0.0
         if status == "Connected":
             total_balance += real_bal
+        
+        # Get coin configs for this exchange
+        coins = get_coin_configs(ex['user_id'], ex['exchange_name'])
             
         ex_list.append({
             "name": ex['exchange_name'].capitalize(),
@@ -219,7 +222,9 @@ async def get_user_data(user_id: int):
             "balance": real_bal,
             "icon": get_icon(ex['exchange_name']),
             "strategy": ex['strategy'],
-            "reserve": ex['reserved_amount']
+            "reserve": ex['reserved_amount'],
+            "risk": ex['risk_pct'],
+            "coins": coins  # Add coin configs
         })
         
     return {
@@ -449,6 +454,144 @@ async def withdraw_funds(req: WithdrawRequest):
         raise
     except Exception as e:
         print(f"Withdrawal error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===========================
+# COIN CONFIG API ENDPOINTS
+# ===========================
+
+class CoinConfig(BaseModel):
+    symbol: str
+    capital: float
+    risk: float
+
+class SaveCoinConfigsRequest(BaseModel):
+    user_id: int
+    exchange: str
+    coins: List[CoinConfig]
+
+@app.post("/api/save_coin_configs")
+async def save_coin_configs_endpoint(req: SaveCoinConfigsRequest):
+    """Save multiple coin configurations for an exchange."""
+    try:
+        # 1. Calculate total allocation
+        total = sum(coin.capital for coin in req.coins)
+        
+        # 2. Validate each coin
+        for coin in req.coins:
+            validation = validate_coin_allocation(
+                req.user_id, 
+                req.exchange, 
+                coin.capital, 
+                coin.symbol
+            )
+            
+            if not validation['valid']:
+                raise HTTPException(status_code=400, detail=validation['message'])
+        
+        # 3. Validate total doesn't exceed exchange balance
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT reserved_amount FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", 
+                      (req.user_id, req.exchange.lower()))
+        result = cursor.fetchone()
+        conn.close()
+        
+        max_balance = result[0] if result else 0.0
+        
+        if total > max_balance:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Total allocation (${total:.2f}) exceeds available balance (${max_balance:.2f})"
+            )
+        
+        # 4. Save each coin config
+        for coin in req.coins:
+            add_coin_config(
+                user_id=req.user_id,
+                exchange=req.exchange.lower(),
+                symbol=coin.symbol,
+                capital=coin.capital,
+                risk_pct=coin.risk
+            )
+        
+        # 5. Update total in user_exchanges (optional, for tracking)
+        execute_write_query("""
+            UPDATE user_exchanges 
+            SET reserved_amount = ?
+            WHERE user_id = ? AND exchange_name = ?
+        """, (total, req.user_id, req.exchange.lower()))
+        
+        return {"success": True, "message": "Coin configs saved successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Save coin configs error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/get_coin_configs")
+async def get_coin_configs_endpoint(user_id: int, exchange: str):
+    """Get all coin configurations for an exchange."""
+    try:
+        coins = get_coin_configs(user_id, exchange.lower())
+        return {"success": True, "coins": coins}
+    except Exception as e:
+        print(f"Get coin configs error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UpdateCoinConfigRequest(BaseModel):
+    user_id: int
+    exchange: str
+    symbol: str
+    capital: float
+    risk: float
+
+@app.post("/api/update_coin_config")
+async def update_coin_config_endpoint(req: UpdateCoinConfigRequest):
+    """Update a single coin configuration."""
+    try:
+        # Validate
+        validation = validate_coin_allocation(
+            req.user_id, 
+            req.exchange.lower(), 
+            req.capital, 
+            req.symbol
+        )
+        
+        if not validation['valid']:
+            raise HTTPException(status_code=400, detail=validation['message'])
+        
+        # Update
+        update_coin_config(
+            user_id=req.user_id,
+            exchange=req.exchange.lower(),
+            symbol=req.symbol,
+            capital=req.capital,
+            risk_pct=req.risk
+        )
+        
+        return {"success": True, "message": "Coin config updated"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Update coin config error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DeleteCoinConfigRequest(BaseModel):
+    user_id: int
+    exchange: str
+    symbol: str
+
+@app.post("/api/delete_coin_config")
+async def delete_coin_config_endpoint(req: DeleteCoinConfigRequest):
+    """Delete a coin configuration."""
+    try:
+        delete_coin_config(req.user_id, req.exchange.lower(), req.symbol)
+        return {"success": True, "message": "Coin config deleted"}
+    except Exception as e:
+        print(f"Delete coin config error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/referral_stats")

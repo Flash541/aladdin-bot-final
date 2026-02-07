@@ -210,8 +210,21 @@ def start_bingx_listener():
                         orig_type = "STOP_MARKET"
                     elif raw_type == "MARKET":
                          orig_type = "MARKET"
+                    
+                    # RECORD MASTER ORDER (INVESTIGATION SYSTEM)
+                    from database import record_master_order
+                    master_order_id = record_master_order(
+                        master_exchange='bingx',
+                        symbol=symbol,
+                        side=side,
+                        order_type=orig_type,
+                        price=float(order.get("avgPrice") or order.get("price") or 0),
+                        quantity=float(order["orderQty"]),
+                        strategy='ratner'
+                    )
 
                     event_queue.put({
+                        "master_order_id": master_order_id,  # NEW: Pass ID to worker
                         "master_exchange": "bingx",
                         "s": symbol,
                         "S": side,
@@ -425,8 +438,21 @@ def start_okx_listener():
                         
                         print(f"\n🔔 OKX WEBSOCKET: {dt} | {symbol} | {side.upper()} | ${trade_usd:.2f}")
                         
+                        # RECORD MASTER ORDER (INVESTIGATION SYSTEM)
+                        from database import record_master_order
+                        master_order_id = record_master_order(
+                            master_exchange='okx',
+                            symbol=symbol,
+                            side=side,
+                            order_type='spot_trade',
+                            price=avg_price,
+                            quantity=filled_qty,
+                            strategy='cgt'
+                        )
+                        
                         # Send to worker queue
                         event_queue.put({
+                            'master_order_id': master_order_id,  # NEW: Pass ID to worker
                             'master_exchange': 'okx',
                             'strategy': 'cgt',
                             's': symbol,

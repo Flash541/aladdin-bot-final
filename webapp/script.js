@@ -413,6 +413,7 @@ function renderExchanges(exchanges) {
         } else if (exNameLow === 'bingx') {
             stratName = 'BingBot';
         }
+
         // Logic for "Waiting TopUp" vs "Active"
         let statusText = t.status_active || "Active";
 
@@ -426,26 +427,87 @@ function renderExchanges(exchanges) {
         const logoPath = `logo_bots/${ex.name.toLowerCase()}.png?v=2`;
         const balance = ex.balance || 0;
 
-        // Pass balance and statusText to openStrategySettings
-        // Note: We escape string arguments with single quotes
-        const isConnectedStr = isConnected ? 'true' : 'false';
-        const html = `
-            <div class="strategy-item fade-in" onclick="console.log('Clicked ${ex.name}'); openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div class="strat-icon">
-                        <img src="${logoPath}">
+        // Check if this is OKX with coin configs
+        const hasCoins = ex.coins && ex.coins.length > 0;
+
+        if (hasCoins) {
+            // Hierarchical structure for OKX
+            const coinDetails = {
+                'BTC/USDT': { img: 'bitcoin.png' },
+                'ETH/USDT': { img: 'ethereum.png' },
+                'BNB/USDT': { img: 'bnb.png' },
+                'OKB/USDT': { img: 'okb.png' }
+            };
+
+            let html = `
+                <div class="exchange-hierarchy fade-in" style="animation-delay: ${idx * 0.1}s;">
+                    <!-- Exchange Header -->
+                    <div class="exchange-header">
+                        <div class="exchange-header-left">
+                            <img src="${logoPath}" class="exchange-icon">
+                            <div>
+                                <div class="exchange-name">${stratName}</div>
+                                <div style="font-size: 12px; color: #9CA3AF;">${ex.coins.length} coins configured</div>
+                            </div>
+                        </div>
+                        <div class="exchange-status ${ex.status === 'Connected' ? 'active' : 'error'}">
+                            ${statusText}
+                        </div>
                     </div>
-                    <div class="strat-info">
-                        <div class="strat-title">${stratName}</div>
-                        <div class="strat-desc" style="color: #aaa;">${statusText}</div>
+                    
+                    <!-- Coin List -->
+                    <div class="coin-list">
+            `;
+
+            ex.coins.forEach(coin => {
+                const details = coinDetails[coin.symbol] || { img: 'bitcoin.png' };
+                html += `
+                    <div class="coin-item" onclick="editCoinConfig('${ex.name}', '${coin.symbol}', ${coin.reserved_amount}, ${coin.risk_pct})">
+                        <div class="coin-item-left">
+                            <img src="coin_img/${details.img}" class="coin-item-icon">
+                            <div class="coin-item-info">
+                                <div class="coin-item-symbol">${coin.symbol}</div>
+                                <div class="coin-item-details">$${coin.reserved_amount.toFixed(2)} / ${coin.risk_pct}%</div>
+                            </div>
+                        </div>
+                        <div class="exchange-status active" style="font-size: 11px;">Active</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    
+                    <!-- Add Coin Button -->
+                    <button class="btn-add-coin" onclick="addNewCoin('${ex.name}')">
+                        + Add Coin
+                    </button>
+                </div>
+            `;
+
+            list.insertAdjacentHTML('beforeend', html);
+
+        } else {
+            // Original single-line display for non-OKX exchanges
+            const isConnectedStr = isConnected ? 'true' : 'false';
+            const html = `
+                <div class="strategy-item fade-in" onclick="console.log('Clicked ${ex.name}'); openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="strat-icon">
+                            <img src="${logoPath}">
+                        </div>
+                        <div class="strat-info">
+                            <div class="strat-title">${stratName}</div>
+                            <div class="strat-desc" style="color: #aaa;">${statusText}</div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                         <div class="strat-title" style="font-size:16px;">$${balance.toFixed(2)}</div>
                     </div>
                 </div>
-                <div style="text-align:right;">
-                     <div class="strat-title" style="font-size:16px;">$${balance.toFixed(2)}</div>
-                </div>
-            </div>
-        `;
-        list.insertAdjacentHTML('beforeend', html);
+            `;
+            list.insertAdjacentHTML('beforeend', html);
+        }
     });
 }
 
@@ -1318,46 +1380,293 @@ async function submitBingXAPI() {
     }
 }
 
-async function submitOKXAPI() {
+// ===========================
+// MULTI-COIN CONFIGURATION
+// ===========================
+
+// Global state for coin selection
+let selectedCoins = new Set();
+let okxApiCredentials = null;
+
+// Proceed to coin selection step
+function proceedToCoinSelection() {
     const apiKey = document.getElementById('okx-api-key').value.trim();
     const secretKey = document.getElementById('okx-secret-key').value.trim();
     const passphrase = document.getElementById('okx-passphrase').value.trim();
-    const capital = parseFloat(document.getElementById('okx-capital').value);
 
-    // Allow 0 capital (means no trading yet)
-    if (!apiKey || !secretKey || !passphrase || isNaN(capital)) {
-        alert('Please fill API rules correctly');
+    if (!apiKey || !secretKey || !passphrase) {
+        alert('Please fill in all API credentials');
         return;
     }
 
+    // Store credentials temporarily
+    okxApiCredentials = { apiKey, secretKey, passphrase };
+
+    // Reset coin selection
+    selectedCoins.clear();
+    document.querySelectorAll('.coin-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.getElementById('btn-coin-next').disabled = true;
+
+    // Show coin selection step
+    showCTStep('coin-select');
+}
+
+// Toggle coin selection
+function toggleCoin(symbol) {
+    const card = document.querySelector(`.coin-card[data-symbol="${symbol}"]`);
+
+    if (selectedCoins.has(symbol)) {
+        selectedCoins.delete(symbol);
+        card.classList.remove('selected');
+    } else {
+        selectedCoins.add(symbol);
+        card.classList.add('selected');
+    }
+
+    // Enable/disable next button
+    document.getElementById('btn-coin-next').disabled = selectedCoins.size === 0;
+}
+
+// Proceed to coin configuration
+function proceedToCoinConfig() {
+    if (selectedCoins.size === 0) return;
+
+    // Render configuration forms for each selected coin
+    const configList = document.getElementById('coin-config-list');
+    configList.innerHTML = '';
+
+    const coinDetails = {
+        'BTC/USDT': { name: 'Bitcoin', img: 'bitcoin.png' },
+        'ETH/USDT': { name: 'Ethereum', img: 'ethereum.png' },
+        'BNB/USDT': { name: 'BNB', img: 'bnb.png' },
+        'OKB/USDT': { name: 'OKB', img: 'okb.png' }
+    };
+
+    selectedCoins.forEach(symbol => {
+        const details = coinDetails[symbol];
+        const html = `
+            <div class="coin-config-item">
+                <div class="coin-config-header">
+                    <img src="coin_img/${details.img}" width="32" height="32">
+                    <div>
+                        <div class="coin-name">${details.name}</div>
+                        <div class="coin-symbol">${symbol}</div>
+                    </div>
+                </div>
+                
+                <div class="ct-input-group">
+                    <label class="ct-label">Trading Capital (USDT)</label>
+                    <input type="number" id="capital-${symbol}" class="ct-input" 
+                           placeholder="Minimum 100 USDT" step="0.01" min="100" value="100">
+                    <div class="validation-error" id="error-${symbol}"></div>
+                </div>
+                
+                <div class="ct-input-group">
+                    <label class="ct-label">Risk per Trade (%)</label>
+                    <input type="number" id="risk-${symbol}" class="ct-input" 
+                           placeholder="1.0" step="0.1" min="0.1" max="10" value="1.0">
+                </div>
+            </div>
+        `;
+        configList.insertAdjacentHTML('beforeend', html);
+    });
+
+    showCTStep('coin-config');
+}
+
+// Submit OKX with coin configurations
+async function submitOKXWithCoins() {
+    if (!okxApiCredentials) {
+        alert('API credentials missing');
+        return;
+    }
+
+    // Collect coin configurations
+    const coins = [];
+    let totalCapital = 0;
+    let hasErrors = false;
+
+    selectedCoins.forEach(symbol => {
+        const capitalInput = document.getElementById(`capital-${symbol}`);
+        const riskInput = document.getElementById(`risk-${symbol}`);
+        const errorDiv = document.getElementById(`error-${symbol}`);
+
+        const capital = parseFloat(capitalInput.value);
+        const risk = parseFloat(riskInput.value);
+
+        // Validate
+        errorDiv.classList.remove('show');
+        if (isNaN(capital) || capital < 100) {
+            errorDiv.textContent = 'Minimum $100 required';
+            errorDiv.classList.add('show');
+            hasErrors = true;
+            return;
+        }
+
+        if (isNaN(risk) || risk < 0.1 || risk > 10) {
+            errorDiv.textContent = 'Risk must be between 0.1% and 10%';
+            errorDiv.classList.add('show');
+            hasErrors = true;
+            return;
+        }
+
+        coins.push({ symbol, capital, risk });
+        totalCapital += capital;
+    });
+
+    if (hasErrors) return;
+
     try {
         const user = tg.initDataUnsafe.user;
-        const response = await fetch(`${API_BASE}/api/connect`, {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = 'Connecting...';
+
+        // First, connect OKX exchange
+        const connectResponse = await fetch(`${API_BASE}/api/connect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user.id,
                 exchange: 'okx',
                 strategy: 'cgt',
-                api_key: apiKey,
-                secret: secretKey,
-                password: passphrase,
-                reserve: capital
+                api_key: okxApiCredentials.apiKey,
+                secret: okxApiCredentials.secretKey,
+                password: okxApiCredentials.passphrase,
+                reserve: totalCapital  // Total allocation
             })
         });
 
-        const data = await response.json();
-        if (data.status === 'ok') {
-            showToast('OKX Connected!');
-            closeCopyTradingModal();
-            await fetchUserData(user.id);
-        } else {
-            alert(data.message || 'Connection failed');
+        const connectData = await connectResponse.json();
+        if (connectData.status !== 'ok') {
+            alert(connectData.detail || 'Connection failed');
+            btn.disabled = false;
+            btn.textContent = 'Connect OKX';
+            return;
         }
+
+        // Then, save coin configurations
+        const coinResponse = await fetch(`${API_BASE}/api/save_coin_configs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                exchange: 'okx',
+                coins: coins
+            })
+        });
+
+        const coinData = await coinResponse.json();
+        if (!coinData.success) {
+            alert(coinData.message || 'Failed to save coin configurations');
+            btn.disabled = false;
+            btn.textContent = 'Connect OKX';
+            return;
+        }
+
+        // Success!
+        showToast(`✅ OKX Connected with ${coins.length} coins!`);
+        closeCopyTradingModal();
+
+        // Clear state
+        selectedCoins.clear();
+        okxApiCredentials = null;
+
+        // Refresh UI
+        await fetchUserData(user.id);
+
     } catch (error) {
         console.error(error);
-        alert('Connection error');
+        alert('Connection error. Please try again.');
+        event.target.disabled = false;
+        event.target.textContent = 'Connect OKX';
     }
+}
+
+// Edit existing coin configuration
+function editCoinConfig(exchange, symbol, currentCapital, currentRisk) {
+    const user = tg.initDataUnsafe.user;
+
+    tg.showPopup({
+        title: `Edit ${symbol}`,
+        message: `Capital: $${currentCapital}\nRisk: ${currentRisk}%\n\nWhat would you like to do?`,
+        buttons: [
+            { id: 'edit', type: 'default', text: 'Edit Settings' },
+            { id: 'remove', type: 'destructive', text: 'Remove Coin' },
+            { id: 'cancel', type: 'cancel', text: 'Cancel' }
+        ]
+    }, async (btnId) => {
+        if (btnId === 'edit') {
+            // Show edit modal (simplified - use prompt for now)
+            const newCapital = prompt(`Enter new trading capital for ${symbol}:`, currentCapital);
+            const newRisk = prompt(`Enter new risk % for ${symbol}:`, currentRisk);
+
+            if (newCapital && newRisk) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/update_coin_config`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: user.id,
+                            exchange: exchange.toLowerCase(),
+                            symbol: symbol,
+                            capital: parseFloat(newCapital),
+                            risk: parseFloat(newRisk)
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        showToast('✅ Coin updated!');
+                        fetchUserData(user.id);
+                    } else {
+                        alert(data.message || 'Update failed');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Error updating coin');
+                }
+            }
+        } else if (btnId === 'remove') {
+            try {
+                const res = await fetch(`${API_BASE}/api/delete_coin_config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: user.id,
+                        exchange: exchange.toLowerCase(),
+                        symbol: symbol
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast('🗑 Coin removed');
+                    fetchUserData(user.id);
+                } else {
+                    alert(data.message || 'Removal failed');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error removing coin');
+            }
+        }
+    });
+}
+
+// Add new coin to existing exchange
+function addNewCoin(exchange) {
+    // Show coin selector popup
+    tg.showPopup({
+        title: 'Add Coin',
+        message: 'This feature will open the coin selector. For now, please use the copytrading modal to add coins.',
+        buttons: [{ id: 'ok', type: 'ok', text: 'OK' }]
+    });
+
+    // TODO: Implement inline coin addition
+    // For now, user should go through the copytrading modal
 }
 
 // Toast Notification

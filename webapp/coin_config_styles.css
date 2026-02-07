@@ -1,0 +1,222 @@
+/* ===========================
+   COIN CONFIGURATION STYLES
+   =========================== */
+
+/* Coin Grid */
+.coin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* Coin Card */
+.coin-card {
+    background: #1A1926;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.coin-card:hover {
+    border-color: rgba(70, 126, 231, 0.3);
+    background: rgba(26, 25, 38, 0.8);
+}
+
+.coin-card.selected {
+    border-color: #467EE7;
+    background: rgba(70, 126, 231, 0.1);
+}
+
+/* Coin Checkbox */
+.coin-checkbox {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #467EE7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #467EE7;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.coin-card.selected .coin-checkbox {
+    opacity: 1;
+    background: #467EE7;
+    color: white;
+}
+
+/* Coin Config Item */
+.coin-config-item {
+    background: #1A1926;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.coin-config-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.coin-config-header img {
+    width: 32px;
+    height: 32px;
+}
+
+.coin-config-header .coin-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.coin-config-header .coin-symbol {
+    font-size: 12px;
+    color: #9CA3AF;
+}
+
+/* Hierarchical Exchange List */
+.exchange-hierarchy {
+    background: #1A1926;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.exchange-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+
+.exchange-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.exchange-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.exchange-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.exchange-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.exchange-status.active {
+    color: #06D6A0;
+    background: rgba(6, 214, 160, 0.1);
+}
+
+.exchange-status.error {
+    color: #FF4D4D;
+    background: rgba(255, 77, 77, 0.1);
+}
+
+/* Coin List */
+.coin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 44px;
+}
+
+.coin-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.coin-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.coin-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.coin-item-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.coin-item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.coin-item-symbol {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.coin-item-details {
+    font-size: 12px;
+    color: #9CA3AF;
+}
+
+/* Add Coin Button */
+.btn-add-coin {
+    background: rgba(70, 126, 231, 0.1);
+    color: #467EE7;
+    border: 1px dashed #467EE7;
+    border-radius: 12px;
+    padding: 12px;
+    margin-left: 44px;
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-add-coin:hover {
+    background: rgba(70, 126, 231, 0.2);
+}
+
+/* Validation Messages */
+.validation-error {
+    color: #FF4D4D;
+    font-size: 12px;
+    margin-top: 4px;
+    display: none;
+}
+
+.validation-error.show {
+    display: block;
+}

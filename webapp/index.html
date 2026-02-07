@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="settings_styles.css?v=100">
     <link rel="stylesheet" href="copytrading_styles.css?v=100">
     <link rel="stylesheet" href="dashboard_styles.css?v=100">
+    <link rel="stylesheet" href="coin_config_styles.css?v=100">
 </head>
 
 <body>
@@ -570,7 +571,6 @@
                     </div>
                 </div>
 
-
                 <div class="ct-input-group">
                     <label class="ct-label">API Key</label>
                     <input type="text" id="okx-api-key" class="ct-input" placeholder="Enter API Key">
@@ -586,16 +586,71 @@
                     <input type="password" id="okx-passphrase" class="ct-input" placeholder="Enter Passphrase">
                 </div>
 
-                <div class="ct-input-group">
-                    <label class="ct-label">Trading Capital (USDT)</label>
-                    <input type="number" id="okx-capital" class="ct-input" placeholder="0.00" step="0.01">
-                    <div style="font-size: 13px; color: #FF9F0A; margin-top: 8px; font-weight: 500;"
-                        data-i18n="min_balance_warning">
-                        ⚠️ Minimum trading balance: 100 USDT
+                <button class="ct-submit-btn" onclick="proceedToCoinSelection()">Next: Select Coins</button>
+            </div>
+
+            <!-- Step 4: Coin Selection (NEW) -->
+            <div id="ct-step-coin-select" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('okx-api')">← Back</button>
+
+                <h2
+                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                    Select Coins to Copy</h2>
+                <p style="text-align: center; color: #9CA3AF; font-size: 13px; margin-bottom: 24px;">
+                    Choose which coins you want to copy trade (minimum $100 per coin)
+                </p>
+
+                <!-- Coin Grid -->
+                <div class="coin-grid"
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+                    <div class="coin-card" data-symbol="BTC/USDT" onclick="toggleCoin('BTC/USDT')">
+                        <div class="coin-checkbox">✓</div>
+                        <img src="coin_img/bitcoin.png" width="48" height="48" style="margin-bottom: 8px;">
+                        <div style="font-size: 14px; font-weight: 600; color: #fff;">Bitcoin</div>
+                        <div style="font-size: 12px; color: #9CA3AF;">BTC/USDT</div>
+                    </div>
+
+                    <div class="coin-card" data-symbol="ETH/USDT" onclick="toggleCoin('ETH/USDT')">
+                        <div class="coin-checkbox">✓</div>
+                        <img src="coin_img/ethereum.png" width="48" height="48" style="margin-bottom: 8px;">
+                        <div style="font-size: 14px; font-weight: 600; color: #fff;">Ethereum</div>
+                        <div style="font-size: 12px; color: #9CA3AF;">ETH/USDT</div>
+                    </div>
+
+                    <div class="coin-card" data-symbol="BNB/USDT" onclick="toggleCoin('BNB/USDT')">
+                        <div class="coin-checkbox">✓</div>
+                        <img src="coin_img/bnb.png" width="48" height="48" style="margin-bottom: 8px;">
+                        <div style="font-size: 14px; font-weight: 600; color: #fff;">BNB</div>
+                        <div style="font-size: 12px; color: #9CA3AF;">BNB/USDT</div>
+                    </div>
+
+                    <div class="coin-card" data-symbol="OKB/USDT" onclick="toggleCoin('OKB/USDT')">
+                        <div class="coin-checkbox">✓</div>
+                        <img src="coin_img/okb.png" width="48" height="48" style="margin-bottom: 8px;">
+                        <div style="font-size: 14px; font-weight: 600; color: #fff;">OKB</div>
+                        <div style="font-size: 12px; color: #9CA3AF;">OKB/USDT</div>
                     </div>
                 </div>
 
-                <button class="ct-submit-btn" onclick="submitOKXAPI()">Connect OKX</button>
+                <button class="ct-submit-btn" onclick="proceedToCoinConfig()" id="btn-coin-next" disabled>
+                    Next: Configure Coins
+                </button>
+            </div>
+
+            <!-- Step 5: Coin Configuration (NEW) -->
+            <div id="ct-step-coin-config" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('coin-select')">← Back</button>
+
+                <h2
+                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                    Configure Coins</h2>
+
+                <div id="coin-config-list"
+                    style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <!-- Dynamically populated -->
+                </div>
+
+                <button class="ct-submit-btn" onclick="submitOKXWithCoins()">Connect OKX</button>
             </div>
 
             <!-- Spacing for safe area -->

@@ -114,6 +114,7 @@ class TradeCopier:
     def process_signal(self, event_data, executor):
         master_exchange = event_data.get('master_exchange', 'binance')
         strategy = event_data.get('strategy', 'bro-bot') # bro-bot (futures) или cgt (spot)
+        master_order_id = event_data.get('master_order_id')  # NEW: Extract master order ID
         
         symbol = event_data.get('s'); side = event_data.get('S')
         order_type = event_data.get('o'); status = event_data.get('X')
@@ -126,6 +127,14 @@ class TradeCopier:
         # --- ЛОГИКА ДЛЯ OKX (SPOT) ---
         if master_exchange == 'okx':
             if status == 'FILLED':
+                # MULTI-COIN FILTER: Check if any users have this coin configured
+                from database import get_active_coins_for_strategy
+                active_coins = get_active_coins_for_strategy('cgt')
+                
+                if symbol not in active_coins:
+                    print(f"⏭ [SKIP] {symbol} - No users configured for this coin")
+                    return
+                
                 master_bal = self._get_master_balance('okx')
                 if master_bal == 0: master_bal = 1000.0
                 
@@ -133,7 +142,8 @@ class TradeCopier:
                 ratio = min((trade_cost / master_bal), 0.99)
 
                 print(f"\n🚀 [QUEUE] SIGNAL (OKX SPOT): {side} {symbol} | Ratio: {ratio*100:.2f}%")
-                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'cgt')
+                # Pass symbol to execute_trade_parallel for per-coin filtering
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'cgt', master_order_id=master_order_id)
             return
 
         # --- ЛОГИКА ДЛЯ FUTURES ---
@@ -160,15 +170,21 @@ class TradeCopier:
 
                 print(f"\n🚀 [QUEUE] SIGNAL ({master_exchange}): {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
                 
-                # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only ДАЛЬШЕ ---
-                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, use_strategy, is_reduce_only=is_reduce_only)
+                # --- ПЕРЕДАЕМ ФЛАГ is_reduce_only И master_order_id ДАЛЬШЕ ---
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, use_strategy, is_reduce_only=is_reduce_only, master_order_id=master_order_id)
 
 
 
-    def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot', is_reduce_only=False):
+    def execute_trade_parallel(self, symbol, side, percentage_used, executor, strategy='bro-bot', is_reduce_only=False, master_order_id=None):
         # Используем список подключений (Multi-Exchange)
-        connections = get_active_exchange_connections(strategy=strategy)
-        print(f"⚡ [WORKER] Executing ({strategy}) for {len(connections)} connections...")
+        # For CGT strategy, filter by symbol to get per-coin configs
+        connections = get_active_exchange_connections(strategy=strategy, symbol=symbol if strategy == 'cgt' else None)
+        
+        if len(connections) == 0:
+            print(f"⏭ [WORKER] No active connections for {strategy} / {symbol}")
+            return
+            
+        print(f"⚡ [WORKER] Executing ({strategy}) for {symbol}: {len(connections)} connections...")
         
         for conn in connections:
             user_id = conn['user_id']
@@ -177,8 +193,8 @@ class TradeCopier:
             risk_pct = conn.get('risk_pct', 1.0) # Default 1% if missing
             if risk_pct is None: risk_pct = 1.0
 
-            # --- ПЕРЕДАЕМ is_reduce_only И PARAMS ---
-            executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only, exchange_name, reserve, risk_pct)
+            # --- ПЕРЕДАЕМ is_reduce_only, PARAMS И master_order_id ---
+            executor.submit(self._execute_single_user, user_id, symbol, side, percentage_used, strategy, is_reduce_only, exchange_name, reserve, risk_pct, master_order_id)
 
     def close_all_positions_parallel(self, symbol, executor):
         # Закрываем для всех активных подключений (BingBot/Bybit = ratner strategy)
@@ -191,13 +207,16 @@ class TradeCopier:
             executor.submit(self._close_single_user, user_id, symbol, exchange)
 
 
-    def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner', is_reduce_only=False, exchange_name=None, reserve=0.0, risk_pct=1.0):
+    def _execute_single_user(self, user_id, symbol, side, percentage_used, strategy='ratner', is_reduce_only=False, exchange_name=None, reserve=0.0, risk_pct=1.0, master_order_id=None):
         """
         Единичная задача исполнения. 
         Логика расчета суммы:
         - CGT (Spot): Сумма = Reserve (Капитал) * (Risk % / 100)
         - Ratner (Futures): Сумма = Reserve (Капитал) * Пропорция_Мастера (percentage_used)
         """
+        # Import investigation functions
+        from database import get_open_client_copy, record_client_copy, close_client_copy
+        
         keys = get_user_decrypted_keys(user_id, exchange_name)
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
@@ -210,11 +229,20 @@ class TradeCopier:
             # Для Спота: Сделка = Капитал * (Риск / 100)
             # Если капитал 1000$ и риск 5%, то сумма сделки всегда 50$
             target_entry_usd = float(reserve) * (float(risk_pct) / 100.0)
+            print(f"💰 [User {user_id}] {symbol} - Per-coin capital: ${reserve:.2f}, Risk: {risk_pct}%, Trade: ${target_entry_usd:.2f}")
         else:
             # Для фьючерсов (если нужно зеркалить мастера):
             target_entry_usd = float(reserve) * percentage_used
 
-        # 1. ЗАЩИТА ОТ ПОЗДНЕГО ВХОДА
+        # 1. ЗАЩИТА ОТ ПОЗДНЕГО ВХОДА (NEW INVESTIGATION SYSTEM)
+        open_client_copy = get_open_client_copy(user_id, symbol)
+        
+        # LATE ENTRY PROTECTION: Skip sell if client doesn't have open buy
+        if side == 'sell' and not open_client_copy:
+            print(f"   ⚠️ [LATE ENTRY PROTECTION] User {user_id}: SKIP SELL (no open buy for {symbol})")
+            return
+        
+        # Legacy support: also check old table
         open_trade = get_open_trade(user_id, symbol)
         if is_reduce_only and not open_trade:
             print(f"   ⚠️ User {user_id}: Ignoring ReduceOnly signal (no open position).")
@@ -265,6 +293,11 @@ class TradeCopier:
                     exec_p = filled['average'] or price
                     exec_q = filled['filled']
                     
+                    # NEW: Record client copy (investigation system)
+                    if master_order_id:
+                        record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
+                    
+                    # Legacy: also record in old table
                     record_trade_entry(user_id, symbol, side, exec_p, exec_q)
                     print(f"   ✅ User {user_id} Filled: {exec_q} @ {exec_p}")
 
@@ -277,30 +310,23 @@ class TradeCopier:
                     if coin_qty > 0:
                         print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_qty} {base_coin}")
                         
-                        # DEBUG: Check if open_trade exists
-                        if not open_trade:
-                            print(f"   ⚠️ DEBUG: open_trade is None! Fetching from DB...")
-                            open_trade = get_open_trade(user_id, symbol)
-                            if open_trade:
-                                print(f"   ✅ DEBUG: Found open trade - Entry: {open_trade['entry_price']}, Qty: {open_trade['quantity']}")
-                            else:
-                                print(f"   ❌ DEBUG: NO open trade in DB for {symbol}! PnL calculation skipped.")
-                        
                         order = client.create_order(symbol, 'market', 'sell', coin_qty, params={'tdMode': 'cash'})
                         time.sleep(1)
                         filled = client.fetch_order(order['id'], symbol)
                         exit_price = filled['average'] or price
                         
-                        # Calculate PnL and charge fee
-                        # CRITICAL FIX: Use original purchase quantity, not current balance
-                        if open_trade:
-                            print(f"   💰 DEBUG: Calling billing - Entry: {open_trade['entry_price']}, Exit: {exit_price}, Qty: {open_trade['quantity']}")
-                            self._handle_pnl_and_billing(user_id, symbol, open_trade['entry_price'], exit_price, open_trade['quantity'], 'buy')
-                        else:
-                            print(f"   ❌ DEBUG: Skipping billing - no open_trade!")
+                        # NEW: Close client copy and get PnL
+                        pnl = 0.0
+                        if open_client_copy:
+                            pnl = close_client_copy(user_id, symbol, exit_price)
+                            # Billing happens in close_client_copy via _handle_pnl_and_billing
+                            self._handle_pnl_and_billing(user_id, symbol, open_client_copy['entry_price'], exit_price, open_client_copy['quantity'], 'buy')
                         
-                        close_trade_in_db(user_id, symbol)
-                        print(f"   ✅ User {user_id} [OKX SPOT]: SOLD ALL")
+                        # Legacy: also close in old table
+                        if open_trade:
+                            close_trade_in_db(user_id, symbol)
+                        
+                        print(f"   ✅ User {user_id} [OKX SPOT]: SOLD ALL | PnL: ${pnl:.2f}")
                 return
 
             # --- СЦЕНАРИЙ: BINGX FUTURES (RATNER) ---

@@ -163,6 +163,55 @@ def initialize_db():
         )
     """)
     
+    # Таблица конфигурации монет (Multi-Coin Support for OKX CGT)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS coin_configs (
+            config_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            exchange_name TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            reserved_amount REAL DEFAULT 0,
+            risk_pct REAL DEFAULT 1.0,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT,
+            UNIQUE(user_id, exchange_name, symbol)
+        )
+    """)
+    
+    # Таблица мастер-ордеров (INVESTIGATION SYSTEM)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS master_orders (
+            order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            master_exchange TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            side TEXT NOT NULL,
+            order_type TEXT NOT NULL,
+            price REAL NOT NULL,
+            quantity REAL NOT NULL,
+            timestamp TEXT NOT NULL,
+            strategy TEXT NOT NULL
+        )
+    """)
+    
+    # Таблица копий клиентов (INVESTIGATION SYSTEM)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS client_copies (
+            copy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            master_order_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            side TEXT NOT NULL,
+            entry_price REAL NOT NULL,
+            exit_price REAL,
+            quantity REAL NOT NULL,
+            profit_loss REAL,
+            opened_at TEXT NOT NULL,
+            closed_at TEXT,
+            status TEXT DEFAULT 'open',
+            FOREIGN KEY (master_order_id) REFERENCES master_orders(order_id)
+        )
+    """)
+    
     # Таблица транзакций (Top Up)
     cursor.execute("""
        CREATE TABLE IF NOT EXISTS transactions (
@@ -337,24 +386,51 @@ def get_users_for_copytrade(strategy: str = None) -> list:
     conn.close()
     return user_ids
 
-def get_active_exchange_connections(strategy: str = None) -> list:
-    """Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy, risk_pct}"""
+def get_active_exchange_connections(strategy: str = None, symbol: str = None) -> list:
+    """
+    Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy, risk_pct, symbol (if applicable)}
+    
+    For CGT (OKX) strategy with symbol: returns per-coin configs from coin_configs table
+    Otherwise: returns exchange-level configs from user_exchanges table
+    """
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Мы берем только те биржи, которые активны, И у которых юзер включил копитрейдинг, И есть токены
-    query = """
-        SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy, ue.risk_pct
-        FROM user_exchanges ue
-        JOIN users u ON ue.user_id = u.user_id
-        WHERE ue.is_active = 1 AND u.is_copytrading_enabled = 1 AND u.token_balance > 0
-    """
-    params = []
-    
-    if strategy:
-        query += " AND ue.strategy = ?"
-        params.append(strategy)
+    # For CGT strategy with a specific symbol, get per-coin configs
+    if strategy == 'cgt' and symbol:
+        query = """
+            SELECT 
+                ue.user_id, 
+                ue.exchange_name, 
+                cc.reserved_amount, 
+                cc.risk_pct,
+                cc.symbol,
+                ue.strategy
+            FROM user_exchanges ue
+            INNER JOIN coin_configs cc ON ue.user_id = cc.user_id AND ue.exchange_name = cc.exchange_name
+            JOIN users u ON ue.user_id = u.user_id
+            WHERE ue.is_active = 1 
+              AND cc.is_active = 1
+              AND u.is_copytrading_enabled = 1 
+              AND u.token_balance > 0
+              AND ue.strategy = ?
+              AND cc.symbol = ?
+        """
+        params = [strategy, symbol]
+    else:
+        # Original query for non-CGT or when no symbol specified
+        query = """
+            SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy, ue.risk_pct
+            FROM user_exchanges ue
+            JOIN users u ON ue.user_id = u.user_id
+            WHERE ue.is_active = 1 AND u.is_copytrading_enabled = 1 AND u.token_balance > 0
+        """
+        params = []
+        
+        if strategy:
+            query += " AND ue.strategy = ?"
+            params.append(strategy)
         
     cursor.execute(query, params)
     rows = cursor.fetchall()
@@ -806,6 +882,149 @@ def delete_user_exchange(user_id: int, exchange: str):
     """Удаляет (или помечает неактивной) биржу."""
     execute_write_query("DELETE FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
 
+# ===========================
+# COIN CONFIG FUNCTIONS (Multi-Coin Support)
+# ===========================
+
+def add_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float = 1.0):
+    """Добавляет конфигурацию для конкретной монеты."""
+    execute_write_query("""
+        INSERT OR REPLACE INTO coin_configs 
+        (user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+    """, (user_id, exchange, symbol, capital, risk_pct))
+    print(f"✅ Coin config added: User {user_id} | {exchange} | {symbol} | ${capital:.2f} | {risk_pct}%")
+
+def get_coin_configs(user_id: int, exchange: str) -> list:
+    """Возвращает все конфигурации монет для биржи."""
+    result = execute_read_query("""
+        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
+        FROM coin_configs
+        WHERE user_id = ? AND exchange_name = ? AND is_active = 1
+        ORDER BY created_at DESC
+    """, (user_id, exchange))
+    
+    coins = []
+    for row in result:
+        coins.append({
+            'config_id': row[0],
+            'user_id': row[1],
+            'exchange_name': row[2],
+            'symbol': row[3],
+            'reserved_amount': row[4],
+            'risk_pct': row[5],
+            'is_active': row[6],
+            'created_at': row[7]
+        })
+    return coins
+
+def get_user_coin_config(user_id: int, exchange: str, symbol: str):
+    """Возвращает конфигурацию конкретной монеты."""
+    result = execute_read_query("""
+        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
+        FROM coin_configs
+        WHERE user_id = ? AND exchange_name = ? AND symbol = ? AND is_active = 1
+        LIMIT 1
+    """, (user_id, exchange, symbol))
+    
+    if not result:
+        return None
+    
+    row = result[0]
+    return {
+        'config_id': row[0],
+        'user_id': row[1],
+        'exchange_name': row[2],
+        'symbol': row[3],
+        'reserved_amount': row[4],
+        'risk_pct': row[5],
+        'is_active': row[6],
+        'created_at': row[7]
+    }
+
+def update_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float):
+    """Обновляет конфигурацию монеты."""
+    execute_write_query("""
+        UPDATE coin_configs 
+        SET reserved_amount = ?, risk_pct = ?
+        WHERE user_id = ? AND exchange_name = ? AND symbol = ?
+    """, (capital, risk_pct, user_id, exchange, symbol))
+    print(f"✅ Coin config updated: User {user_id} | {exchange} | {symbol} | ${capital:.2f} | {risk_pct}%")
+
+def delete_coin_config(user_id: int, exchange: str, symbol: str):
+    """Удаляет конфигурацию монеты."""
+    execute_write_query("""
+        DELETE FROM coin_configs 
+        WHERE user_id = ? AND exchange_name = ? AND symbol = ?
+    """, (user_id, exchange, symbol))
+    print(f"🗑 Coin config deleted: User {user_id} | {exchange} | {symbol}")
+
+def get_active_coins_for_strategy(strategy: str) -> list:
+    """Возвращает список всех активных символов для стратегии (все пользователи)."""
+    result = execute_read_query("""
+        SELECT DISTINCT cc.symbol
+        FROM coin_configs cc
+        INNER JOIN user_exchanges ue ON cc.user_id = ue.user_id AND cc.exchange_name = ue.exchange_name
+        WHERE ue.strategy = ? AND cc.is_active = 1 AND ue.is_active = 1
+    """, (strategy,))
+    
+    return [row[0] for row in result]
+
+def validate_coin_allocation(user_id: int, exchange: str, new_capital: float, symbol: str = None) -> dict:
+    """
+    Валидирует новую аллокацию капитала.
+    Возвращает: {'valid': bool, 'message': str, 'total_allocated': float, 'available': float}
+    """
+    # Получить все текущие аллокации (исключая редактируемую монету)
+    query = """
+        SELECT SUM(reserved_amount) 
+        FROM coin_configs 
+        WHERE user_id = ? AND exchange_name = ? AND is_active = 1
+    """
+    params = [user_id, exchange]
+    
+    if symbol:
+        query += " AND symbol != ?"
+        params.append(symbol)
+    
+    result = execute_read_query(query, tuple(params))
+    current_total = result[0][0] if result and result[0][0] else 0.0
+    
+    # Получить баланс биржи
+    exchange_data = execute_read_query("""
+        SELECT reserved_amount FROM user_exchanges 
+        WHERE user_id = ? AND exchange_name = ?
+    """, (user_id, exchange))
+    
+    max_balance = exchange_data[0][0] if exchange_data else 0.0
+    
+    # Рассчитать новый total
+    new_total = current_total + new_capital
+    
+    # Проверить лимиты
+    if new_total > max_balance:
+        return {
+            'valid': False,
+            'message': f'Total allocation (${new_total:.2f}) exceeds available balance (${max_balance:.2f})',
+            'total_allocated': new_total,
+            'available': max_balance
+        }
+    
+    if new_capital < 100:
+        return {
+            'valid': False,
+            'message': 'Minimum $100 required per coin',
+            'total_allocated': new_total,
+            'available': max_balance
+        }
+    
+    return {
+        'valid': True,
+        'message': 'OK',
+        'total_allocated': new_total,
+        'available': max_balance
+    }
+
 # Backwards compatibility wrapper (if needed for old single-exchange calls, though we should refactor them too)
 def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
     # Just redirect to new function, defaulting strategy to whatever
@@ -949,3 +1168,178 @@ def get_referral_count(user_id: int, level: int) -> int:
     except Exception as e:
         print(f"[ERROR] get_referral_count failed for user {user_id}, level {level}: {e}")
         return 0
+
+
+# ========================================
+# INVESTIGATION SYSTEM FUNCTIONS
+# ========================================
+
+def record_master_order(master_exchange: str, symbol: str, side: str, order_type: str, 
+                        price: float, quantity: float, strategy: str) -> int:
+    """
+    Записывает ордер мастер-аккаунта в БД.
+    Возвращает master_order_id для передачи в worker.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        INSERT INTO master_orders (master_exchange, symbol, side, order_type, price, quantity, timestamp, strategy)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (master_exchange, symbol, side, order_type, price, quantity, timestamp, strategy))
+    
+    order_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    print(f"   📝 [MASTER ORDER] ID={order_id} {side.upper()} {symbol} @ ${price}")
+    return order_id
+
+
+def record_client_copy(master_order_id: int, user_id: int, symbol: str, side: str, 
+                       entry_price: float, quantity: float):
+    """
+    Записывает копирование сделки клиентом.
+    """
+    opened_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    execute_write_query("""
+        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
+    """, (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at))
+    
+    print(f"   ✅ [CLIENT COPY] User {user_id}: {side.upper()} {quantity} {symbol} @ ${entry_price}")
+
+
+def get_open_client_copy(user_id: int, symbol: str) -> dict:
+    """
+    Возвращает открытую позицию клиента для данного символа.
+    None если позиции нет.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT copy_id, master_order_id, side, entry_price, quantity, opened_at
+        FROM client_copies
+        WHERE user_id = ? AND symbol = ? AND status = 'open'
+        ORDER BY copy_id DESC
+        LIMIT 1
+    """, (user_id, symbol))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return None
+    
+    return {
+        "copy_id": result[0],
+        "master_order_id": result[1],
+        "side": result[2],
+        "entry_price": result[3],
+        "quantity": result[4],
+        "opened_at": result[5]
+    }
+
+
+def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
+    """
+    Закрывает открытую позицию клиента и рассчитывает PnL.
+    Возвращает PnL (положительный или отрицательный).
+    """
+    open_copy = get_open_client_copy(user_id, symbol)
+    
+    if not open_copy:
+        print(f"   ⚠️ [CLOSE COPY] No open position for User {user_id} {symbol}")
+        return 0.0
+    
+    # Расчет PnL
+    entry_price = open_copy['entry_price']
+    quantity = open_copy['quantity']
+    side = open_copy['side']
+    
+    if side == 'buy':
+        pnl = (exit_price - entry_price) * quantity
+    else:  # sell
+        pnl = (entry_price - exit_price) * quantity
+    
+    closed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Обновляем запись
+    execute_write_query("""
+        UPDATE client_copies
+        SET exit_price = ?, profit_loss = ?, closed_at = ?, status = 'closed'
+        WHERE copy_id = ?
+    """, (exit_price, pnl, closed_at, open_copy['copy_id']))
+    
+    print(f"   💰 [CLOSE COPY] User {user_id}: PnL = ${pnl:.2f}")
+    return pnl
+
+
+def get_investigation_report(user_id: int = None, symbol: str = None, limit: int = 100) -> dict:
+    """
+    Генерирует отчет для investigation.
+    user_id: фильтр по пользователю (опционально)
+    symbol: фильтр по символу (опционально)
+    limit: максимум записей
+    """
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Собираем копии клиентов
+    query = """
+        SELECT 
+            cc.copy_id,
+            cc.user_id,
+            cc.symbol,
+            cc.side,
+            cc.entry_price,
+            cc.exit_price,
+            cc.quantity,
+            cc.profit_loss,
+            cc.opened_at,
+            cc.closed_at,
+            cc.status,
+            mo.master_exchange,
+            mo.order_type
+        FROM client_copies cc
+        LEFT JOIN master_orders mo ON cc.master_order_id = mo.order_id
+        WHERE 1=1
+    """
+    params = []
+    
+    if user_id:
+        query += " AND cc.user_id = ?"
+        params.append(user_id)
+    if symbol:
+        query += " AND cc.symbol = ?"
+        params.append(symbol)
+    
+    query += " ORDER BY cc.opened_at DESC LIMIT ?"
+    params.append(limit)
+    
+    cursor.execute(query, params)
+    copies = [dict(row) for row in cursor.fetchall()]
+    
+    # Подсчет статистики
+    total_trades = len(copies)
+    closed_trades = len([c for c in copies if c['status'] == 'closed'])
+    open_trades = total_trades - closed_trades
+    
+    total_pnl = sum(c['profit_loss'] for c in copies if c['profit_loss'])
+    
+    conn.close()
+    
+    return {
+        "copies": copies,
+        "stats": {
+            "total_trades": total_trades,
+            "closed_trades": closed_trades,
+            "open_trades": open_trades,
+            "total_pnl": total_pnl
+        }
+    }
