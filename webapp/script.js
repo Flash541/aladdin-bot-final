@@ -152,7 +152,7 @@ const translations = {
         referrals: "referrals",
         get_referral_link: "Get Your Referral Link",
         btn_analyze: "Analyze",
-        min_balance_warning: "⚠️ Minimum trading balance: 100 USDT",
+        min_balance_warning: "Minimum trading balance: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Configure Coins",
@@ -173,7 +173,29 @@ const translations = {
 
         // Validation
         err_capital_too_low: "Capital must be at least 100 USDT",
-        err_invalid_risk: "Risk must be between 0.1% and 10%"
+        err_invalid_risk: "Risk must be between 0.1% and 10%",
+
+        // Toasts
+        toast_changes_applied: "Changes Applied",
+        toast_strategy_disconnected: "Strategy Disconnected",
+        toast_okx_connected: "OKX Connected",
+        toast_coin_updated: "Coin updated",
+        toast_coin_removed: "Coin removed",
+        toast_coin_added: "Coin added",
+        toast_exchange_disconnected: "Exchange disconnected",
+        toast_address_copied: "Address Copied",
+
+        // Coin Management (modals)
+        edit_coin_title: "Edit Coin",
+        add_coin_title: "Add Coin",
+        trading_capital_label: "Trading Capital (USDT)",
+        risk_per_trade_label: "Risk per Trade (%)",
+        btn_save_changes: "Save Changes",
+        btn_remove_coin: "Remove Coin",
+        no_coins_yet: "No coins configured yet",
+        no_coins_hint: "Click below to add a coin",
+        all_coins_added: "All coins already added",
+        manage_allocations: "Manage Allocations"
     },
     ru: {
         welcome: "С возвращением",
@@ -237,7 +259,7 @@ const translations = {
         commission_3: "3% комиссия",
         referrals: "рефералов",
         get_referral_link: "Получить реферальную ссылку",
-        min_balance_warning: "⚠️ Минимальный торговый баланс: 100 USDT",
+        min_balance_warning: "Минимальный торговый баланс: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Настройка монет",
@@ -258,7 +280,29 @@ const translations = {
 
         // Validation
         err_capital_too_low: "Капитал должен быть минимум 5 USDT",
-        err_invalid_risk: "Риск должен быть от 0.1% до 10%"
+        err_invalid_risk: "Риск должен быть от 0.1% до 10%",
+
+        // Toasts
+        toast_changes_applied: "Изменения сохранены",
+        toast_strategy_disconnected: "Стратегия отключена",
+        toast_okx_connected: "OKX подключён",
+        toast_coin_updated: "Монета обновлена",
+        toast_coin_removed: "Монета удалена",
+        toast_coin_added: "Монета добавлена",
+        toast_exchange_disconnected: "Биржа отключена",
+        toast_address_copied: "Адрес скопирован",
+
+        // Coin Management (modals)
+        edit_coin_title: "Редактировать монету",
+        add_coin_title: "Добавить монету",
+        trading_capital_label: "Торговый капитал (USDT)",
+        risk_per_trade_label: "Риск на сделку (%)",
+        btn_save_changes: "Сохранить",
+        btn_remove_coin: "Удалить монету",
+        no_coins_yet: "Монеты ещё не настроены",
+        no_coins_hint: "Нажмите ниже чтобы добавить",
+        all_coins_added: "Все монеты уже добавлены",
+        manage_allocations: "Управление аллокациями"
     },
     uk: {
         welcome: "З поверненням",
@@ -323,7 +367,7 @@ const translations = {
         commission_3: "3% комісія",
         referrals: "рефералів",
         get_referral_link: "Отримати реферальне посилання",
-        min_balance_warning: "⚠️ Мінімальний баланс: 100 USDT",
+        min_balance_warning: "Мінімальний баланс: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Налаштування монет",
@@ -344,7 +388,29 @@ const translations = {
 
         // Validation
         err_capital_too_low: "Капітал повинен бути мінімум 5 USDT",
-        err_invalid_risk: "Ризик повинен бути від 0.1% до 10%"
+        err_invalid_risk: "Ризик повинен бути від 0.1% до 10%",
+
+        // Toasts
+        toast_changes_applied: "Зміни збережено",
+        toast_strategy_disconnected: "Стратегію від'єднано",
+        toast_okx_connected: "OKX під'єднано",
+        toast_coin_updated: "Монету оновлено",
+        toast_coin_removed: "Монету видалено",
+        toast_coin_added: "Монету додано",
+        toast_exchange_disconnected: "Біржу від'єднано",
+        toast_address_copied: "Адресу скопійовано",
+
+        // Coin Management (modals)
+        edit_coin_title: "Редагувати монету",
+        add_coin_title: "Додати монету",
+        trading_capital_label: "Торговий капітал (USDT)",
+        risk_per_trade_label: "Ризик на угоду (%)",
+        btn_save_changes: "Зберегти",
+        btn_remove_coin: "Видалити монету",
+        no_coins_yet: "Монети ще не налаштовані",
+        no_coins_hint: "Натисніть нижче щоб додати",
+        all_coins_added: "Всі монети вже додано",
+        manage_allocations: "Управління алокаціями"
     }
 };
 
@@ -542,7 +608,7 @@ function renderExchanges(exchanges) {
                     </div>
                     
                     <!-- Add Coin Button -->
-                    <button class="btn-add-coin" onclick="addNewCoin('${ex.name}')">
+                    <button class="btn-add-coin" onclick="openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}'); event.stopPropagation();">
                         + Add Coin
                     </button>
                 </div>
@@ -551,10 +617,21 @@ function renderExchanges(exchanges) {
             list.insertAdjacentHTML('beforeend', html);
 
         } else {
-            // Original single-line display for non-OKX exchanges
+            // Original single-line display for non-OKX exchanges OR OKX without coins (fallback)
             const isConnectedStr = isConnected ? 'true' : 'false';
+
+            // Determine Click Action: OKX -> Coin Management, Others -> Strategy Settings
+            const clickHandler = (ex.name.toLowerCase() === 'okx')
+                ? `openCoinManagement(${ex.name === 'okx' ? 'tg.initDataUnsafe.user.id' : '0'}, '${ex.name}')`
+                : `openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}')`;
+
+            // Wrap ID properly if needed or pass user.id from closure if available. 
+            // Actually, openCoinManagement needs userId. In renderExchanges, we don't have user object directly accessible in scope easily? 
+            // Wait, we can use `tg.initDataUnsafe.user.id` or fetch it.
+            // Let's use `tg.initDataUnsafe.user.id` which is global-ish in this context.
+
             const html = `
-                <div class="strategy-item fade-in" onclick="console.log('Clicked ${ex.name}'); openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
+                <div class="strategy-item fade-in" onclick="if(window.tg && tg.initDataUnsafe && tg.initDataUnsafe.user) openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}'); else openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
                     <div style="display:flex; align-items:center; gap:12px;">
                         <div class="strat-icon">
                             <img src="${logoPath}">
@@ -569,7 +646,38 @@ function renderExchanges(exchanges) {
                     </div>
                 </div>
             `;
-            list.insertAdjacentHTML('beforeend', html);
+            // Simplified logic for replacement:
+            if (ex.name.toLowerCase() === 'okx') {
+                list.insertAdjacentHTML('beforeend', `
+                    <div class="strategy-item fade-in" onclick="openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}')" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="strat-icon"><img src="${logoPath}"></div>
+                            <div class="strat-info">
+                                <div class="strat-title">${stratName}</div>
+                                <div class="strat-desc" style="color: #aaa;">${statusText}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                             <div class="strat-title" style="font-size:16px;">$${balance.toFixed(2)}</div>
+                        </div>
+                    </div>
+                 `);
+            } else {
+                list.insertAdjacentHTML('beforeend', `
+                    <div class="strategy-item fade-in" onclick="openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div class="strat-icon"><img src="${logoPath}"></div>
+                            <div class="strat-info">
+                                <div class="strat-title">${stratName}</div>
+                                <div class="strat-desc" style="color: #aaa;">${statusText}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                             <div class="strat-title" style="font-size:16px;">$${balance.toFixed(2)}</div>
+                        </div>
+                    </div>
+                 `);
+            }
         }
     });
 }
@@ -1164,7 +1272,7 @@ async function saveStrategySettings() {
 
         if (res.ok) {
             closeStrategySettings();
-            showToast("Changes Applied ✅");
+            showToast(getTranslation('toast_changes_applied') || "Changes Applied");
             if (user.id) fetchUserData(user.id); // Refresh UI
         } else {
             alert("Failed to save settings");
@@ -1205,7 +1313,7 @@ async function disconnectStrategy() {
 
                 if (res.ok) {
                     closeStrategySettings();
-                    showToast("Strategy Disconnected 🔌");
+                    showToast(getTranslation('toast_strategy_disconnected') || "Strategy Disconnected");
                     if (user.id) fetchUserData(user.id); // Refresh UI
                 } else {
                     tg.showAlert("Failed to disconnect strategy. Please try again.");
@@ -1257,9 +1365,8 @@ async function fetchDepositAddress() {
         } else {
             addrEl.innerText = "Error: " + (data.msg || "Service Unavailable");
         }
-    } catch (e) {
-        console.error(e);
-        addrEl.innerText = "Connection Failed";
+    } catch (error) {
+        console.error(error);
     }
 }
 
@@ -1332,11 +1439,15 @@ function showCTStep(stepName) {
     // Dynamic Height Adjustment
     const modalContent = document.querySelector('#modal-copytrading .modal-content');
     if (modalContent) {
-        if (stepName === 'bingx-api' || stepName === 'okx-api') {
-            // Expand for API forms
+        if (stepName === 'bingx-api' || stepName === 'okx-api' || stepName === 'coin-select' || stepName === 'coin-config') {
+            // Expand for API forms and coin selection/config
             modalContent.style.height = '85vh'; // Use viewport percentage
-            modalContent.style.overflowY = 'auto'; // Enable scrolling
+            modalContent.style.overflowY = 'auto'; // Enable scrolling for forms, but config handles its own
             modalContent.style.transition = 'height 0.3s ease'; // Smooth transition
+
+            if (stepName === 'coin-config') {
+                modalContent.style.overflowY = 'hidden'; // Config step manages its own scroll
+            }
         } else {
             // Reset for strategy selection (or other small steps)
             modalContent.style.height = '580px';
@@ -1345,7 +1456,11 @@ function showCTStep(stepName) {
     }
 
     if (targetStep) {
-        targetStep.style.display = 'block';
+        if (stepName === 'coin-config') {
+            targetStep.style.display = 'flex';
+        } else {
+            targetStep.style.display = 'block';
+        }
     }
 }
 
@@ -1435,11 +1550,10 @@ async function submitBingXAPI() {
             closeCopyTradingModal();
             await fetchUserData(user.id);
         } else {
-            alert(data.message || 'Connection failed');
+            console.error(data.message || 'Connection failed');
         }
     } catch (error) {
         console.error(error);
-        alert('Connection error');
     }
 }
 
@@ -1522,7 +1636,7 @@ function proceedToCoinConfig() {
                 <div class="ct-input-group">
                     <label class="ct-label" data-i18n="trading_capital_usdt">Trading Capital (USDT)</label>
                     <input type="number" id="capital-${symbol}" class="ct-input" 
-                           data-i18n-placeholder="minimum_5_usdt" placeholder="Minimum 5 USDT" step="0.01" min="5" value="100">
+                           data-i18n-placeholder="minimum_5_usdt" placeholder="Amount (e.g. 100)" step="0.01" value="100">
                     <div class="validation-error" id="error-${symbol}"></div>
                 </div>
                 
@@ -1561,8 +1675,8 @@ async function submitOKXWithCoins() {
 
         // Validate
         errorDiv.classList.remove('show');
-        if (isNaN(capital) || capital < 5) {
-            errorDiv.textContent = 'Minimum $5 required';
+        if (isNaN(capital) || capital < 0) {
+            errorDiv.textContent = 'Invalid amount';
             errorDiv.classList.add('show');
             hasErrors = true;
             return;
@@ -1630,93 +1744,146 @@ async function submitOKXWithCoins() {
         }
 
         // Success!
-        showToast(`✅ OKX Connected with ${coins.length} coins!`);
+        showToast((getTranslation('toast_okx_connected') || 'OKX Connected') + ` (${coins.length} coins)`);
         closeCopyTradingModal();
 
         // Clear state
         selectedCoins.clear();
         okxApiCredentials = null;
 
-        // Refresh UI
-        await fetchUserData(user.id);
+        // Refresh UI with delay to ensure DB write
+        setTimeout(async () => {
+            await fetchUserData(user.id);
+        }, 800);
 
     } catch (error) {
         console.error(error);
-        alert('Connection error. Please try again.');
         event.target.disabled = false;
         event.target.textContent = 'Connect OKX';
     }
 }
 
 // Edit existing coin configuration
+let editingCoin = null;
+
 function editCoinConfig(exchange, symbol, currentCapital, currentRisk) {
+    const modal = document.getElementById('modal-edit-coin');
+    if (!modal) return;
+
+    editingCoin = { exchange, symbol };
+
+    // Set Values
+    document.getElementById('ec-symbol').innerText = symbol;
+    document.getElementById('ec-exchange').innerText = exchange.toUpperCase();
+    document.getElementById('ec-capital').value = currentCapital;
+    document.getElementById('ec-risk').value = currentRisk;
+
+    // Set Icon
+    const iconMap = {
+        'BTC/USDT': 'bitcoin.png',
+        'ETH/USDT': 'ethereum.png',
+        'BNB/USDT': 'bnb.png',
+        'OKB/USDT': 'okb.png'
+    };
+    const imgName = iconMap[symbol] || 'usdt_bep_icon.svg';
+    const src = imgName.includes('svg') ? imgName : `coin_img/${imgName}`;
+    document.querySelector('#ec-icon img').src = src;
+
+    modal.style.display = 'flex';
+    applyTranslations();
+}
+
+function closeEditCoinModal() {
+    document.getElementById('modal-edit-coin').style.display = 'none';
+    editingCoin = null;
+}
+
+async function submitEditCoin() {
+    if (!editingCoin) return;
+
     const user = tg.initDataUnsafe.user;
+    const newCapital = parseFloat(document.getElementById('ec-capital').value);
+    const newRisk = parseFloat(document.getElementById('ec-risk').value);
 
-    tg.showPopup({
-        title: `Edit ${symbol}`,
-        message: `Capital: $${currentCapital}\nRisk: ${currentRisk}%\n\nWhat would you like to do?`,
-        buttons: [
-            { id: 'edit', type: 'default', text: 'Edit Settings' },
-            { id: 'remove', type: 'destructive', text: 'Remove Coin' },
-            { id: 'cancel', type: 'cancel', text: 'Cancel' }
-        ]
-    }, async (btnId) => {
-        if (btnId === 'edit') {
-            // Show edit modal (simplified - use prompt for now)
-            const newCapital = prompt(`Enter new trading capital for ${symbol}:`, currentCapital);
-            const newRisk = prompt(`Enter new risk % for ${symbol}:`, currentRisk);
+    if (isNaN(newCapital) || isNaN(newRisk)) {
+        alert("Invalid values");
+        return;
+    }
 
-            if (newCapital && newRisk) {
-                try {
-                    const res = await fetch(`${API_BASE}/api/update_coin_config`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user_id: user.id,
-                            exchange: exchange.toLowerCase(),
-                            symbol: symbol,
-                            capital: parseFloat(newCapital),
-                            risk: parseFloat(newRisk)
-                        })
-                    });
+    try {
+        const res = await fetch(`${API_BASE}/api/update_coin_config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                exchange: editingCoin.exchange.toLowerCase(),
+                symbol: editingCoin.symbol,
+                capital: newCapital,
+                risk: newRisk
+            })
+        });
 
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast('✅ Coin updated!');
-                        fetchUserData(user.id);
-                    } else {
-                        alert(data.message || 'Update failed');
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert('Error updating coin');
-                }
-            }
-        } else if (btnId === 'remove') {
-            try {
-                const res = await fetch(`${API_BASE}/api/delete_coin_config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: user.id,
-                        exchange: exchange.toLowerCase(),
-                        symbol: symbol
-                    })
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    showToast('🗑 Coin removed');
-                    fetchUserData(user.id);
-                } else {
-                    alert(data.message || 'Removal failed');
-                }
-            } catch (e) {
-                console.error(e);
-                alert('Error removing coin');
-            }
+        const data = await res.json();
+        if (data.success) {
+            showToast(getTranslation('toast_coin_updated') || 'Coin updated');
+            closeEditCoinModal();
+            fetchUserData(user.id);
+        } else {
+            let msg = data.message || data.detail || 'Update failed';
+            if (typeof msg === 'object') msg = JSON.stringify(msg);
+            alert(msg);
         }
-    });
+    } catch (e) {
+        console.error(e);
+        alert('Error updating coin');
+    }
+}
+
+async function deleteEditCoin() {
+    if (!editingCoin) return;
+
+    if (!confirm("Are you sure you want to remove this coin?")) return;
+
+    try {
+        const user = tg.initDataUnsafe.user;
+        const res = await fetch(`${API_BASE}/api/delete_coin_config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                exchange: editingCoin.exchange.toLowerCase(),
+                symbol: editingCoin.symbol
+            })
+        });
+
+        const data = await res.json();
+
+        // Handle flexible success response (status: 'ok' or success: true)
+        if (data.status === 'ok' || data.success === true) {
+            showToast(getTranslation('toast_coin_removed') || 'Coin removed');
+            closeEditCoinModal();
+
+            // Check if any coins remain for this exchange
+            const checkRes = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${user.id}&exchange=${editingCoin.exchange}`);
+            const checkData = await checkRes.json();
+
+            if (!checkData.coins || checkData.coins.length === 0) {
+                // No coins left -> Disconnect exchange
+                await disconnectExchange(editingCoin.exchange);
+                showToast(getTranslation('toast_exchange_disconnected') || 'Exchange disconnected');
+            } else {
+                // Refresh list if exchange still active
+                openCoinManagement(user.id, editingCoin.exchange);
+                // Also refresh main user data
+                setTimeout(() => fetchUserData(user.id), 500);
+            }
+
+        } else {
+            alert(data.message || 'Removal failed');
+        }
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 // Add new coin to existing exchange
@@ -1758,7 +1925,7 @@ window.copyAddress = () => {
     navigator.clipboard.writeText(text);
 
     // Show Toast
-    showToast("Address Copied!");
+    showToast(getTranslation('toast_address_copied') || "Address Copied");
 };
 
 // --- TABS & UTILS ---
@@ -2076,7 +2243,7 @@ window.explainSignal = async function () {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = `<span>💡</span> Explain Logic`;
+            btn.innerHTML = `Explain Logic`;
         }
     }
 };
@@ -2194,8 +2361,14 @@ async function openCoinManagement(userId, exchangeName) {
         currentManageExchange = { userId, exchangeName };
 
         // Set exchange info
-        document.getElementById('mc-exchange-icon').querySelector('img').src = `exchange_${exchangeName}.svg`;
-        document.getElementById('mc-exchange-name').textContent = exchangeName.toUpperCase();
+        // Set exchange info
+        const displayExchangeName = exchangeName.toLowerCase() === 'okx' ? 'OKX' : exchangeName.toUpperCase();
+        if (exchangeName.toLowerCase() === 'okx') {
+            document.getElementById('mc-exchange-icon').querySelector('img').src = `logo_bots/okx.png`;
+        } else {
+            document.getElementById('mc-exchange-icon').querySelector('img').src = `exchange_${exchangeName}.svg`;
+        }
+        document.getElementById('mc-exchange-name').textContent = displayExchangeName;
 
         // Fetch existing coins
         const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${userId}&exchange=${exchangeName}`);
@@ -2217,7 +2390,6 @@ async function openCoinManagement(userId, exchangeName) {
         if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     } catch (error) {
         console.error('Error opening coin management:', error);
-        alert('Failed to load coin configurations');
     }
 }
 
@@ -2240,16 +2412,32 @@ function renderExistingCoins(coins) {
         'OKB/USDT': { name: 'OKB', img: 'okb.png' }
     };
 
+    const externalBtn = document.querySelector('#modal-manage-coins .btn-add-coin');
+
+    const t = translations[currentLang] || translations['en'];
+
     if (coins.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; color: #9CA3AF;">
-                <div style="font-size: 36px; margin-bottom: 12px;">💰</div>
-                <div style="font-size: 14px;">No coins configured yet</div>
-                <div style="font-size: 12px; margin-top: 4px;">Click "Add New Coin" to get started</div>
+            <div style="text-align: center; padding: 40px 20px; color: #9CA3AF; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
+                <div style="font-size: 14px; margin-bottom: 4px;">${t.no_coins_yet || 'No coins configured yet'}</div>
+                <div style="font-size: 12px; margin-bottom: 24px;">${t.no_coins_hint || 'Click below to add a coin'}</div>
+                <button id="inline-add-coin-btn" style="width: 100%; padding: 14px; background: #467EE7; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(70, 126, 231, 0.3);">${t.btn_add_new_coin || '+ Add New Coin'}</button>
             </div>
         `;
+        // Attach event listener after injection
+        const inlineBtn = document.getElementById('inline-add-coin-btn');
+        if (inlineBtn) {
+            inlineBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.showAddCoinSelector();
+            });
+        }
+        if (externalBtn) externalBtn.style.display = 'none';
         return;
     }
+
+    if (externalBtn) externalBtn.style.display = 'block';
 
     coins.forEach(coin => {
         const details = coinDetails[coin.symbol] || { name: coin.symbol, img: 'bitcoin.png' };
@@ -2266,8 +2454,7 @@ function renderExistingCoins(coins) {
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="icon-btn" onclick="editCoin('${coin.symbol}')" title="Edit">✏️</button>
-                    <button class="icon-btn danger" onclick="removeCoin('${coin.symbol}')" title="Remove">🗑️</button>
+                    <button class="icon-btn" onclick="editCoinConfig('${currentManageExchange.exchangeName}', '${coin.symbol}', ${coin.reserved_amount}, ${coin.risk_pct})" title="Edit"><img src="edit.svg" width="16" height="16"></button>
                 </div>
             </div>
         `;
@@ -2278,12 +2465,20 @@ function renderExistingCoins(coins) {
 }
 
 // Show coin selector for adding new coins
-async function showAddCoinSelector() {
+window.showAddCoinSelector = async function () {
+    console.log('[coin] START: showAddCoinSelector triggered');
+
     try {
+        console.log('[coin] Current Exchange:', currentManageExchange);
+
         // Get existing coins
-        const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${currentManageExchange.userId}&exchange=${currentManageExchange.exchangeName}`);
+        const url = `${API_BASE}/api/get_coin_configs?user_id=${currentManageExchange.userId}&exchange=${currentManageExchange.exchangeName}`;
+        console.log('[coin] Fetching URL:', url);
+
+        const response = await fetch(url);
         const data = await response.json();
         const existingCoins = (data.coins || []).map(c => c.symbol);
+        console.log('[coin] Existing Coins:', existingCoins);
 
         // Available coins
         const allCoins = [
@@ -2293,47 +2488,113 @@ async function showAddCoinSelector() {
             { symbol: 'OKB/USDT', name: 'OKB', img: 'okb.png' }
         ];
 
-        // Filter out already added coins
-        const availableCoins = allCoins.filter(c => !existingCoins.includes(c.symbol));
+        // Filter out already added coins (Case insensitive check)
+        const availableCoins = allCoins.filter(c =>
+            !existingCoins.some(existing => existing.toUpperCase() === c.symbol.toUpperCase())
+        );
+        console.log('[coin] Available Coins to render:', availableCoins);
 
         const grid = document.getElementById('available-coins-grid');
-        grid.innerHTML = '';
+        console.log('[coin] Grid Element:', grid);
 
-        if (availableCoins.length === 0) {
-            grid.innerHTML = '<div style="color: #9CA3AF; text-align: center; padding: 20px;">All coins already added</div>';
+        if (grid) {
+            grid.innerHTML = '';
+            const t = translations[currentLang] || translations['en'];
+            if (availableCoins.length === 0) {
+                grid.innerHTML = `<div style="color: #9CA3AF; text-align: center; padding: 20px;">${t.all_coins_added || 'All coins already added'}</div>`;
+            } else {
+                availableCoins.forEach(coin => {
+                    const html = `
+                        <div class="coin-card" onclick="addNewCoin('${coin.symbol}')" style="display:flex; flex-direction:column; align-items:center; padding:12px; background:#1A1926; border-radius:12px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">
+                            <img src="coin_img/${coin.img}" width="40" height="40" style="margin-bottom: 8px;">
+                            <div style="font-size: 14px; font-weight: 600; color: #fff;">${coin.name}</div>
+                            <div style="font-size: 12px; color: #9CA3AF;">${coin.symbol}</div>
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', html);
+                });
+            }
         } else {
-            availableCoins.forEach(coin => {
-                const html = `
-                    <div class="coin-card" onclick="addNewCoin('${coin.symbol}')">
-                        <img src="coin_img/${coin.img}" width="48" height="48" style="margin-bottom: 8px;">
-                        <div style="font-size: 14px; font-weight: 600; color: #fff;">${coin.name}</div>
-                        <div style="font-size: 12px; color: #9CA3AF;">${coin.symbol}</div>
-                    </div>
-                `;
-                grid.insertAdjacentHTML('beforeend', html);
-            });
+            console.error('[coin] Grid element not found!');
         }
 
-        // Show selector
-        document.getElementById('add-coin-selector').style.display = 'block';
+        // Show selector container
+        const selector = document.getElementById('add-coin-selector');
+        if (selector) {
+            selector.style.display = 'block';
+            console.log('[coin] Selector made visible');
 
-        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            // Scroll logic - Target the grid itself
+            setTimeout(() => {
+                const grid = document.getElementById('available-coins-grid');
+                if (grid && grid.lastElementChild) {
+                    grid.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    console.log('[coin] Scrolled to last coin');
+                } else if (selector) {
+                    selector.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    console.log('[coin] Scrolled to selector start');
+                }
+            }, 150);
+        } else {
+            console.error('[coin] Selector container not found!');
+        }
+
     } catch (error) {
-        console.error('Error showing coin selector:', error);
+        console.error('[coin] Error in showAddCoinSelector:', error);
+        alert('Error: ' + error.message);
     }
 }
 
 // Add new coin with configuration modal
-async function addNewCoin(symbol) {
-    const capital = prompt(getTranslation('trading_capital_usdt') + ' (min 5)');
-    if (!capital || parseFloat(capital) < 5) {
-        alert('Capital must be at least $5');
+let addingCoinSymbol = null;
+
+function addNewCoin(symbol) {
+    const modal = document.getElementById('modal-add-coin');
+    if (!modal) return;
+
+    addingCoinSymbol = symbol;
+
+    // Set Values
+    document.getElementById('ac-symbol').innerText = symbol;
+    document.getElementById('ac-exchange').innerText = currentManageExchange.exchangeName.toUpperCase();
+    document.getElementById('ac-capital').value = '';
+    document.getElementById('ac-risk').value = '1.0'; // Default risk
+
+    // Set Icon
+    const iconMap = {
+        'BTC/USDT': 'bitcoin.png',
+        'ETH/USDT': 'ethereum.png',
+        'BNB/USDT': 'bnb.png',
+        'OKB/USDT': 'okb.png'
+    };
+    const imgName = iconMap[symbol] || 'usdt_bep_icon.svg';
+    const src = imgName.includes('svg') ? imgName : `coin_img/${imgName}`;
+    document.querySelector('#ac-icon img').src = src;
+
+    modal.style.display = 'flex';
+    applyTranslations();
+}
+
+function closeAddCoinModal() {
+    document.getElementById('modal-add-coin').style.display = 'none';
+    addingCoinSymbol = null;
+}
+
+
+async function submitAddCoin() {
+    if (!addingCoinSymbol) return;
+
+    const capital = parseFloat(document.getElementById('ac-capital').value);
+    const risk = parseFloat(document.getElementById('ac-risk').value);
+
+    // Validation
+    if (isNaN(capital) || capital < 0) {
+        alert('Invalid capital amount');
         return;
     }
 
-    const risk = prompt(getTranslation('risk_per_trade_pct') + ' (0.1-10):');
-    if (!risk || parseFloat(risk) < 0.1 || parseFloat(risk) > 10) {
-        alert(getTranslation('err_invalid_risk'));
+    if (isNaN(risk) || risk < 0.1 || risk > 10) {
+        alert('Risk must be between 0.1% and 10%');
         return;
     }
 
@@ -2345,21 +2606,29 @@ async function addNewCoin(symbol) {
                 user_id: currentManageExchange.userId,
                 exchange: currentManageExchange.exchangeName,
                 coins: [{
-                    symbol: symbol,
-                    reserved_amount: parseFloat(capital),
-                    risk_pct: parseFloat(risk),
-                    is_active: true
+                    symbol: addingCoinSymbol,
+                    capital: capital,
+                    risk: risk
                 }]
             })
         });
 
         const data = await response.json();
-        if (data.status === 'ok') {
-            showToast('✅ Coin added successfully');
-            // Refresh coin list
+
+        // Handle both "ok" status and "success" boolean which might vary by endpoint
+        if (data.status === 'ok' || data.success === true) {
+            showToast(getTranslation('toast_coin_added') || 'Coin added');
+            closeAddCoinModal();
+            // Refresh coin list in the manage modal
             openCoinManagement(currentManageExchange.userId, currentManageExchange.exchangeName);
+            // Also refresh main user data slightly later
+            setTimeout(async () => {
+                await fetchUserData(currentManageExchange.userId);
+            }, 800);
         } else {
-            alert(data.detail || 'Failed to add coin');
+            let msg = data.detail || data.message || 'Failed to add coin';
+            if (typeof msg === 'object') msg = JSON.stringify(msg);
+            alert(msg);
         }
     } catch (error) {
         console.error('Error adding coin:', error);
@@ -2367,102 +2636,34 @@ async function addNewCoin(symbol) {
     }
 }
 
-// Edit existing coin
-async function editCoin(symbol) {
-    try {
-        // Get current config
-        const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${currentManageExchange.userId}&exchange=${currentManageExchange.exchangeName}`);
-        const data = await response.json();
-        const coinConfig = (data.coins || []).find(c => c.symbol === symbol);
 
-        if (!coinConfig) {
-            alert('Coin not found');
-            return;
-        }
-
-        const capital = prompt(getTranslation('trading_capital_usdt') + ':', coinConfig.reserved_amount);
-        if (capital === null) return; // Cancelled
-
-        if (!capital || parseFloat(capital) < 5) {
-            alert('Capital must be at least $5');
-            return;
-        }
-
-        const risk = prompt(getTranslation('risk_per_trade_pct') + ':', coinConfig.risk_pct);
-        if (risk === null) return; // Cancelled
-
-        if (!risk || parseFloat(risk) < 0.1 || parseFloat(risk) > 10) {
-            alert(getTranslation('err_invalid_risk'));
-            return;
-        }
-
-        // Update coin
-        const updateResponse = await fetch(`${API_BASE}/api/save_coin_configs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentManageExchange.userId,
-                exchange: currentManageExchange.exchangeName,
-                coins: [{
-                    symbol: symbol,
-                    reserved_amount: parseFloat(capital),
-                    risk_pct: parseFloat(risk),
-                    is_active: true
-                }]
-            })
-        });
-
-        const updateData = await updateResponse.json();
-        if (updateData.status === 'ok') {
-            showToast('✅ Coin updated successfully');
-            // Refresh
-            openCoinManagement(currentManageExchange.userId, currentManageExchange.exchangeName);
-        } else {
-            alert(updateData.detail || 'Failed to update coin');
-        }
-    } catch (error) {
-        console.error('Error editing coin:', error);
-        alert('Network error');
-    }
-}
 
 // Remove coin
-async function removeCoin(symbol) {
-    if (!confirm(getTranslation('confirm_remove_coin'))) {
-        return;
-    }
 
-    try {
-        // Deactivate coin by setting is_active = false
-        const response = await fetch(`${API_BASE}/api/save_coin_configs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentManageExchange.userId,
-                exchange: currentManageExchange.exchangeName,
-                coins: [{
-                    symbol: symbol,
-                    reserved_amount: 0,
-                    risk_pct: 0,
-                    is_active: false  // Deactivate
-                }]
-            })
-        });
-
-        const data = await response.json();
-        if (data.status === 'ok') {
-            showToast('✅ Coin removed successfully');
-            // Refresh
-            openCoinManagement(currentManageExchange.userId, currentManageExchange.exchangeName);
-        } else {
-            alert(data.detail || 'Failed to remove coin');
-        }
-    } catch (error) {
-        console.error('Error removing coin:', error);
-        alert('Network error');
-    }
-}
 
 function getTranslation(key) {
     return translations[currentLang][key] || key;
+}
+
+// === MISSING UTILITY FUNCTIONS ===
+
+function applyTranslations() {
+    const t = translations[currentLang];
+    if (!t) return;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.innerHTML = t[key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (t[key]) el.placeholder = t[key];
+    });
+}
+
+function loadMyExchanges() {
+    // Refresh main user data which re-renders exchanges
+    const user = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+    if (user && user.id) {
+        fetchUserData(user.id);
+    }
 }

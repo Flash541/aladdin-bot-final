@@ -270,3 +270,25 @@
     background: rgba(255, 77, 77, 0.2);
     color: #FF4D4D;
 }
+
+/* === Z-INDEX: Sub-modals must appear ABOVE manage-coins modal === */
+#modal-edit-coin,
+#modal-add-coin {
+    z-index: 3000 !important;
+}
+
+/* SVG icon buttons */
+.icon-btn img {
+    width: 16px;
+    height: 16px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.icon-btn:hover img {
+    opacity: 1;
+}
+
+.icon-btn.danger img {
+    filter: brightness(0) saturate(100%) invert(38%) sepia(95%) saturate(1439%) hue-rotate(335deg) brightness(97%) contrast(101%);
+}

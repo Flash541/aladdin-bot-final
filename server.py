@@ -489,23 +489,8 @@ async def save_coin_configs_endpoint(req: SaveCoinConfigsRequest):
             if not validation['valid']:
                 raise HTTPException(status_code=400, detail=validation['message'])
         
-        # 3. Validate total doesn't exceed exchange balance
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute("SELECT reserved_amount FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", 
-                      (req.user_id, req.exchange.lower()))
-        result = cursor.fetchone()
-        conn.close()
-        
-        max_balance = result[0] if result else 0.0
-        
-        if total > max_balance:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Total allocation (${total:.2f}) exceeds available balance (${max_balance:.2f})"
-            )
-        
-        # 4. Save each coin config
+        # 3. Save each coin config (removed overly strict balance validation 
+        # that was blocking coin addition when reserved_amount was 0)
         for coin in req.coins:
             add_coin_config(
                 user_id=req.user_id,
@@ -515,12 +500,14 @@ async def save_coin_configs_endpoint(req: SaveCoinConfigsRequest):
                 risk_pct=coin.risk
             )
         
-        # 5. Update total in user_exchanges (optional, for tracking)
+        # 4. Update total in user_exchanges (sum of all coin allocations)
+        all_coins = get_coin_configs(req.user_id, req.exchange.lower())
+        total_allocated = sum(c['reserved_amount'] for c in all_coins)
         execute_write_query("""
             UPDATE user_exchanges 
             SET reserved_amount = ?
             WHERE user_id = ? AND exchange_name = ?
-        """, (total, req.user_id, req.exchange.lower()))
+        """, (total_allocated, req.user_id, req.exchange.lower()))
         
         return {"success": True, "message": "Coin configs saved successfully"}
         

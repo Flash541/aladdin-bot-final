@@ -30,8 +30,9 @@ BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 WALLET_ADDRESS = os.getenv("YOUR_WALLET_ADDRESS")
 ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID")) 
 WEBAPP_URL = os.getenv("WEBAPP_URL") 
-NGROK_URL = "https://blackaladdin.xyz" # Temporary hardcoded ID for DigitalOcean
-# NGROK_URL = "https://4c3f-80-245-132-90.ngrok-free.app" # Temporary hardcoded ID for DigitalOcean
+# NGROK_URL is for payment notifications, WEBAPP_URL is for Mini App
+NGROK_URL = os.getenv("WEBAPP_URL")  # Use same URL for both
+# NGROK_URL = "https://blackaladdin.xyz" 
 PAYMENT_AMOUNT = 49
 # PAYMENT_AMOUNT = 1.5
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
