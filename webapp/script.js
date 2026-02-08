@@ -494,8 +494,8 @@ async function fetchUserData(userId) {
         const elUncSet = document.getElementById("unc-bal-settings");
         if (elUncSet) elUncSet.innerText = (data.unc_balance || 0).toFixed(2);
 
-        renderExchanges(data.exchanges);
-        renderActiveStrategies(data.exchanges);
+        renderExchanges(data.exchanges, data.credits);
+        renderActiveStrategies(data.exchanges, data.credits);
     } catch (e) { console.error(e); }
 }
 
@@ -515,7 +515,7 @@ function setLanguage(lang) {
 }
 
 // --- RENDER FUNCTIONS ---
-function renderExchanges(exchanges) {
+function renderExchanges(exchanges, credits = 0) {
     const list = document.getElementById("exchange-list");
     if (!list) return;
     list.innerHTML = "";
@@ -528,9 +528,6 @@ function renderExchanges(exchanges) {
         return;
     }
 
-    const creditsEl = document.getElementById("credits-bal");
-    const creditsStr = creditsEl ? creditsEl.innerText : "0";
-    const credits = parseFloat(creditsStr) || 0;
     const t = translations[currentLang] || translations['en'];
 
     active.forEach((ex, idx) => {
@@ -630,22 +627,6 @@ function renderExchanges(exchanges) {
             // Wait, we can use `tg.initDataUnsafe.user.id` or fetch it.
             // Let's use `tg.initDataUnsafe.user.id` which is global-ish in this context.
 
-            const html = `
-                <div class="strategy-item fade-in" onclick="if(window.tg && tg.initDataUnsafe && tg.initDataUnsafe.user) openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}'); else openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}');" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="strat-icon">
-                            <img src="${logoPath}">
-                        </div>
-                        <div class="strat-info">
-                            <div class="strat-title">${stratName}</div>
-                            <div class="strat-desc" style="color: #aaa;">${statusText}</div>
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                         <div class="strat-title" style="font-size:16px;">$${balance.toFixed(2)}</div>
-                    </div>
-                </div>
-            `;
             // Simplified logic for replacement:
             if (ex.name.toLowerCase() === 'okx') {
                 list.insertAdjacentHTML('beforeend', `
@@ -682,14 +663,11 @@ function renderExchanges(exchanges) {
     });
 }
 
-function renderActiveStrategies(exchanges) {
+function renderActiveStrategies(exchanges, credits = 0) {
     const container = document.getElementById("active-strategies-list");
     if (!container) return;
     container.innerHTML = "";
 
-    const creditsEl = document.getElementById("credits-bal");
-    const creditsStr = creditsEl ? creditsEl.innerText : (document.getElementById("credits-bal-settings")?.innerText || "0");
-    const credits = parseFloat(creditsStr) || 0;
     const t = translations[currentLang] || translations['en'];
 
     // Filter for connected exchanges (include Error status to prevent disappearance)
