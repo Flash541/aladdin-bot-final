@@ -158,7 +158,7 @@ const translations = {
         configure_coins: "Configure Coins",
         trading_capital_usdt: "Trading Capital (USDT)",
         risk_per_trade_pct: "Risk per Trade (%)",
-        minimum_100_usdt: "Minimum 100 USDT",
+        minimum_5_usdt: "Minimum 5 USDT",
         connect_okx: "Connect OKX",
 
         // Coin Management
@@ -243,7 +243,7 @@ const translations = {
         configure_coins: "Настройка монет",
         trading_capital_usdt: "Торговый капитал (USDT)",
         risk_per_trade_pct: "Риск на сделку (%)",
-        minimum_100_usdt: "Минимум 100 USDT",
+        minimum_5_usdt: "Минимум 5 USDT",
         connect_okx: "Подключить OKX",
 
         // Coin Management  
@@ -257,7 +257,7 @@ const translations = {
         risk: "Риск",
 
         // Validation
-        err_capital_too_low: "Капитал должен быть минимум 100 USDT",
+        err_capital_too_low: "Капитал должен быть минимум 5 USDT",
         err_invalid_risk: "Риск должен быть от 0.1% до 10%"
     },
     uk: {
@@ -329,7 +329,7 @@ const translations = {
         configure_coins: "Налаштування монет",
         trading_capital_usdt: "Торговий капітал (USDT)",
         risk_per_trade_pct: "Ризик на угоду (%)",
-        minimum_100_usdt: "Мінімум 100 USDT",
+        minimum_5_usdt: "Мінімум 5 USDT",
         connect_okx: "Підключити OKX",
 
         // Coin Management
@@ -343,7 +343,7 @@ const translations = {
         risk: "Ризик",
 
         // Validation
-        err_capital_too_low: "Капітал повинен бути мінімум 100 USDT",
+        err_capital_too_low: "Капітал повинен бути мінімум 5 USDT",
         err_invalid_risk: "Ризик повинен бути від 0.1% до 10%"
     }
 };
@@ -1522,7 +1522,7 @@ function proceedToCoinConfig() {
                 <div class="ct-input-group">
                     <label class="ct-label" data-i18n="trading_capital_usdt">Trading Capital (USDT)</label>
                     <input type="number" id="capital-${symbol}" class="ct-input" 
-                           data-i18n-placeholder="minimum_100_usdt" placeholder="Minimum 100 USDT" step="0.01" min="100" value="100">
+                           data-i18n-placeholder="minimum_5_usdt" placeholder="Minimum 5 USDT" step="0.01" min="5" value="100">
                     <div class="validation-error" id="error-${symbol}"></div>
                 </div>
                 
@@ -1561,8 +1561,8 @@ async function submitOKXWithCoins() {
 
         // Validate
         errorDiv.classList.remove('show');
-        if (isNaN(capital) || capital < 100) {
-            errorDiv.textContent = 'Minimum $100 required';
+        if (isNaN(capital) || capital < 5) {
+            errorDiv.textContent = 'Minimum $5 required';
             errorDiv.classList.add('show');
             hasErrors = true;
             return;
@@ -2192,28 +2192,28 @@ let currentManageExchange = { userId: null, exchangeName: null };
 async function openCoinManagement(userId, exchangeName) {
     try {
         currentManageExchange = { userId, exchangeName };
-        
+
         // Set exchange info
         document.getElementById('mc-exchange-icon').querySelector('img').src = `exchange_${exchangeName}.svg`;
         document.getElementById('mc-exchange-name').textContent = exchangeName.toUpperCase();
-        
+
         // Fetch existing coins
         const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${userId}&exchange=${exchangeName}`);
         const data = await response.json();
         const coins = data.coins || [];
-        
+
         // Render existing coins
         renderExistingCoins(coins);
-        
+
         // Show modal
         document.getElementById('modal-manage-coins').style.display = 'flex';
-        
+
         // Hide add coin selector initially
         document.getElementById('add-coin-selector').style.display = 'none';
-        
+
         // Apply translations
         applyTranslations();
-        
+
         if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     } catch (error) {
         console.error('Error opening coin management:', error);
@@ -2232,14 +2232,14 @@ function closeManageCoins() {
 function renderExistingCoins(coins) {
     const container = document.getElementById('existing-coins-list');
     container.innerHTML = '';
-    
+
     const coinDetails = {
         'BTC/USDT': { name: 'Bitcoin', img: 'bitcoin.png' },
         'ETH/USDT': { name: 'Ethereum', img: 'ethereum.png' },
         'BNB/USDT': { name: 'BNB', img: 'bnb.png' },
         'OKB/USDT': { name: 'OKB', img: 'okb.png' }
     };
-    
+
     if (coins.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 40px 20px; color: #9CA3AF;">
@@ -2250,7 +2250,7 @@ function renderExistingCoins(coins) {
         `;
         return;
     }
-    
+
     coins.forEach(coin => {
         const details = coinDetails[coin.symbol] || { name: coin.symbol, img: 'bitcoin.png' };
         const html = `
@@ -2273,7 +2273,7 @@ function renderExistingCoins(coins) {
         `;
         container.insertAdjacentHTML('beforeend', html);
     });
-    
+
     applyTranslations();
 }
 
@@ -2284,7 +2284,7 @@ async function showAddCoinSelector() {
         const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${currentManageExchange.userId}&exchange=${currentManageExchange.exchangeName}`);
         const data = await response.json();
         const existingCoins = (data.coins || []).map(c => c.symbol);
-        
+
         // Available coins
         const allCoins = [
             { symbol: 'BTC/USDT', name: 'Bitcoin', img: 'bitcoin.png' },
@@ -2292,13 +2292,13 @@ async function showAddCoinSelector() {
             { symbol: 'BNB/USDT', name: 'BNB', img: 'bnb.png' },
             { symbol: 'OKB/USDT', name: 'OKB', img: 'okb.png' }
         ];
-        
+
         // Filter out already added coins
         const availableCoins = allCoins.filter(c => !existingCoins.includes(c.symbol));
-        
+
         const grid = document.getElementById('available-coins-grid');
         grid.innerHTML = '';
-        
+
         if (availableCoins.length === 0) {
             grid.innerHTML = '<div style="color: #9CA3AF; text-align: center; padding: 20px;">All coins already added</div>';
         } else {
@@ -2313,10 +2313,10 @@ async function showAddCoinSelector() {
                 grid.insertAdjacentHTML('beforeend', html);
             });
         }
-        
+
         // Show selector
         document.getElementById('add-coin-selector').style.display = 'block';
-        
+
         if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     } catch (error) {
         console.error('Error showing coin selector:', error);
@@ -2325,18 +2325,18 @@ async function showAddCoinSelector() {
 
 // Add new coin with configuration modal
 async function addNewCoin(symbol) {
-    const capital = prompt(getTranslation('trading_capital_usdt') + ' (min 100):');
-    if (!capital || parseFloat(capital) < 100) {
-        alert(getTranslation('err_capital_too_low'));
+    const capital = prompt(getTranslation('trading_capital_usdt') + ' (min 5)');
+    if (!capital || parseFloat(capital) < 5) {
+        alert('Capital must be at least $5');
         return;
     }
-    
+
     const risk = prompt(getTranslation('risk_per_trade_pct') + ' (0.1-10):');
     if (!risk || parseFloat(risk) < 0.1 || parseFloat(risk) > 10) {
         alert(getTranslation('err_invalid_risk'));
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/api/save_coin_configs`, {
             method: 'POST',
@@ -2352,7 +2352,7 @@ async function addNewCoin(symbol) {
                 }]
             })
         });
-        
+
         const data = await response.json();
         if (data.status === 'ok') {
             showToast('✅ Coin added successfully');
@@ -2374,28 +2374,28 @@ async function editCoin(symbol) {
         const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${currentManageExchange.userId}&exchange=${currentManageExchange.exchangeName}`);
         const data = await response.json();
         const coinConfig = (data.coins || []).find(c => c.symbol === symbol);
-        
+
         if (!coinConfig) {
             alert('Coin not found');
             return;
         }
-        
+
         const capital = prompt(getTranslation('trading_capital_usdt') + ':', coinConfig.reserved_amount);
         if (capital === null) return; // Cancelled
-        
-        if (!capital || parseFloat(capital) < 100) {
-            alert(getTranslation('err_capital_too_low'));
+
+        if (!capital || parseFloat(capital) < 5) {
+            alert('Capital must be at least $5');
             return;
         }
-        
+
         const risk = prompt(getTranslation('risk_per_trade_pct') + ':', coinConfig.risk_pct);
         if (risk === null) return; // Cancelled
-        
+
         if (!risk || parseFloat(risk) < 0.1 || parseFloat(risk) > 10) {
             alert(getTranslation('err_invalid_risk'));
             return;
         }
-        
+
         // Update coin
         const updateResponse = await fetch(`${API_BASE}/api/save_coin_configs`, {
             method: 'POST',
@@ -2411,7 +2411,7 @@ async function editCoin(symbol) {
                 }]
             })
         });
-        
+
         const updateData = await updateResponse.json();
         if (updateData.status === 'ok') {
             showToast('✅ Coin updated successfully');
@@ -2431,7 +2431,7 @@ async function removeCoin(symbol) {
     if (!confirm(getTranslation('confirm_remove_coin'))) {
         return;
     }
-    
+
     try {
         // Deactivate coin by setting is_active = false
         const response = await fetch(`${API_BASE}/api/save_coin_configs`, {
@@ -2448,7 +2448,7 @@ async function removeCoin(symbol) {
                 }]
             })
         });
-        
+
         const data = await response.json();
         if (data.status === 'ok') {
             showToast('✅ Coin removed successfully');
@@ -2465,15 +2465,4 @@ async function removeCoin(symbol) {
 
 function getTranslation(key) {
     return translations[currentLang][key] || key;
-}
-
-function showToast(message) {
-    const toast = document.getElementById('toast');
-    if (toast) {
-        toast.textContent = message;
-        toast.style.display = 'block';
-        setTimeout(() => {
-            toast.style.display = 'none';
-        }, 3000);
-    }
 }

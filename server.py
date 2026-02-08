@@ -24,7 +24,7 @@ from core_analyzer import fetch_data, compute_features, generate_decisive_signal
 from llm_explainer import get_explanation
 
 # --- CONSTANTS ---
-NGROK_URL = "http://167.99.130.80:8080"
+NGROK_URL = os.getenv("WEBAPP_URL")
 YOUR_WALLET = os.getenv("YOUR_WALLET_ADDRESS")
 
 from fastapi.exceptions import RequestValidationError
@@ -353,12 +353,12 @@ async def connect_exchange(req: ConnectRequest):
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")
 
-    # 1. Validate API keys AND minimum balance ($100)
+    # 1. Validate API keys AND minimum balance ($5)
     is_valid = await validate_exchange_credentials(exchange, req.api_key, secret, req.password)
     if not is_valid:
         raise HTTPException(
             status_code=400, 
-            detail="Invalid API Keys, Connection Failed, or Balance < $100 USDT minimum requirement"
+            detail="Invalid API Keys, Connection Failed, or Balance < $5 USDT minimum requirement"
         )
     
     # 2. Save to DB

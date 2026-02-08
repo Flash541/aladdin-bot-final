@@ -273,8 +273,9 @@ class TradeCopier:
                     real_usdt = float(bal['USDT']['free']) if 'USDT' in bal else 0
                     
                     # --- MIN BALANCE CHECK ($100) ---
-                    if real_usdt < 100:
-                        print(f"   ⚠️ User {user_id}: Balance too low (${real_usdt:.2f} < $100). Skipping.")
+                    # if real_usdt < 100:
+                    if real_usdt < 5:
+                        print(f"   ⚠️ User {user_id}: Balance too low (${real_usdt:.2f} < $5). Skipping.")
                         return
 
                     # Не покупаем больше, чем есть физически

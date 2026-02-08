@@ -637,19 +637,27 @@
                 </button>
             </div>
 
-            <!-- Step 5: Coin Configuration (NEW) -->
-            <div id="ct-step-coin-config" class="ct-step" style="display:none;">
-                <button class="modal-back-btn" onclick="showCTStep('coin-select')">← Back</button>
+            <!-- Step 5: Coin Configuration (Clean Layout) -->
+            <div id="ct-step-coin-config" class="ct-step" style="display:none; height: 100%; flex-direction: column;">
+                <!-- Header with Back Button (Close is handled by parent modal) -->
+                <div style="display: flex; align-items: center; margin-bottom: 16px; position: relative;">
+                    <div onclick="showCTStep('coin-select')"
+                        style="display: flex; align-items: center; color: #3B82F6; cursor: pointer; font-size: 16px; font-weight: 500; z-index: 10;">
+                        <span style="margin-right: 4px; font-size: 20px;">←</span> <span data-i18n="back">Back</span>
+                    </div>
+                    <h2 style="font-family: 'Montserrat', sans-serif; font-size: 18px; font-weight: 700; margin: 0; color: white; position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;"
+                        data-i18n="configure_coins">Configure Coins</h2>
+                </div>
 
-                <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;"
-                    data-i18n="configure_coins">Configure Coins</h2>
-
+                <!-- Scrollable Coin List -->
                 <div id="coin-config-list"
-                    style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; max-height: 50vh; overflow-y: auto; padding-bottom: 16px;">
+                    style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; margin-bottom: 16px;">
                     <!-- Dynamically populated -->
                 </div>
 
-                <button class="ct-submit-btn" onclick="submitOKXWithCoins()" data-i18n="connect_okx">Connect
+                <!-- Sticky Connect Button -->
+                <button class="ct-submit-btn" onclick="submitOKXWithCoins()" data-i18n="connect_okx"
+                    style="width: 100%; height: 50px; font-size: 16px; font-weight: 600; margin-top: auto;">Connect
                     OKX</button>
             </div>
 
