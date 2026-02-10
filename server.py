@@ -369,7 +369,7 @@ async def connect_exchange(req: ConnectRequest):
     # Resolve fields (Legacy support)
     exchange = req.exchange or req.exchange_name
     secret = req.secret or req.secret_key
-    reserve = req.reserve if req.reserve is not None else (req.reserve_amount if req.reserve_amount is not None else 0.0)
+    reserve = req.reserve if req.reserve is not None else (req.reserve_amount if req.reserve_amount is not None else (req.reserved_amount if req.reserved_amount is not None else 0.0))
     
     # Resolve strategy
     # 1. OKX: 'trademax' -> 'cgt'
