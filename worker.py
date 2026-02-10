@@ -226,10 +226,11 @@ class TradeCopier:
         # risk_pct — это процент на одну сделку (например 5%)
         
         if strategy == 'cgt':
-            # Для Спота: Сделка = Капитал * (Риск / 100)
-            # Если капитал 1000$ и риск 5%, то сумма сделки всегда 50$
-            target_entry_usd = float(reserve) * (float(risk_pct) / 100.0)
-            print(f"💰 [User {user_id}] {symbol} - Per-coin capital: ${reserve:.2f}, Risk: {risk_pct}%, Trade: ${target_entry_usd:.2f}")
+            # For Spot: Trade = (Balance - Reserve) * (Risk / 100)
+            # Reserve is the UNTOUCHABLE amount. Trading capital = Balance - Reserve.
+            # Actual calculation happens below AFTER fetching real balance.
+            target_entry_usd = 0  # Will be calculated in buy block after balance fetch
+            print(f"💰 [User {user_id}] {symbol} - Reserve (untouchable): ${reserve:.2f}, Risk: {risk_pct}%")
         else:
             # Для фьючерсов (если нужно зеркалить мастера):
             target_entry_usd = float(reserve) * percentage_used
@@ -268,25 +269,33 @@ class TradeCopier:
                 price = ticker['last']
                 
                 if side == 'buy':
-                    # Проверка: есть ли реально USDT на балансе
+                    # Fetch real USDT balance
                     bal = client.fetch_balance()
                     real_usdt = float(bal['USDT']['free']) if 'USDT' in bal else 0
                     
-                    # --- MIN BALANCE CHECK ($100) ---
-                    # if real_usdt < 100:
+                    # --- MIN BALANCE CHECK ---
                     if real_usdt < 5:
                         print(f"   ⚠️ User {user_id}: Balance too low (${real_usdt:.2f} < $5). Skipping.")
                         return
 
-                    # Не покупаем больше, чем есть физически
-                    amount_to_spend = min(target_entry_usd, real_usdt)
+                    # Calculate TRADING CAPITAL = Balance - Reserve (untouchable)
+                    trading_capital = max(0, real_usdt - float(reserve))
+                    if trading_capital < 2:
+                        print(f"   ⚠️ User {user_id}: No trading capital left (Balance: ${real_usdt:.2f}, Reserve: ${reserve:.2f})")
+                        return
+                    
+                    # Trade size = Trading Capital * Risk%
+                    target_entry_usd = trading_capital * (float(risk_pct) / 100.0)
+                    
+                    # Don't spend more than available
+                    amount_to_spend = min(target_entry_usd, trading_capital)
                     
                     if amount_to_spend < 2: 
-                        print(f"   ⚠️ User {user_id}: Insufficient balance for buy (${amount_to_spend:.2f})")
+                        print(f"   ⚠️ User {user_id}: Trade too small (${amount_to_spend:.2f})")
                         return
 
                     qty_coin = amount_to_spend / price
-                    print(f"   🚀 User {user_id} [OKX SPOT]: BUY {qty_coin:.6f} {symbol} for ${amount_to_spend:.2f} (Risk {risk_pct}%)")
+                    print(f"   🚀 User {user_id} [OKX SPOT]: BUY {qty_coin:.6f} {symbol} for ${amount_to_spend:.2f} (Balance: ${real_usdt:.2f}, Reserve: ${reserve:.2f}, Trading Capital: ${trading_capital:.2f}, Risk: {risk_pct}%)")
                     
                     order = client.create_order(symbol, 'market', 'buy', qty_coin, params={'tdMode': 'cash'})
                     time.sleep(1)
@@ -309,7 +318,16 @@ class TradeCopier:
                     coin_qty = float(bal[base_coin]['free']) if base_coin in bal else 0
                     
                     if coin_qty > 0:
-                        print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_qty} {base_coin}")
+                        # Check value of coin_qty vs USDT
+                        # We need price. If price is not available, skip check or fetch it.
+                        # Variable 'price' is available from top of loop (line 218 approx)
+                        
+                        value_usd = coin_qty * price
+                        if value_usd < 2.0:
+                            print(f"   ⚠️ User {user_id} [OKX SPOT]: Skipping DUST sell (${value_usd:.2f} < $2.00)")
+                            return
+
+                        print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_qty} {base_coin} (${value_usd:.2f})")
                         
                         order = client.create_order(symbol, 'market', 'sell', coin_qty, params={'tdMode': 'cash'})
                         time.sleep(1)

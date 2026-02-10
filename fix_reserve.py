@@ -15,11 +15,15 @@ conn = sqlite3.connect(db_path)
 c = conn.cursor()
 
 user_id = 1778819795
-new_reserve = 2000.0  # Set to a reasonable default based on 4 coins x 500
+
+# IMPORTANT: reserved_amount = money that is NOT touched (savings)
+# If user has $1000 and sets reserve to $200, they trade with $800
+# Setting to 200 as a reasonable default
+new_reserve = 200.0
 
 try:
     # 1. Update User Exchange Reserve
-    print(f"🔄 Updating OKX Reserve for user {user_id} to {new_reserve} USDT...")
+    print(f"🔄 Updating OKX Reserve (untouchable amount) for user {user_id} to ${new_reserve}...")
     c.execute("""
         UPDATE user_exchanges 
         SET reserved_amount = ? 
@@ -27,7 +31,7 @@ try:
     """, (new_reserve, user_id))
     
     if c.rowcount > 0:
-        print("✅ Success! Global Reserve updated.")
+        print("✅ Success! Reserve updated.")
     else:
         print("⚠️ User/Exchange not found in DB.")
 
@@ -35,7 +39,8 @@ try:
     c.execute("SELECT reserved_amount FROM user_exchanges WHERE user_id=? AND exchange_name='okx'", (user_id,))
     row = c.fetchone()
     if row:
-        print(f"🔍 Current OKX Global Reserve in DB: {row[0]}")
+        print(f"🔍 Current OKX Reserve (untouchable): ${row[0]}")
+        print(f"💡 This means: Trading Capital = Your OKX Balance - ${row[0]}")
     
     conn.commit()
 
