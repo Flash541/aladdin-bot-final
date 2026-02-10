@@ -543,13 +543,14 @@ async def save_coin_configs_endpoint(req: SaveCoinConfigsRequest):
             )
         
         # 4. Update total in user_exchanges (sum of all coin allocations)
-        all_coins = get_coin_configs(req.user_id, req.exchange.lower())
-        total_allocated = sum(c['reserved_amount'] for c in all_coins)
-        execute_write_query("""
-            UPDATE user_exchanges 
-            SET reserved_amount = ?
-            WHERE user_id = ? AND exchange_name = ?
-        """, (total_allocated, req.user_id, req.exchange.lower()))
+        # REMOVED: limit to global reserve is now independent of coin configs
+        # all_coins = get_coin_configs(req.user_id, req.exchange.lower())
+        # total_allocated = sum(c['reserved_amount'] for c in all_coins)
+        # execute_write_query("""
+        #     UPDATE user_exchanges 
+        #     SET reserved_amount = ?
+        #     WHERE user_id = ? AND exchange_name = ?
+        # """, (total_allocated, req.user_id, req.exchange.lower()))
         
         return {"success": True, "message": "Coin configs saved successfully"}
         
