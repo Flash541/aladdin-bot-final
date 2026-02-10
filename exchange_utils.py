@@ -58,23 +58,20 @@ async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase
 
 async def validate_exchange_credentials(exchange_name, api_key, secret, passphrase=None):
     """
-    Validates API keys AND checks minimum balance requirement.
-    Returns True only if:
-    1. API keys are valid (can fetch balance)
-    2. Balance >= $5 (minimum trading requirement)
+    Validates API and returns balance info if successful.
+    Returns: {'total': float} or None
     """
     bal = await fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase)
     
-    # Invalid keys or connection error
     if bal is None:
         print(f"❌ Validation Failed ({exchange_name}): Invalid API keys or connection error")
-        return False
+        return None
     
-    # Keys are valid but insufficient balance
-    if bal < 5:
-        print(f"⚠️ Validation Failed ({exchange_name}): Balance ${bal:.2f} < $5 minimum")
-        return False
+    # We still want to ensure at least some connectivity/balance logic if needed, 
+    # but the strict $100 check is done in the caller for trading eligibility.
+    # The $5 check here was for "is connection valid". 
+    # Let's keep a minimal check for validity but return the full object.
     
     print(f"✅ Validation Success ({exchange_name}): Balance ${bal:.2f}")
-    return True
+    return {'total': bal}
 

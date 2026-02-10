@@ -195,7 +195,35 @@ const translations = {
         no_coins_yet: "No coins configured yet",
         no_coins_hint: "Click below to add a coin",
         all_coins_added: "All coins already added",
-        manage_allocations: "Manage Allocations"
+        manage_allocations: "Manage Allocations",
+
+        // New Keys
+        lbl_reserved_capital: "Reserved Capital",
+        msg_amount_reserved: "Amount reserved for this strategy.",
+        msg_risk_pct: "Percentage of capital risking per trade.",
+        lbl_active_coins: "Active Coins",
+        lbl_active_coins: "Active Coins",
+        btn_add_coin: "+ Add Coin",
+        lbl_check_api: "Check API",
+
+        // Copy Trading Wizard
+        lbl_futures: "Futures",
+        lbl_spot: "Spot",
+        lbl_leverage_trading: "Leverage trading",
+        lbl_direct_trading: "Direct trading",
+        lbl_bingx_only: "BingX Only",
+        lbl_okx_only: "OKX Only",
+        lbl_bingx_api_setup: "BingX API Setup",
+        lbl_okx_api_setup: "OKX API Setup",
+        lbl_get_api_keys: "Get API Keys ↗",
+        lbl_whitelist_ip: "Whitelist this IP Address",
+        lbl_api_key: "API Key",
+        lbl_secret_key: "Secret Key",
+        lbl_passphrase: "Passphrase",
+        msg_set_trading_capital: "Set the amount you want to allocate for trading",
+        btn_connect_bingx: "Connect BingX",
+        btn_continue: "Continue",
+        lbl_trading_settings: "Trading Settings"
     },
     ru: {
         welcome: "С возвращением",
@@ -302,7 +330,35 @@ const translations = {
         no_coins_yet: "Монеты ещё не настроены",
         no_coins_hint: "Нажмите ниже чтобы добавить",
         all_coins_added: "Все монеты уже добавлены",
-        manage_allocations: "Управление аллокациями"
+        manage_allocations: "Управление аллокациями",
+
+        // New Keys
+        lbl_reserved_capital: "Торговый Капітал", // RU
+        msg_amount_reserved: "Сумма, зарезервированная для этой стратегии.",
+        msg_risk_pct: "Процент капитала, рискуемый на каждую сделку.",
+        lbl_active_coins: "Активные Монеты",
+        lbl_active_coins: "Активные Монеты",
+        btn_add_coin: "+ Добавить Монету",
+        lbl_check_api: "Проверить API",
+
+        // Copy Trading Wizard RU
+        lbl_futures: "Фьючерсы",
+        lbl_spot: "Спот",
+        lbl_leverage_trading: "Маржинальная торговля",
+        lbl_direct_trading: "Спотовая торговля",
+        lbl_bingx_only: "Только BingX",
+        lbl_okx_only: "Только OKX",
+        lbl_bingx_api_setup: "Настройка BingX API",
+        lbl_okx_api_setup: "Настройка OKX API",
+        lbl_get_api_keys: "Получить API ключи ↗",
+        lbl_whitelist_ip: "Добавьте этот IP в белый список",
+        lbl_api_key: "API Key",
+        lbl_secret_key: "Secret Key",
+        lbl_passphrase: "Passphrase",
+        msg_set_trading_capital: "Укажите сумму для торговли",
+        btn_connect_bingx: "Подключить BingX",
+        btn_continue: "Продолжить",
+        lbl_trading_settings: "Настройки торговли"
     },
     uk: {
         welcome: "З поверненням",
@@ -410,7 +466,171 @@ const translations = {
         no_coins_yet: "Монети ще не налаштовані",
         no_coins_hint: "Натисніть нижче щоб додати",
         all_coins_added: "Всі монети вже додано",
-        manage_allocations: "Управління алокаціями"
+        manage_allocations: "Управління алокаціями",
+
+        // New Keys
+        lbl_reserved_capital: "Торговий Капітал",
+        msg_amount_reserved: "Сума, зарезервована для цієї стратегії.",
+        msg_risk_pct: "Відсоток капіталу, що ризикується на кожну угоду.",
+        lbl_active_coins: "Активні Монети",
+        btn_add_coin: "+ Додати Монету",
+        lbl_check_api: "Перевірити API",
+
+        // Copy Trading Wizard UK
+        lbl_futures: "Ф'ючерси",
+        lbl_spot: "Спот",
+        lbl_leverage_trading: "Маржинальна торгівля",
+        lbl_direct_trading: "Спотова торгівля",
+        lbl_bingx_only: "Тільки BingX",
+        lbl_okx_only: "Тільки OKX",
+        lbl_bingx_api_setup: "Налаштування BingX API",
+        lbl_okx_api_setup: "Налаштування OKX API",
+        lbl_get_api_keys: "Отримати API ключі ↗",
+        lbl_whitelist_ip: "Додайте цей IP в білий список",
+        lbl_api_key: "API Key",
+        lbl_secret_key: "Secret Key",
+        lbl_passphrase: "Passphrase",
+        msg_set_trading_capital: "Вкажіть суму для торгівлі",
+        btn_connect_bingx: "Підключити BingX",
+        btn_continue: "Продовжити",
+        lbl_trading_settings: "Налаштування торгівлі"
+    },
+    uz: {
+        welcome: "Xush Kelibsiz",
+        lbl_total_balance: "Portfel Qiymati",
+        btn_topup: "Hisobni To'ldirish",
+        btn_copy_trade: "Copy Trading",
+        active_strategies: "Faol Strategiyalar",
+        view_all: "Barchasi",
+        my_exchanges: "Mening Birjalarim",
+        btn_analyze: "Tahlil",
+        settings: "Sozlamalar",
+        language: "Til",
+        user_id: "Foydalanuvchi ID",
+        lbl_alladeen_fees: "Balans USDT",
+        wiz_title: "Copytrading Sozlamalari",
+        btn_connect: "Ulash",
+        success: "Muvaffaqiyatli!",
+        reserve_title: "Savdo Kapitali",
+        save: "Saqlash",
+        top_up_title: "Balansni To'ldirish",
+        top_up_purpose_header: "Bu nima uchun kerak?",
+        top_up_purpose_desc: "Ushbu balans xizmat haqlari va copy-trading komissiyalarini to'lash uchun ishlatiladi.<br><br>Hisobni avtomatik to'ldirish uchun quyidagi manzilga USDT yuboring.",
+        address_label: "Manzil",
+        instruction_bottom: "Ushbu manzilga USDT (BEP-20) yuboring.<br>Balans avtomatik ravishda to'ldiriladi.",
+        btn_withdraw: "Mablag'ni Yechish",
+        withdraw_title: "USDT Yechish",
+        available_balance: "Mavjud",
+        withdraw_amount_label: "Miqdor (USDT)",
+        withdraw_wallet_label: "Hamyon Manzili (BEP-20)",
+        withdraw_submit: "So'rov Yuborish",
+        withdraw_success: "Yechib olish so'rovi yuborildi!",
+        err_invalid_amount: "Noto'g'ri miqdor",
+        err_insufficient_balance: "Mablag' yetarli emas",
+        err_invalid_wallet: "Noto'g'ri hamyon manzili (0x bilan boshlanishi va 42 belgidan iborat bo'lishi kerak)",
+        lbl_trading_capital: "Savdo Kapitali",
+        msg_edit_reserve_prompt: "Ushbu strategiya uchun ajratilgan summa.",
+        lbl_risk_per_trade: "Har bir savdo xavfi",
+        msg_edit_risk_prompt: "Har bir savdo uchun tavakkal qilinadigan kapital foizi.",
+        btn_disconnect: "Strategiyani Uzish",
+        btn_apply_changes: "O'zgarishlarni Qo'llash",
+        analyze_chart: "Grafikni Tahlil Qilish",
+
+        // Analyzer Modal
+        analyzer_title: "AI Grafik Tahlili",
+        analyzer_description: "<strong style='color: #0660F9;'>Black Aladdin</strong> — bu sizning grafiklaringizni o'rganib, savdo signallarini taqdim etuvchi AI tahlilchi.<br><br><strong>Qanday ishlaydi:</strong><br>• Grafik skrinshotini yuklang<br>• AI tiker va vaqt oralig'ini aniqlaydi<br>• Kirish nuqtalari, maqsadlar va stop-loss oling<br>• Ishonch darajasi va batafsil qaydlarni ko'ring",
+        upload_chart: "Grafik yuklash uchun bosing",
+        analyzing_market: "Bozor strukturasi tahlil qilinmoqda...",
+        timeframe: "Vaqt oralig'i",
+        confidence: "Ishonch",
+        entry: "Kirish:",
+        target: "Maqsad:",
+        stop: "Stop:",
+        explain_logic: "Mantiqni Tushuntirish",
+        btn_analyze: "Tahlil",
+
+        // Referral Modal
+        referral_program: "Referal Dasturi",
+        referral_earn_text: "Referallaringizning foydali savdolaridan komissiya oling:",
+        level_1: "Daraja 1",
+        level_2: "Daraja 2",
+        level_3: "Daraja 3",
+        commission_20: "20% komissiya",
+        commission_7: "7% komissiya",
+        commission_3: "3% komissiya",
+        referrals: "referallar",
+        get_referral_link: "Referal havolangizni oling",
+        min_balance_warning: "Minimal savdo balansi: 100 USDT",
+
+        // Coin Configuration
+        configure_coins: "Coinlarni Sozlash",
+        trading_capital_usdt: "Savdo Kapitali (USDT)",
+        risk_per_trade_pct: "Savdo Xavfi (%)",
+        minimum_5_usdt: "Minimum 5 USDT",
+        connect_okx: "OKX Ulash",
+
+        // Coin Management
+        manage_coins_title: "Coinlarni Boshqarish",
+        btn_add_new_coin: "+ Coin Qo'shish",
+        select_coin_to_add: "Qo'shish uchun Coin Tanlang",
+        edit_coin: "Tahrirlash",
+        remove_coin: "O'chirish",
+        confirm_remove_coin: "Ushbu coinni o'chirishni xohlaysizmi?",
+        capital: "Kapital",
+        risk: "Xavf",
+
+        // Validation
+        err_capital_too_low: "Kapital kamida 5 USDT bo'lishi kerak",
+        err_invalid_risk: "Xavf 0.1% dan 10% gacha bo'lishi kerak",
+
+        // Toasts
+        toast_changes_applied: "O'zgarishlar Saqlandi",
+        toast_strategy_disconnected: "Strategiya Uzildi",
+        toast_okx_connected: "OKX Ulandi",
+        toast_coin_updated: "Coin yangilandi",
+        toast_coin_removed: "Coin o'chirildi",
+        toast_coin_added: "Coin qo'shildi",
+        toast_exchange_disconnected: "Birja uzildi",
+        toast_address_copied: "Manzil Nusxalandi",
+
+        // Coin Management (modals)
+        edit_coin_title: "Coinni Tahrirlash",
+        add_coin_title: "Coin Qo'shish",
+        trading_capital_label: "Savdo Kapitali (USDT)",
+        risk_per_trade_label: "Savdo Xavfi (%)",
+        btn_save_changes: "Saqlash",
+        btn_remove_coin: "Coinni O'chirish",
+        no_coins_yet: "Hali coinlar sozlanmagan",
+        no_coins_hint: "Qo'shish uchun pastga bosing",
+        all_coins_added: "Barcha coinlar qo'shilgan",
+        manage_allocations: "Taqsimotni Boshqarish",
+
+        // New Keys
+        lbl_reserved_capital: "Zahira Kapitali",
+        msg_amount_reserved: "Ushbu strategiya uchun ajratilgan summa.",
+        msg_risk_pct: "Har bir savdo uchun tavakkal qilinadigan kapital foizi.",
+        lbl_active_coins: "Faol Coinlar",
+        btn_add_coin: "+ Coin Qo'shish",
+        lbl_check_api: "API Tekshirish",
+
+        // Copy Trading Wizard UZ
+        lbl_futures: "Fyucherslar",
+        lbl_spot: "Spot",
+        lbl_leverage_trading: "Marjinal savdo",
+        lbl_direct_trading: "Spot savdo",
+        lbl_bingx_only: "Faqat BingX",
+        lbl_okx_only: "Faqat OKX",
+        lbl_bingx_api_setup: "BingX API Sozlash",
+        lbl_okx_api_setup: "OKX API Sozlash",
+        lbl_get_api_keys: "API Kalitlarni Olish ↗",
+        lbl_whitelist_ip: "IP manzilni oq ro'yxatga qo'shing",
+        lbl_api_key: "API Key",
+        lbl_secret_key: "Secret Key",
+        lbl_passphrase: "Passphrase",
+        msg_set_trading_capital: "Savdo uchun ajratiladigan summani kiriting",
+        btn_connect_bingx: "BingX Ulash",
+        btn_continue: "Davom Etish",
+        lbl_trading_settings: "Savdo Sozlamalari"
     }
 };
 
@@ -556,8 +776,8 @@ function renderExchanges(exchanges, credits = 0) {
         // Check if this is OKX with coin configs
         const hasCoins = ex.coins && ex.coins.length > 0;
 
-        if (hasCoins) {
-            // Hierarchical structure for OKX
+        if (hasCoins && ex.name.toLowerCase() === 'okx') {
+            // Hierarchical structure for OKX - Show coins as simple list, click opens Settings Modal
             const coinDetails = {
                 'BTC/USDT': { img: 'bitcoin.png' },
                 'ETH/USDT': { img: 'ethereum.png' },
@@ -567,13 +787,13 @@ function renderExchanges(exchanges, credits = 0) {
 
             let html = `
                 <div class="exchange-hierarchy fade-in" style="animation-delay: ${idx * 0.1}s;">
-                    <!-- Exchange Header -->
-                    <div class="exchange-header">
+                    <!-- Exchange Header (Clickable) -->
+                    <div class="exchange-header" style="cursor: pointer;" onclick="openOKXSettings(tg.initDataUnsafe.user.id, '${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1.0}, ${balance})">
                         <div class="exchange-header-left">
                             <img src="${logoPath}" class="exchange-icon">
                             <div>
                                 <div class="exchange-name">${stratName}</div>
-                                <div style="font-size: 12px; color: #9CA3AF;">${ex.coins.length} coins configured</div>
+                                <div style="font-size: 12px; color: #9CA3AF;">${ex.coins.length} coins • $${ex.reserve || 0} reserved</div>
                             </div>
                         </div>
                         <div class="exchange-status ${ex.status === 'Connected' ? 'active' : 'error'}">
@@ -581,19 +801,18 @@ function renderExchanges(exchanges, credits = 0) {
                         </div>
                     </div>
                     
-                    <!-- Coin List -->
+                    <!-- Coin List (No onclick, for display only) -->
                     <div class="coin-list">
             `;
 
             ex.coins.forEach(coin => {
                 const details = coinDetails[coin.symbol] || { img: 'bitcoin.png' };
                 html += `
-                    <div class="coin-item" onclick="editCoinConfig('${ex.name}', '${coin.symbol}', ${coin.reserved_amount}, ${coin.risk_pct})">
+                    <div class="coin-item" style="cursor: default;">
                         <div class="coin-item-left">
                             <img src="coin_img/${details.img}" class="coin-item-icon">
                             <div class="coin-item-info">
                                 <div class="coin-item-symbol">${coin.symbol}</div>
-                                <div class="coin-item-details">$${coin.reserved_amount.toFixed(2)} / ${coin.risk_pct}%</div>
                             </div>
                         </div>
                         <div class="exchange-status active" style="font-size: 11px;">Active</div>
@@ -603,11 +822,6 @@ function renderExchanges(exchanges, credits = 0) {
 
             html += `
                     </div>
-                    
-                    <!-- Add Coin Button -->
-                    <button class="btn-add-coin" onclick="openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}'); event.stopPropagation();">
-                        + Add Coin
-                    </button>
                 </div>
             `;
 
@@ -617,20 +831,10 @@ function renderExchanges(exchanges, credits = 0) {
             // Original single-line display for non-OKX exchanges OR OKX without coins (fallback)
             const isConnectedStr = isConnected ? 'true' : 'false';
 
-            // Determine Click Action: OKX -> Coin Management, Others -> Strategy Settings
-            const clickHandler = (ex.name.toLowerCase() === 'okx')
-                ? `openCoinManagement(${ex.name === 'okx' ? 'tg.initDataUnsafe.user.id' : '0'}, '${ex.name}')`
-                : `openStrategySettings('${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1}, ${isConnectedStr}, ${balance}, '${statusText}')`;
-
-            // Wrap ID properly if needed or pass user.id from closure if available. 
-            // Actually, openCoinManagement needs userId. In renderExchanges, we don't have user object directly accessible in scope easily? 
-            // Wait, we can use `tg.initDataUnsafe.user.id` or fetch it.
-            // Let's use `tg.initDataUnsafe.user.id` which is global-ish in this context.
-
-            // Simplified logic for replacement:
+            // Determine Click Action: OKX -> Settings Modal, Others -> Strategy Settings
             if (ex.name.toLowerCase() === 'okx') {
                 list.insertAdjacentHTML('beforeend', `
-                    <div class="strategy-item fade-in" onclick="openCoinManagement(tg.initDataUnsafe.user.id, '${ex.name}')" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
+                    <div class="strategy-item fade-in" onclick="openOKXSettings(tg.initDataUnsafe.user.id, '${ex.name}', ${ex.reserve || 0}, ${ex.risk || 1.0}, ${balance})" style="animation-delay: ${idx * 0.1}s; justify-content: space-between; cursor: pointer;">
                         <div style="display:flex; align-items:center; gap:12px;">
                             <div class="strat-icon"><img src="${logoPath}"></div>
                             <div class="strat-info">
@@ -1506,9 +1710,14 @@ async function submitBingXAPI() {
         return;
     }
 
+    if (capital < 100) {
+        alert('Minimum trading capital must be at least 100 USDT');
+        return;
+    }
+
     try {
         const user = tg.initDataUnsafe.user;
-        const response = await fetch(`${API_BASE}/api/connect`, {
+        const response = await fetch(`${API_BASE}/api/connect_exchange`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1543,8 +1752,8 @@ async function submitBingXAPI() {
 let selectedCoins = new Set();
 let okxApiCredentials = null;
 
-// Proceed to coin selection step
-function proceedToCoinSelection() {
+// Step 1: Validate OKX API credentials and fetch balance
+async function validateOKXCredentials() {
     const apiKey = document.getElementById('okx-api-key').value.trim();
     const secretKey = document.getElementById('okx-secret-key').value.trim();
     const passphrase = document.getElementById('okx-passphrase').value.trim();
@@ -1554,15 +1763,98 @@ function proceedToCoinSelection() {
         return;
     }
 
-    // Store credentials temporarily
-    okxApiCredentials = { apiKey, secretKey, passphrase };
+    const btn = document.getElementById('btn-validate-okx');
+    const originalText = btn.innerText;
+    btn.innerText = 'Validating...';
+    btn.disabled = true;
+
+    const errorDiv = document.getElementById('okx-api-error');
+    errorDiv.style.display = 'none';
+
+    try {
+        // Validate credentials by fetching balance
+        const response = await fetch(`${API_BASE}/api/validate_okx_balance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: apiKey,
+                secret_key: secretKey,
+                passphrase: passphrase
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.balance === undefined) {
+            throw new Error(data.detail || 'Invalid API credentials');
+        }
+
+        // Store credentials temporarily (without settings yet)
+        okxApiCredentials = {
+            apiKey,
+            secretKey,
+            passphrase,
+            balance: data.balance
+        };
+
+        // Display balance and show settings step
+        document.getElementById('okx-balance-display').innerText = `$${data.balance.toFixed(2)}`;
+        showCTStep('okx-settings');
+
+    } catch (e) {
+        console.error(e);
+        errorDiv.innerText = e.message;
+        errorDiv.style.display = 'block';
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Step 2: Validate settings and proceed to coin selection
+function proceedToCoinSelection() {
+    const reserve = parseFloat(document.getElementById('okx-reserve').value);
+    const risk = parseFloat(document.getElementById('okx-risk').value);
+
+    // Global Settings Validation
+    if (isNaN(reserve) || reserve < 0) {
+        alert('Please enter a valid Reserved Amount');
+        return;
+    }
+
+    if (isNaN(risk) || risk <= 0 || risk > 100) {
+        alert('Please enter a valid Risk Percentage (0.1 - 100)');
+        return;
+    }
+
+    // Check minimum balance requirement
+    // TODO FOR PRODUCTION: Change 10 back to 100
+    if (okxApiCredentials && okxApiCredentials.balance) {
+        const freeBalance = okxApiCredentials.balance - reserve;
+        if (freeBalance < 100) {
+            alert(`Insufficient trading balance. You have $${okxApiCredentials.balance.toFixed(2)}, reserving $${reserve.toFixed(2)} leaves only $${freeBalance.toFixed(2)}. You need at least $100 free for trading.`);
+            return;
+        }
+    }
+
+    // Add settings to stored credentials
+    okxApiCredentials.reserve = reserve;
+    okxApiCredentials.risk = risk;
 
     // Reset coin selection
     selectedCoins.clear();
     document.querySelectorAll('.coin-card').forEach(card => {
         card.classList.remove('selected');
+        const checkbox = card.querySelector('.coin-checkbox');
+        if (checkbox) {
+            checkbox.style.background = 'rgba(255,255,255,0.1)';
+            checkbox.innerText = '';
+        }
     });
-    document.getElementById('btn-coin-next').disabled = true;
+
+    // Disable Next Button initially
+    const btnNext = document.getElementById('btn-coin-next');
+    if (btnNext) btnNext.disabled = true;
 
     // Show coin selection step
     showCTStep('coin-select');
@@ -1584,53 +1876,6 @@ function toggleCoin(symbol) {
     document.getElementById('btn-coin-next').disabled = selectedCoins.size === 0;
 }
 
-// Proceed to coin configuration
-function proceedToCoinConfig() {
-    if (selectedCoins.size === 0) return;
-
-    // Render configuration forms for each selected coin
-    const configList = document.getElementById('coin-config-list');
-    configList.innerHTML = '';
-
-    const coinDetails = {
-        'BTC/USDT': { name: 'Bitcoin', img: 'bitcoin.png' },
-        'ETH/USDT': { name: 'Ethereum', img: 'ethereum.png' },
-        'BNB/USDT': { name: 'BNB', img: 'bnb.png' },
-        'OKB/USDT': { name: 'OKB', img: 'okb.png' }
-    };
-
-    selectedCoins.forEach(symbol => {
-        const details = coinDetails[symbol];
-        const html = `
-            <div class="coin-config-item">
-                <div class="coin-config-header">
-                    <img src="coin_img/${details.img}" width="32" height="32">
-                    <div>
-                        <div class="coin-name">${details.name}</div>
-                        <div class="coin-symbol">${symbol}</div>
-                    </div>
-                </div>
-                
-                <div class="ct-input-group">
-                    <label class="ct-label" data-i18n="trading_capital_usdt">Trading Capital (USDT)</label>
-                    <input type="number" id="capital-${symbol}" class="ct-input" 
-                           data-i18n-placeholder="minimum_5_usdt" placeholder="Amount (e.g. 100)" step="0.01" value="100">
-                    <div class="validation-error" id="error-${symbol}"></div>
-                </div>
-                
-                <div class="ct-input-group">
-                    <label class="ct-label" data-i18n="risk_per_trade_pct">Risk per Trade (%)</label>
-                    <input type="number" id="risk-${symbol}" class="ct-input" 
-                           placeholder="1.0" step="0.1" min="0.1" max="10" value="1.0">
-                </div>
-            </div>
-        `;
-        configList.insertAdjacentHTML('beforeend', html);
-    });
-
-    showCTStep('coin-config');
-}
-
 // Submit OKX with coin configurations
 async function submitOKXWithCoins() {
     if (!okxApiCredentials) {
@@ -1638,108 +1883,93 @@ async function submitOKXWithCoins() {
         return;
     }
 
-    // Collect coin configurations
-    const coins = [];
-    let totalCapital = 0;
-    let hasErrors = false;
+    if (selectedCoins.size === 0) {
+        alert('Please select at least one coin');
+        return;
+    }
 
-    selectedCoins.forEach(symbol => {
-        const capitalInput = document.getElementById(`capital-${symbol}`);
-        const riskInput = document.getElementById(`risk-${symbol}`);
-        const errorDiv = document.getElementById(`error-${symbol}`);
-
-        const capital = parseFloat(capitalInput.value);
-        const risk = parseFloat(riskInput.value);
-
-        // Validate
-        errorDiv.classList.remove('show');
-        if (isNaN(capital) || capital < 0) {
-            errorDiv.textContent = 'Invalid amount';
-            errorDiv.classList.add('show');
-            hasErrors = true;
-            return;
-        }
-
-        if (isNaN(risk) || risk < 0.1 || risk > 10) {
-            errorDiv.textContent = 'Risk must be between 0.1% and 10%';
-            errorDiv.classList.add('show');
-            hasErrors = true;
-            return;
-        }
-
-        coins.push({ symbol, capital, risk });
-        totalCapital += capital;
-    });
-
-    if (hasErrors) return;
+    const btn = document.getElementById('btn-coin-next');
+    const originalText = btn.innerText;
+    btn.innerText = 'Connecting...';
+    btn.disabled = true;
 
     try {
-        const user = tg.initDataUnsafe.user;
-        const btn = event.target;
-        btn.disabled = true;
-        btn.textContent = 'Connecting...';
+        let userId = 0;
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) userId = tg.initDataUnsafe.user.id;
+        else {
+            // Fallback for testing
+            const uidEl = document.getElementById("user-id-disp-settings");
+            if (uidEl) userId = parseInt(uidEl.innerText);
+        }
 
-        // First, connect OKX exchange
-        const connectResponse = await fetch(`${API_BASE}/api/connect`, {
+        if (!userId) {
+            alert("User ID not found!");
+            return;
+        }
+
+        // 1. Connect Exchange (Saves Global Settings & Keys)
+        // This endpoint now checks (Total Balance - Reserve) >= 100
+        const connectRes = await fetch(`${API_BASE}/api/connect_exchange`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: user.id,
+                user_id: userId,
                 exchange: 'okx',
-                strategy: 'cgt',
                 api_key: okxApiCredentials.apiKey,
-                secret: okxApiCredentials.secretKey,
+                secret_key: okxApiCredentials.secretKey,
                 password: okxApiCredentials.passphrase,
-                reserve: totalCapital  // Total allocation
+                strategy: 'cgt',
+                reserved_amount: okxApiCredentials.reserve,
+                risk_pct: okxApiCredentials.risk
             })
         });
 
-        const connectData = await connectResponse.json();
-        if (connectData.status !== 'ok') {
-            alert(connectData.detail || 'Connection failed');
-            btn.disabled = false;
-            btn.textContent = 'Connect OKX';
-            return;
+        const connectData = await connectRes.json();
+
+        if (!connectRes.ok) {
+            throw new Error(connectData.detail || 'Connection failed');
         }
 
-        // Then, save coin configurations
-        const coinResponse = await fetch(`${API_BASE}/api/save_coin_configs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: user.id,
-                exchange: 'okx',
-                coins: coins
-            })
+        // 2. Save Selected Coins
+        // We iterate and enable them. The endpoint expects symbol.
+        // Amount and risk are ignored by backend for CGT now, sending 0.
+        const coinPromises = Array.from(selectedCoins).map(symbol => {
+            return fetch(`${API_BASE}/api/save_coin_config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    exchange: 'okx', // Force OKX
+                    symbol: symbol,
+                    reserved_amount: 0,
+                    risk_pct: 0
+                })
+            });
         });
 
-        const coinData = await coinResponse.json();
-        if (!coinData.success) {
-            alert(coinData.message || 'Failed to save coin configurations');
-            btn.disabled = false;
-            btn.textContent = 'Connect OKX';
-            return;
+        await Promise.all(coinPromises);
+
+        // Success
+        document.getElementById('modal-copytrading').style.display = 'none';
+        if (window.tg && tg.showPopup) {
+            tg.showPopup({ title: 'Success', message: 'OKX Connected & Coins Configured!' });
+        } else {
+            // Fallback alert
+            alert('OKX Connected & Coins Configured!');
         }
 
-        // Success!
-        showToast((getTranslation('toast_okx_connected') || 'OKX Connected') + ` (${coins.length} coins)`);
-        closeCopyTradingModal();
+        // Refresh Dashboard
+        fetchUserData(userId);
 
-        // Clear state
-        selectedCoins.clear();
-        okxApiCredentials = null;
-
-        // Refresh UI with delay to ensure DB write
-        setTimeout(async () => {
-            await fetchUserData(user.id);
-        }, 800);
-
-    } catch (error) {
-        console.error(error);
-        event.target.disabled = false;
-        event.target.textContent = 'Connect OKX';
+    } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
+
 
 // Edit existing coin configuration
 let editingCoin = null;
@@ -2645,3 +2875,319 @@ function loadMyExchanges() {
         fetchUserData(user.id);
     }
 }
+
+// === OKX SETTINGS MODAL FUNCTIONS (BingX Style) ===
+
+let currentOKXData = { userId: null, exchangeName: 'okx', reserve: 0, risk: 1.0, balance: 0, coins: [] };
+
+async function openOKXSettings(userId, exchangeName, reserve, risk, balance) {
+    try {
+        currentOKXData = { userId, exchangeName, reserve, risk, balance, coins: [] };
+
+        // 1. Set Balance Text
+        const balEl = document.getElementById('okx-set-balance');
+        if (balEl) balEl.textContent = `Available: ${balance.toFixed(2)} USDT`;
+
+        // 2. Setup Reserve (Slider + Input)
+        const reserveInput = document.getElementById('okx-set-reserve');
+        const reserveSlider = document.getElementById('okx-set-reserve-slider');
+
+        if (reserveInput && reserveSlider) {
+            // Update slider max to balance (or at least 100 if balance is low/zero for testing)
+            const maxVal = balance > 0 ? balance : 100;
+            reserveSlider.max = maxVal;
+
+            // Set initial values
+            reserveInput.value = reserve;
+            reserveSlider.value = reserve;
+
+            // Sync Input -> Slider
+            reserveInput.oninput = function () {
+                let val = parseFloat(this.value);
+                if (isNaN(val)) val = 0;
+                reserveSlider.value = val;
+            };
+
+            // Sync Slider -> Input
+            reserveSlider.oninput = function () {
+                reserveInput.value = this.value;
+            };
+        }
+
+        // 3. Setup Risk (Slider + Value Label)
+        const riskSlider = document.getElementById('okx-set-risk');
+        const riskLabel = document.getElementById('okx-set-risk-val');
+
+        if (riskSlider && riskLabel) {
+            riskSlider.value = risk;
+            riskLabel.textContent = `${risk}%`;
+
+            riskSlider.oninput = function () {
+                riskLabel.textContent = `${this.value}%`;
+                // Color change logic
+                if (this.value > 2.5) riskLabel.style.color = '#FF4D4D'; // Red for high risk
+                else riskLabel.style.color = '#06D6A0'; // Green for low risk
+            };
+        }
+
+        // 4. Fetch Active Coins
+        const response = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${userId}&exchange=${exchangeName}`);
+        const data = await response.json();
+        currentOKXData.coins = data.coins || [];
+
+        // Render coin list
+        renderOKXCoins(currentOKXData.coins);
+
+        // Show modal
+        document.getElementById('modal-okx-settings').style.display = 'flex';
+
+        // Hide add coin selector initially
+        document.getElementById('okx-add-coin-selector').style.display = 'none';
+
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    } catch (error) {
+        console.error('Error opening OKX settings:', error);
+        alert('Error loading settings: ' + error.message);
+    }
+}
+
+function closeOKXSettings() {
+    document.getElementById('modal-okx-settings').style.display = 'none';
+    loadMyExchanges();
+}
+
+function setOKXCapitalMax() {
+    const reserveInput = document.getElementById('okx-set-reserve');
+    const reserveSlider = document.getElementById('okx-set-reserve-slider');
+
+    if (reserveInput && reserveSlider) {
+        // Set to full available balance
+        const maxVal = currentOKXData.balance; // Use stored balance
+
+        if (maxVal > 0) reserveSlider.max = maxVal;
+
+        reserveInput.value = maxVal.toFixed(2);
+        reserveSlider.value = maxVal;
+    }
+
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+}
+
+function renderOKXCoins(coins) {
+    const container = document.getElementById('okx-active-coins-list');
+    const countLabel = document.getElementById('okx-coin-count');
+
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (countLabel) countLabel.textContent = `${coins.length} coins`;
+
+    const coinDetails = {
+        'BTC/USDT': { name: 'Bitcoin', img: 'bitcoin.png' },
+        'ETH/USDT': { name: 'Ethereum', img: 'ethereum.png' },
+        'BNB/USDT': { name: 'BNB', img: 'bnb.png' },
+        'OKB/USDT': { name: 'OKB', img: 'okb.png' }
+    };
+
+    if (coins.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #9CA3AF; font-size: 13px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px dashed #333;">
+                No coins added yet. Click "+ Add Coin" below.
+            </div>
+        `;
+        return;
+    }
+
+    coins.forEach(coin => {
+        const details = coinDetails[coin.symbol] || { name: coin.symbol, img: 'bitcoin.png' };
+        const html = `
+            <div style="background: #1A1926; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2A2935;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="coin_img/${details.img}" style="width: 32px; height: 32px; border-radius: 50%;">
+                    <div>
+                        <div style="font-size: 14px; color: #fff; font-weight: 600;">${details.name}</div>
+                        <div style="font-size: 11px; color: #9CA3AF;">${coin.symbol}</div>
+                    </div>
+                </div>
+                <button onclick="removeOKXCoin('${coin.symbol}')" 
+                    style="background: rgba(239, 68, 68, 0.1); border: none; border-radius: 8px; padding: 6px 12px; color: #EF4444; font-size: 12px; font-weight: 500; cursor: pointer;">
+                    Remove
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    });
+}
+
+async function showOKXAddCoin() {
+    const container = document.getElementById('okx-available-coins');
+    const selector = document.getElementById('okx-add-coin-selector');
+
+    // Toggle visibility
+    if (selector.style.display === 'block') {
+        selector.style.display = 'none';
+        return;
+    }
+
+    const allCoins = [
+        { symbol: 'BTC/USDT', name: 'Bitcoin', img: 'bitcoin.png' },
+        { symbol: 'ETH/USDT', name: 'Ethereum', img: 'ethereum.png' },
+        { symbol: 'BNB/USDT', name: 'BNB', img: 'bnb.png' },
+        { symbol: 'OKB/USDT', name: 'OKB', img: 'okb.png' }
+    ];
+
+    const existingSymbols = currentOKXData.coins.map(c => c.symbol);
+    const availableCoins = allCoins.filter(c => !existingSymbols.includes(c.symbol));
+
+    container.innerHTML = '';
+
+    if (availableCoins.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #9CA3AF; font-size: 13px;">All coins are already added</div>';
+    } else {
+        availableCoins.forEach(coin => {
+            const html = `
+                <div onclick="addOKXCoin('${coin.symbol}')" 
+                    style="background: #252433; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent;">
+                    <img src="coin_img/${coin.img}" style="width: 36px; height: 36px; border-radius: 50%;">
+                    <div style="font-size: 12px; color: #fff; font-weight: 600; text-align: center;">${coin.name}</div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    selector.style.display = 'block';
+
+    // Scroll to bottom to show selector
+    const modalContent = document.querySelector('#modal-okx-settings .modal-content');
+    if (modalContent) {
+        setTimeout(() => {
+            modalContent.scrollTo({ top: modalContent.scrollHeight, behavior: 'smooth' });
+        }, 100);
+    }
+}
+
+async function addOKXCoin(symbol) {
+    try {
+        const response = await fetch(`${API_BASE}/api/save_coin_config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: currentOKXData.userId,
+                exchange: currentOKXData.exchangeName,
+                symbol: symbol,
+                reserved_amount: 0,
+                risk_pct: 0,
+                is_active: true
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'ok') {
+            const refreshRes = await fetch(`${API_BASE}/api/get_coin_configs?user_id=${currentOKXData.userId}&exchange=${currentOKXData.exchangeName}`);
+            const refreshData = await refreshRes.json();
+            currentOKXData.coins = refreshData.coins || [];
+            renderOKXCoins(currentOKXData.coins);
+            document.getElementById('okx-add-coin-selector').style.display = 'none';
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            alert('Error adding coin: ' + (result.msg || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error adding coin:', error);
+        alert('Error adding coin: ' + error.message);
+    }
+}
+
+async function removeOKXCoin(symbol) {
+    if (!confirm(`Are you sure you want to remove ${symbol}?`)) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/delete_coin_config`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: currentOKXData.userId,
+                exchange: currentOKXData.exchangeName,
+                symbol: symbol
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'ok') {
+            currentOKXData.coins = currentOKXData.coins.filter(c => c.symbol !== symbol);
+            renderOKXCoins(currentOKXData.coins);
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            alert('Error removing coin: ' + (result.msg || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error removing coin:', error);
+        alert('Error removing coin: ' + error.message);
+    }
+}
+
+async function saveOKXSettings() {
+    try {
+        const reserveInput = document.getElementById('okx-set-reserve');
+        const riskInput = document.getElementById('okx-set-risk');
+
+        const reserve = reserveInput ? parseFloat(reserveInput.value) : 0;
+        const risk = riskInput ? parseFloat(riskInput.value) : 1.0;
+
+        const response = await fetch(`${API_BASE}/api/update-params`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: currentOKXData.userId,
+                exchange: currentOKXData.exchangeName,
+                reserve: reserve,
+                risk_pct: risk
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'ok') {
+            closeOKXSettings();
+            if (window.tg && tg.showPopup) {
+                tg.showPopup({ title: 'Success', message: 'Settings saved successfully!' });
+            } else {
+                alert('Settings saved successfully!');
+            }
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            alert('Error saving settings: ' + (result.msg || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Error saving settings: ' + error.message);
+    }
+}
+
+async function disconnectStrategy(exchangeName) {
+    if (!confirm('Are you sure you want to disconnect this strategy? Your API keys will be deleted.')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/disconnect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: currentOKXData.userId,
+                exchange: exchangeName
+            })
+        });
+
+        const result = await response.json();
+        if (result.status === 'ok') {
+            closeOKXSettings();
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            alert('Error disconnecting: ' + (result.msg || 'Unknown error'));
+        }
+
+    } catch (error) {
+        console.error('Error disconnecting:', error);
+        alert('Error disconnecting: ' + error.message);
+    }
+}
+

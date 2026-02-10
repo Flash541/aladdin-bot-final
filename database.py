@@ -403,8 +403,8 @@ def get_active_exchange_connections(strategy: str = None, symbol: str = None) ->
             SELECT 
                 ue.user_id, 
                 ue.exchange_name, 
-                cc.reserved_amount, 
-                cc.risk_pct,
+                ue.reserved_amount, 
+                ue.risk_pct,
                 cc.symbol,
                 ue.strategy
             FROM user_exchanges ue
@@ -1137,38 +1137,35 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
         print(f"Error in get_text: {e}")
         return key
 
-def get_referral_count(user_id: int, level: int) -> int:
-    """
-    Get count of referrals at a specific level for a user.
-    Level 1: Direct referrals (people invited by this user)
-    Level 2: Referrals of referrals (people invited by Level 1)
-    Level 3: Third level referrals (people invited by Level 2)
-    
-    Uses recursive CTE to traverse the referral tree.
-    """
-    query = """
-        WITH RECURSIVE referral_tree AS (
-            -- Base case: Direct referrals (Level 1)
-            SELECT user_id, referred_by, 1 as level
-            FROM users
-            WHERE referred_by = ?
-            
-            UNION ALL
-            
-            -- Recursive case: Subsequent levels
-            SELECT u.user_id, u.referred_by, rt.level + 1
-            FROM users u
-            INNER JOIN referral_tree rt ON u.referred_by = rt.user_id
-            WHERE rt.level < 3
-        )
-        SELECT COUNT(*) as count
-        FROM referral_tree
-        WHERE level = ?
-    """
-    
+def get_referral_count(user_id, level=1):
     try:
-        result = execute_read_query(query, (user_id, level))
-        return result[0]['count'] if result else 0
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        
+        if level == 1:
+            query = "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?"
+            cursor.execute(query, (user_id,))
+        elif level == 2:
+            query = """
+                SELECT COUNT(*) FROM referrals r2
+                JOIN referrals r1 ON r2.referrer_id = r1.user_id
+                WHERE r1.referrer_id = ?
+            """
+            cursor.execute(query, (user_id,))
+        elif level == 3:
+            query = """
+                SELECT COUNT(*) FROM referrals r3
+                JOIN referrals r2 ON r3.referrer_id = r2.user_id
+                JOIN referrals r1 ON r2.referrer_id = r1.user_id
+                WHERE r1.referrer_id = ?
+            """
+            cursor.execute(query, (user_id,))
+        else:
+            return 0
+            
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
     except Exception as e:
         print(f"[ERROR] get_referral_count failed for user {user_id}, level {level}: {e}")
         return 0

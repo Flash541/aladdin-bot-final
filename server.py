@@ -147,6 +147,8 @@ class ConnectRequest(BaseModel):
     strategy: str = 'ratner'
     reserve: Optional[float] = None
     reserve_amount: Optional[float] = None # Legacy support
+    reserved_amount: Optional[float] = None  # For CGT global settings
+    risk_pct: Optional[float] = None  # For CGT global settings
 
 class LanguageRequest(BaseModel):
     user_id: int
@@ -334,7 +336,35 @@ async def disconnect_exchange(req: DisconnectRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/connect")
+@app.post("/api/validate_okx_balance")
+async def validate_okx_balance(request: Request):
+    """
+    Validate OKX API credentials and return balance (without saving to DB)
+    """
+    try:
+        body = await request.json()
+        api_key = body.get('api_key')
+        secret_key = body.get('secret_key')
+        passphrase = body.get('passphrase')
+        
+        if not all([api_key, secret_key, passphrase]):
+            raise HTTPException(status_code=400, detail="Missing API credentials")
+        
+        # Validate and get balance
+        balance_info = await validate_exchange_credentials('okx', api_key, secret_key, passphrase)
+        
+        if not balance_info:
+            raise HTTPException(status_code=400, detail="Invalid API credentials or connection failed")
+        
+        return {"status": "ok", "balance": balance_info.get('total', 0.0)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] validate_okx_balance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/connect_exchange")
 async def connect_exchange(req: ConnectRequest):
     # Resolve fields (Legacy support)
     exchange = req.exchange or req.exchange_name
@@ -353,12 +383,23 @@ async def connect_exchange(req: ConnectRequest):
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")
 
-    # 1. Validate API keys AND minimum balance ($5)
-    is_valid = await validate_exchange_credentials(exchange, req.api_key, secret, req.password)
-    if not is_valid:
+    # 1. Validate API keys AND minimum balance ($100 check)
+    balance_info = await validate_exchange_credentials(exchange, req.api_key, secret, req.password)
+    
+    if not balance_info:
         raise HTTPException(
             status_code=400, 
-            detail="Invalid API Keys, Connection Failed, or Balance < $5 USDT minimum requirement"
+            detail="Invalid API Keys or Connection Failed"
+        )
+        
+    # Check minimum trading balance (Total - Reserve >= 10)
+    # TODO FOR PRODUCTION: Change 10 back to 100
+    total_balance = balance_info.get('total', 0.0)
+    
+    if (total_balance - reserve) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient trading balance. Access: {total_balance:.2f}, Reserve: {reserve:.2f}. Must have > $10 for trading."
         )
     
     # 2. Save to DB
@@ -373,16 +414,17 @@ async def connect_exchange(req: ConnectRequest):
         
         # Insert or Replace
         cursor.execute("""
-            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, risk_pct, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
             ON CONFLICT(user_id, exchange_name) DO UPDATE SET
             api_key=excluded.api_key,
             api_secret_encrypted=excluded.api_secret_encrypted,
             passphrase_encrypted=excluded.passphrase_encrypted,
             strategy=excluded.strategy,
             reserved_amount=excluded.reserved_amount,
+            risk_pct=excluded.risk_pct,
             is_active=1
-        """, (req.user_id, exchange.lower(), req.api_key, enc_secret, enc_pass, req.strategy, reserve))
+        """, (req.user_id, exchange.lower(), req.api_key, enc_secret, enc_pass, req.strategy, reserve, req.risk_pct))
         
         conn.commit()
         conn.close()
@@ -656,6 +698,46 @@ async def cryptapi_webhook(request: Request):
     except Exception as e:
         print(f"❌ Webhook Error: {e}")
         return "error"
+
+# --- New Endpoint for Single Coin Save (OKX Modal) ---
+class SaveSingleCoinRequest(BaseModel):
+    user_id: int
+    exchange: str
+    symbol: str
+    reserved_amount: float = 0.0
+    risk_pct: float = 0.0
+    is_active: bool = True
+
+@app.post("/api/save_coin_config")
+async def save_single_coin_endpoint(req: SaveSingleCoinRequest):
+    try:
+        from database import add_coin_config
+        add_coin_config(
+            user_id=req.user_id, 
+            exchange=req.exchange.lower(), 
+            symbol=req.symbol, 
+            capital=req.reserved_amount, 
+            risk_pct=req.risk_pct
+        )
+        return {"status": "ok", "msg": "Coin saved"}
+    except Exception as e:
+        print(f"Error saving coin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DeleteCoinConfig(BaseModel):
+    user_id: int
+    exchange: str
+    symbol: str
+
+@app.delete("/api/delete_coin_config")
+async def delete_coin_config_endpoint(req: DeleteCoinConfig):
+    try:
+        from database import delete_coin_config
+        delete_coin_config(req.user_id, req.exchange.lower(), req.symbol)
+        return {"status": "ok", "msg": "Coin deleted"}
+    except Exception as e:
+        print(f"Error deleting coin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- STATIC FILES ---
 # Mount webapp to root

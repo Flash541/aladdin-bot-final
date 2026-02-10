@@ -439,8 +439,10 @@
                             <img src="usdt_bep_icon.svg" width="32" height="32">
                         </div>
                         <div>
-                            <div style="font-size: 16px; font-weight: 600; color: #fff;">Futures</div>
-                            <div style="font-size: 13px; color: #9CA3AF;">Leverage trading</div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;" data-i18n="lbl_futures">Futures
+                            </div>
+                            <div style="font-size: 13px; color: #9CA3AF;" data-i18n="lbl_leverage_trading">Leverage
+                                trading</div>
                         </div>
                     </div>
                     <div style="font-size: 20px; color: #467EE7;">→</div>
@@ -455,8 +457,9 @@
                             <img src="usdt_bep_icon.svg" width="32" height="32">
                         </div>
                         <div>
-                            <div style="font-size: 16px; font-weight: 600; color: #fff;">Spot</div>
-                            <div style="font-size: 13px; color: #9CA3AF;">Direct trading</div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;" data-i18n="lbl_spot">Spot</div>
+                            <div style="font-size: 13px; color: #9CA3AF;" data-i18n="lbl_direct_trading">Direct trading
+                            </div>
                         </div>
                     </div>
                     <div style="font-size: 20px; color: #467EE7;">→</div>
@@ -475,7 +478,7 @@
                         <img src="usdt_bep_icon.svg" width="32" height="32">
                         <div>
                             <div style="font-size: 16px; font-weight: 600; color: #fff;">BingBot</div>
-                            <div style="font-size: 13px; color: #9CA3AF;">BingX Only</div>
+                            <div style="font-size: 13px; color: #9CA3AF;" data-i18n="lbl_bingx_only">BingX Only</div>
                         </div>
                     </div>
                     <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Futures</div>
@@ -488,7 +491,7 @@
                         <img src="usdt_bep_icon.svg" width="32" height="32">
                         <div>
                             <div style="font-size: 16px; font-weight: 600; color: #fff;">TradeMax</div>
-                            <div style="font-size: 13px; color: #9CA3AF;">OKX Only</div>
+                            <div style="font-size: 13px; color: #9CA3AF;" data-i18n="lbl_okx_only">OKX Only</div>
                         </div>
                     </div>
                     <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Spot</div>
@@ -499,19 +502,21 @@
             <div id="ct-step-bingx-api" class="ct-step" style="display:none;">
                 <button class="modal-back-btn" onclick="showCTStep('strategy')">← Back</button>
 
-                <h2
-                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;"
+                    data-i18n="lbl_bingx_api_setup">
                     BingX API Setup</h2>
 
                 <!-- 1. Get API Link -->
                 <a href="https://www.bingx.com/en-us/account/api/" target="_blank"
-                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;">
+                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;"
+                    data-i18n="lbl_get_api_keys">
                     Get API Keys ↗
                 </a>
 
                 <!-- 2. Whitelist IP Box -->
                 <div style="margin-bottom:24px;">
-                    <label class="ct-label" style="text-align:center;">Whitelist this IP Address</label>
+                    <label class="ct-label" style="text-align:center;" data-i18n="lbl_whitelist_ip">Whitelist this IP
+                        Address</label>
                     <div class="address-box" onclick="copyText('167.99.130.80')"
                         style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
                         <span
@@ -522,19 +527,19 @@
 
 
                 <div class="ct-input-group">
-                    <label class="ct-label">API Key</label>
+                    <label class="ct-label" data-i18n="lbl_api_key">API Key</label>
                     <input type="text" id="bingx-api-key" class="ct-input" placeholder="Enter API Key">
                 </div>
 
                 <div class="ct-input-group">
-                    <label class="ct-label">Secret Key</label>
+                    <label class="ct-label" data-i18n="lbl_secret_key">Secret Key</label>
                     <input type="password" id="bingx-secret-key" class="ct-input" placeholder="Enter Secret Key">
                 </div>
 
                 <div class="ct-input-group">
-                    <label class="ct-label">Trading Capital (USDT)</label>
+                    <label class="ct-label" data-i18n="trading_capital_label">Trading Capital (USDT)</label>
                     <input type="number" id="bingx-capital" class="ct-input" placeholder="0.00" step="0.01">
-                    <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
+                    <div style="font-size: 12px; color: #6B7280; margin-top: 4px;" data-i18n="msg_set_trading_capital">
                         Set the amount you want to allocate for trading
                     </div>
                     <div style="font-size: 13px; color: #FF9F0A; margin-top: 8px; font-weight: 500;"
@@ -543,26 +548,29 @@
                     </div>
                 </div>
 
-                <button class="ct-submit-btn" onclick="submitBingXAPI()">Connect BingX</button>
+                <button class="ct-submit-btn" onclick="submitBingXAPI()" data-i18n="btn_connect_bingx">Connect
+                    BingX</button>
             </div>
 
             <!-- Step 3: API Configuration (OKX) -->
             <div id="ct-step-okx-api" class="ct-step" style="display:none;">
                 <button class="modal-back-btn" onclick="showCTStep('strategy')">← Back</button>
 
-                <h2
-                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
-                    OKX Setup</h2>
+                <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;"
+                    data-i18n="lbl_okx_api_setup">
+                    OKX API Setup</h2>
 
                 <!-- 1. Get API Link -->
                 <a href="https://www.okx.com/account/my-api" target="_blank"
-                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;">
+                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;"
+                    data-i18n="lbl_get_api_keys">
                     Get API Keys ↗
                 </a>
 
                 <!-- 2. Whitelist IP Box -->
                 <div style="margin-bottom:24px;">
-                    <label class="ct-label" style="text-align:center;">Whitelist this IP Address</label>
+                    <label class="ct-label" style="text-align:center;" data-i18n="lbl_whitelist_ip">Whitelist this IP
+                        Address</label>
                     <div class="address-box" onclick="copyText('167.99.130.80')"
                         style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
                         <span
@@ -572,32 +580,70 @@
                 </div>
 
                 <div class="ct-input-group">
-                    <label class="ct-label">API Key</label>
+                    <label class="ct-label" data-i18n="lbl_api_key">API Key</label>
                     <input type="text" id="okx-api-key" class="ct-input" placeholder="Enter API Key">
                 </div>
 
                 <div class="ct-input-group">
-                    <label class="ct-label">Secret Key</label>
+                    <label class="ct-label" data-i18n="lbl_secret_key">Secret Key</label>
                     <input type="password" id="okx-secret-key" class="ct-input" placeholder="Enter Secret Key">
                 </div>
 
                 <div class="ct-input-group">
-                    <label class="ct-label">Passphrase</label>
+                    <label class="ct-label" data-i18n="lbl_passphrase">Passphrase</label>
                     <input type="password" id="okx-passphrase" class="ct-input" placeholder="Enter Passphrase">
+                </div>
+
+                <div id="okx-api-error" style="color: #ff4d4d; font-size: 12px; margin-top: 10px; display: none;"></div>
+
+                <button class="ct-submit-btn" id="btn-validate-okx" onclick="validateOKXCredentials()"
+                    data-i18n="btn_continue">Continue</button>
+            </div>
+
+            <!-- Step 3.5: Global Settings (NEW) -->
+            <div id="ct-step-okx-settings" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('okx-api')">← Back</button>
+
+                <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;"
+                    data-i18n="lbl_trading_settings">
+                    Trading Settings</h2>
+
+                <!-- Balance Display -->
+                <div
+                    style="background: rgba(70, 126, 231, 0.1); border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: center;">
+                    <div style="color: #9CA3AF; font-size: 12px; margin-bottom: 4px;">Current Balance</div>
+                    <div id="okx-balance-display" style="color: #467EE7; font-size: 28px; font-weight: 700;">$0.00</div>
+                    <div style="color: #6B7280; font-size: 11px; margin-top: 4px;">USDT</div>
+                </div>
+
+                <!-- Global Settings -->
+                <div class="ct-input-group">
+                    <label class="ct-label">Reserved Trading Capital (USDT)</label>
+                    <input type="number" id="okx-reserve" class="ct-input" placeholder="e.g. 1000">
+                    <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                        Funds to keep in OKX. Minimum free balance required: $10.
+                        <!-- TODO FOR PRODUCTION: Change $10 back to $100 -->
+                    </div>
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label">Risk Per Trade (%)</label>
+                    <input type="number" id="okx-risk" class="ct-input" placeholder="1.0" value="1.0" step="0.1"
+                        min="0.1" max="100">
                 </div>
 
                 <button class="ct-submit-btn" onclick="proceedToCoinSelection()">Next: Select Coins</button>
             </div>
 
-            <!-- Step 4: Coin Selection (NEW) -->
+            <!-- Step 4: Coin Selection (Simplified) -->
             <div id="ct-step-coin-select" class="ct-step" style="display:none;">
                 <button class="modal-back-btn" onclick="showCTStep('okx-api')">← Back</button>
 
                 <h2
                     style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
-                    Select Coins to Copy</h2>
+                    Select Coins</h2>
                 <p style="text-align: center; color: #9CA3AF; font-size: 13px; margin-bottom: 24px;">
-                    Choose which coins you want to copy trade (minimum $100 per coin)
+                    Select the coins you want to trade. Global risk and reserve settings apply.
                 </p>
 
                 <!-- Coin Grid -->
@@ -632,33 +678,9 @@
                     </div>
                 </div>
 
-                <button class="ct-submit-btn" onclick="proceedToCoinConfig()" id="btn-coin-next" disabled>
-                    Next: Configure Coins
+                <button class="ct-submit-btn" onclick="submitOKXWithCoins()" id="btn-coin-next" disabled>
+                    Connect OKX
                 </button>
-            </div>
-
-            <!-- Step 5: Coin Configuration (Clean Layout) -->
-            <div id="ct-step-coin-config" class="ct-step" style="display:none; height: 100%; flex-direction: column;">
-                <!-- Header with Back Button (Close is handled by parent modal) -->
-                <div style="display: flex; align-items: center; margin-bottom: 16px; position: relative;">
-                    <div onclick="showCTStep('coin-select')"
-                        style="display: flex; align-items: center; color: #3B82F6; cursor: pointer; font-size: 16px; font-weight: 500; z-index: 10;">
-                        <span style="margin-right: 4px; font-size: 20px;">←</span> <span data-i18n="back">Back</span>
-                    </div>
-                    <h2 style="font-family: 'Montserrat', sans-serif; font-size: 18px; font-weight: 700; margin: 0; color: white; position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;"
-                        data-i18n="configure_coins">Configure Coins</h2>
-                </div>
-
-                <!-- Scrollable Coin List -->
-                <div id="coin-config-list"
-                    style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; margin-bottom: 16px;">
-                    <!-- Dynamically populated -->
-                </div>
-
-                <!-- Sticky Connect Button -->
-                <button class="ct-submit-btn" onclick="submitOKXWithCoins()" data-i18n="connect_okx"
-                    style="width: 100%; height: 50px; font-size: 16px; font-weight: 600; margin-top: auto;">Connect
-                    OKX</button>
             </div>
 
             <!-- Spacing for safe area -->
@@ -784,8 +806,7 @@
             <div class="close-modal-btn" onclick="closeEditCoinModal()">&#x2715;</div>
 
             <!-- Header -->
-            <h2
-                style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
                 data-i18n="edit_coin_title">
                 Edit Coin
             </h2>
@@ -817,7 +838,8 @@
             <div style="margin-top: auto;">
                 <button onclick="deleteEditCoin()"
                     style="width: 100%; padding: 16px; background: rgba(255, 77, 77, 0.05); color: #FF4D4D; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; margin-bottom: 12px; font-family: 'Montserrat', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <img src="trash_bin.svg" width="18" height="18" style="filter: brightness(0) saturate(100%) invert(38%) sepia(95%) saturate(1439%) hue-rotate(335deg) brightness(97%) contrast(101%);">
+                    <img src="trash_bin.svg" width="18" height="18"
+                        style="filter: brightness(0) saturate(100%) invert(38%) sepia(95%) saturate(1439%) hue-rotate(335deg) brightness(97%) contrast(101%);">
                     <span data-i18n="btn_remove_coin">Remove Coin</span>
                 </button>
 
@@ -840,8 +862,7 @@
             <div class="close-modal-btn" onclick="closeAddCoinModal()">&#x2715;</div>
 
             <!-- Header -->
-            <h2
-                style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
+            <h2 style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;"
                 data-i18n="add_coin_title">
                 Add Coin
             </h2>
@@ -897,7 +918,8 @@
                     <h2 id="mc-exchange-name"
                         style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; color: white;">
                         OKX</h2>
-                    <div style="font-size: 13px; color: #9CA3AF;" data-i18n="manage_allocations">Manage Allocations</div>
+                    <div style="font-size: 13px; color: #9CA3AF;" data-i18n="manage_allocations">Manage Allocations
+                    </div>
                 </div>
             </div>
 
@@ -909,17 +931,150 @@
 
             <!-- Add Coin Section -->
             <button class="btn-add-coin" onclick="showAddCoinSelector()"
-                style="margin: 0 auto; display: block; width: 100%;">+ Add New Coin</button>
+                style="margin: 0 auto; display: block; width: 100%;" data-i18n="btn_add_new_coin">+ Add New
+                Coin</button>
 
             <!-- Coin Selector (Moved here for context) -->
             <div id="add-coin-selector" style="display:none; margin-top: 24px;">
-                <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;">Select Coin to Add</h3>
+                <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;"
+                    data-i18n="select_coin_to_add">Select Coin to Add</h3>
                 <div class="coin-grid" id="available-coins-grid">
                     <!-- Dynamically populated -->
                 </div>
             </div>
 
             <div style="height: 40px;"></div>
+        </div>
+    </div>
+
+    <!-- === OKX SETTINGS MODAL (Exact BingX Style + Coin Management) === -->
+    <div id="modal-okx-settings" class="modal-overlay sheet-mode" style="display:none;">
+        <div class="modal-content sheet-content"
+            style="background: #11101C; border-radius: 24px 24px 0 0; padding: 24px; position: relative; width: 100%; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto;">
+
+            <!-- Close Button (Top Right) -->
+            <div class="close-modal-btn" onclick="closeOKXSettings()">✕</div>
+
+            <!-- Header -->
+            <h2
+                style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 24px; text-align: center; color: white;">
+                OKX Settings</h2>
+
+            <!-- Exchange Card -->
+            <div
+                style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <div
+                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 50%; padding: 4px;">
+                    <img src="logo_bots/okx.png" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 16px; font-weight: 600; color: #fff;">OKX</div>
+                </div>
+                <!-- Check API Button -->
+                <div style="font-size: 13px; font-weight: 600; color: #467EE7; background: rgba(70, 126, 231, 0.1); padding: 6px 12px; border-radius: 6px; cursor: pointer;"
+                    data-i18n="lbl_check_api">
+                    Check API
+                </div>
+            </div>
+
+            <!-- Capital Input Section -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="color: #fff; font-size: 14px; font-weight: 500;" data-i18n="lbl_reserved_capital">
+                        Reserved Capital</div>
+                    <div id="okx-set-balance" style="color: #9CA3AF; font-size: 12px;">Available: 0.00 USDT</div>
+                </div>
+
+                <div
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <input type="number" id="okx-set-reserve" placeholder="0.00" step="10"
+                        style="background: transparent; border: none; color: #fff; font-size: 16px; font-weight: 600; width: 100%; outline: none; font-family: 'Montserrat', sans-serif;">
+
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button onclick="setOKXCapitalMax()"
+                            style="background: rgba(70, 126, 231, 0.1); color: #467EE7; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 600; cursor: pointer;">MAX</button>
+                        <span style="font-size: 16px; font-weight: 600; color: #fff;">USDT</span>
+                    </div>
+                </div>
+
+                <!-- Capital Slider -->
+                <div style="position: relative; height: 24px; display: flex; align-items: center;">
+                    <input type="range" id="okx-set-reserve-slider" min="0" step="0.01" value="0" class="slider-range"
+                        style="z-index: 2;">
+                </div>
+
+                <div style="font-size: 13px; color: #9CA3AF; margin-top: 8px; line-height: 1.4;"
+                    data-i18n="msg_amount_reserved">
+                    Amount reserved for this strategy.
+                </div>
+            </div>
+
+            <!-- Risk Slider -->
+            <div style="margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center;">
+                    <span style="font-size: 14px; color: #fff; font-weight: 500;" data-i18n="lbl_risk_per_trade">Risk
+                        per Trade</span>
+                    <span id="okx-set-risk-val" style="font-size: 14px; font-weight: 600; color: #06D6A0;">1%</span>
+                </div>
+
+                <!-- Custom Slider Track -->
+                <div style="position: relative; height: 24px; display: flex; align-items: center;">
+                    <input type="range" id="okx-set-risk" min="0.1" max="10" step="0.1" value="1.0" class="slider-range"
+                        style="z-index: 2;">
+                </div>
+
+                <div style="font-size: 13px; color: #9CA3AF; margin-top: 8px;" data-i18n="msg_risk_pct">
+                    Percentage of capital risking per trade.
+                </div>
+            </div>
+
+            <!-- === COIN MANAGEMENT SECTION === -->
+            <div style="margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center;">
+                    <span style="font-size: 14px; color: #fff; font-weight: 500;" data-i18n="lbl_active_coins">Active
+                        Coins</span>
+                    <span id="okx-coin-count" style="font-size: 12px; color: #9CA3AF;">0 coins</span>
+                </div>
+
+                <div id="okx-active-coins-list" style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Add Coin Button -->
+                <button class="btn-add-coin" onclick="showOKXAddCoin()"
+                    style="width: fit-content; min-width: 200px; display: block; margin: 12px auto; border: 1px dashed #467EE7; background: rgba(70, 126, 231, 0.1); color: #467EE7; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer;"
+                    data-i18n="btn_add_coin">
+                    + Add Coin
+                </button>
+
+                <!-- Add Coin Selector -->
+                <div id="okx-add-coin-selector"
+                    style="display:none; margin-top: 16px; background: #1A1926; padding: 16px; border-radius: 16px;">
+                    <h4 style="font-size: 14px; color: #fff; margin-bottom: 12px;">Select Coin to Add</h4>
+                    <div id="okx-available-coins"
+                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="margin-top: auto; padding-bottom: 20px;">
+                <button onclick="disconnectStrategy('okx')"
+                    style="width: 100%; padding: 16px; background: rgba(255, 77, 77, 0.05); color: #FF4D4D; border: none; border-radius: 16px; font-weight: 600; font-size: 16px; margin-bottom: 12px; font-family: 'Montserrat', sans-serif;"
+                    data-i18n="btn_disconnect">
+                    Disconnect Strategy
+                </button>
+
+                <button class="btn-primary" onclick="saveOKXSettings()"
+                    style="width: 100%; padding: 16px; border-radius: 16px; background: #467EE7; color: white; border: none; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(70, 126, 231, 0.3); font-family: 'Montserrat', sans-serif;"
+                    data-i18n="btn_apply_changes">
+                    Apply Changes
+                </button>
+
+                <!-- Spacing for safe area -->
+                <div style="height: 100px;"></div>
+            </div>
         </div>
     </div>
 
@@ -979,7 +1134,15 @@
             <!-- STEP 1: UPLOAD -->
             <div id="analyzer-step-upload">
                 <div class="upload-area" onclick="document.getElementById('chart-input').click()">
-                    <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <div class="upload-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z"
+                                stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                            <path
+                                d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z"
+                                stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg></div>
                     <div class="upload-text" data-i18n="upload_chart">Tap to upload chart</div>
                     <input type="file" id="chart-input" accept="image/*" style="display: none;"
                         onchange="handleChartUpload(this)">
