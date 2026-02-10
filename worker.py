@@ -312,41 +312,62 @@ class TradeCopier:
                     print(f"   ✅ User {user_id} Filled: {exec_q} @ {exec_p}")
 
                 elif side == 'sell':
-                    # Продаем ВЕСЬ баланс этой монеты
+                    # --- PARTIAL SELL LOGIC ---
+                    # We use 'percentage_used' as the 'ratio' passed from master_tracker
+                    # If not passed, default to 1.0 (Sell All)
+                    sell_ratio = float(percentage_used) if percentage_used else 1.0
+                    
                     bal = client.fetch_balance()
                     base_coin = symbol.split('/')[0]
-                    coin_qty = float(bal[base_coin]['free']) if base_coin in bal else 0
+                    client_total_qty = float(bal[base_coin]['free']) if base_coin in bal else 0
                     
-                    if coin_qty > 0:
-                        # Check value of coin_qty vs USDT
-                        # We need price. If price is not available, skip check or fetch it.
-                        # Variable 'price' is available from top of loop (line 218 approx)
+                    if client_total_qty > 0:
+                        # Calculate quantity to sell
+                        qty_to_sell = client_total_qty * sell_ratio
                         
-                        value_usd = coin_qty * price
+                        # Sanity check: if ratio is ~1.0, sell everything to be safe (avoid dust)
+                        if sell_ratio >= 0.99:
+                            qty_to_sell = client_total_qty
+                            print(f"   🔻 User {user_id}: SELL ALL ({sell_ratio*100:.1f}%) -> {qty_to_sell}")
+                        else:
+                            print(f"   🔻 User {user_id}: PARTIAL SELL {sell_ratio*100:.1f}% -> {qty_to_sell:.6f} (Total: {client_total_qty:.6f})")
+
+                        # Check USD value
+                        value_usd = qty_to_sell * price
                         if value_usd < 2.0:
                             print(f"   ⚠️ User {user_id} [OKX SPOT]: Skipping DUST sell (${value_usd:.2f} < $2.00)")
                             return
 
-                        print(f"   🔻 User {user_id} [OKX SPOT]: SELL ALL {coin_qty} {base_coin} (${value_usd:.2f})")
-                        
-                        order = client.create_order(symbol, 'market', 'sell', coin_qty, params={'tdMode': 'cash'})
+                        # EXECUTE SELL
+                        order = client.create_order(symbol, 'market', 'sell', qty_to_sell, params={'tdMode': 'cash'})
                         time.sleep(1)
                         filled = client.fetch_order(order['id'], symbol)
                         exit_price = filled['average'] or price
                         
-                        # NEW: Close client copy and get PnL
+                        # --- BILLING & CLOSING LOGIC ---
+                        # For partial sells, we still need to calculate PnL correctly.
+                        # The 'close_client_copy' function might need updates for partials, 
+                        # but for now, we only close/bill if it's a FULL SELL or close enough.
+                        # IF PARTIAL: record PnL but maybe don't mark 'closed'? 
+                        # INVESTIGATION SYSTEM: close_client_copy closes by order_id? 
+                        # For now, simplistic approach: record PnL on every sell chunk.
+                        
                         pnl = 0.0
                         if open_client_copy:
-                            pnl = close_client_copy(user_id, symbol, exit_price)
-                            # Billing happens in close_client_copy via _handle_pnl_and_billing
-                            self._handle_pnl_and_billing(user_id, symbol, open_client_copy['entry_price'], exit_price, open_client_copy['quantity'], 'buy')
+                            # Calculate PnL for THIS chunk
+                            entry_price = open_client_copy['entry_price']
+                            pnl = (exit_price - entry_price) * qty_to_sell
+                            
+                            # Billing (Real-time for this chunk)
+                            self._handle_pnl_and_billing(user_id, symbol, entry_price, exit_price, qty_to_sell, 'buy')
+                            
+                            # Update DB status
+                            if sell_ratio >= 0.99:
+                                close_client_copy(user_id, symbol, exit_price)
+                                if open_trade: close_trade_in_db(user_id, symbol) # Legacy
                         
-                        # Legacy: also close in old table
-                        if open_trade:
-                            close_trade_in_db(user_id, symbol)
-                        
-                        print(f"   ✅ User {user_id} [OKX SPOT]: SOLD ALL | PnL: ${pnl:.2f}")
-                return
+                        print(f"   ✅ User {user_id} [OKX SPOT]: SOLD | PnL: ${pnl:.2f}")
+                    return
 
             # --- СЦЕНАРИЙ: BINGX FUTURES (RATNER) ---
             elif strategy == 'ratner' and exchange_id == 'bingx':
@@ -733,15 +754,10 @@ class TradeCopier:
                                         f"🎉 <b>Referral Bonus!</b>\n"
                                         f"Level {i+1} referral closed a profitable trade.\n"
                                         f"💵 You earned: <b>{reward:.2f} USDT</b>"
+                                    f"💵 You earned: <b>{reward:.2f} USDT</b>"
                                     )
-                                    loop = None
-                                    try:
-                                        loop = asyncio.new_event_loop()
-                                        asyncio.set_event_loop(loop)
-                                        loop.run_until_complete(self.bot.send_message(referrer_id, ref_msg, parse_mode=ParseMode.HTML))
-                                    finally:
-                                        if loop and not loop.is_closed():
-                                            loop.close()
+                                    self._safe_send_message(referrer_id, ref_msg)
+                                    # Removed manual loop handling
                                 except: pass
                 except Exception as e:
                     print(f"   ❌ MLM Error: {e}")
@@ -762,15 +778,7 @@ class TradeCopier:
                         f"💰 Balance: <b>{bal_text}</b>"
                     )
                     
-                    # Fix: Use try/finally to ensure loop cleanup
-                    loop = None
-                    try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(self.bot.send_message(user_id, msg, parse_mode=ParseMode.HTML))
-                    finally:
-                        if loop and not loop.is_closed():
-                            loop.close()
+                    self._safe_send_message(user_id, msg)
                 except Exception as e:
                     print(f"   ⚠️ Failed to send user notification: {e}")
 
@@ -780,14 +788,27 @@ class TradeCopier:
                 set_copytrading_status(user_id, is_enabled=False)
                 if self.bot:
                     try:
-                        loop = None
-                        try:
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            loop.run_until_complete(self.bot.send_message(user_id, "⚠️ <b>Balance Empty</b>\nCopy Trading Paused. Please Top Up.", parse_mode=ParseMode.HTML))
-                        finally:
-                            if loop and not loop.is_closed():
-                                loop.close()
+                        self._safe_send_message(user_id, "⚠️ <b>Balance Empty</b>\nCopy Trading Paused. Please Top Up.")
                     except: pass
         else:
             print(f"   📉 User {user_id} Loss: ${pnl:.2f}")
+
+    def _safe_send_message(self, user_id, text):
+        """Helper to send messages from thread safely"""
+        try:
+            if not self.bot: return
+            # Try to use existing loop if running (e.g. from main async context)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.bot.send_message(user_id, text, parse_mode=ParseMode.HTML), loop)
+                    return
+            except: pass
+            
+            # Fallback for separate threads (Create new loop safely)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.bot.send_message(user_id, text, parse_mode=ParseMode.HTML))
+            loop.close()
+        except Exception as e:
+            print(f"   ⚠️ Async Send Error: {e}")

@@ -450,9 +450,36 @@ def start_okx_listener():
                             strategy='cgt'
                         )
                         
+                        # --- MASTER POSITION TRACKING (PARTIAL SELLS) ---
+                        from database import update_master_position, get_master_position
+                        
+                        sell_ratio = 1.0 # Default to 100% (Safety)
+                        
+                        if side == 'buy':
+                            # Increase Master Position
+                            update_master_position(symbol, 'cgt', filled_qty)
+                            print(f"   📈 Master Position INC: +{filled_qty} {symbol}")
+                            
+                        elif side == 'sell':
+                            # Calculate Ratio BEFORE updating DB
+                            current_master_qty = get_master_position(symbol, 'cgt')
+                            
+                            if current_master_qty > 0:
+                                # Ratio = Amount Sold / Total Held
+                                # Example: Held 10, Sell 5 -> Ratio 0.5 (50%)
+                                sell_ratio = filled_qty / current_master_qty
+                                if sell_ratio > 1.0: sell_ratio = 1.0 # Cap at 100%
+                                print(f"   📉 Master Partial Sell: {filled_qty} / {current_master_qty} = {sell_ratio*100:.1f}%")
+                            else:
+                                print(f"   ⚠️ Master Sell (Cold Start): Pos 0, defaulting to 100%")
+                                sell_ratio = 1.0
+                            
+                            # Decrease Master Position
+                            update_master_position(symbol, 'cgt', -filled_qty)
+                        
                         # Send to worker queue
                         event_queue.put({
-                            'master_order_id': master_order_id,  # NEW: Pass ID to worker
+                            'master_order_id': master_order_id,
                             'master_exchange': 'okx',
                             'strategy': 'cgt',
                             's': symbol,
@@ -463,7 +490,8 @@ def start_okx_listener():
                             'p': avg_price,
                             'ap': avg_price,
                             'ot': 'SPOT',
-                            'ro': False
+                            'ro': False,
+                            'ratio': sell_ratio # <--- NEW FIELD
                         })
         
         except Exception as e:

@@ -211,6 +211,17 @@ def initialize_db():
             FOREIGN KEY (master_order_id) REFERENCES master_orders(order_id)
         )
     """)
+
+    # Таблица позиций мастера (PARTIAL SELL SUPPORT)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS master_positions (
+            symbol TEXT NOT NULL,
+            strategy TEXT NOT NULL,
+            net_quantity REAL DEFAULT 0.0,
+            updated_at TEXT,
+            PRIMARY KEY (symbol, strategy)
+        )
+    """)
     
     # Таблица транзакций (Top Up)
     cursor.execute("""
@@ -917,6 +928,38 @@ def get_coin_configs(user_id: int, exchange: str) -> list:
             'created_at': row[7]
         })
     return coins
+
+def update_master_position(symbol: str, strategy: str, quantity_change: float):
+    """
+    Updates the Master's net position.
+    quantity_change: +ve for BUY, -ve for SELL.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Check if exists
+    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
+    row = cursor.fetchone()
+    
+    if row:
+        new_qty = max(0, row[0] + quantity_change) # Ensure not negative
+        cursor.execute("UPDATE master_positions SET net_quantity = ?, updated_at = datetime('now') WHERE symbol = ? AND strategy = ?", (new_qty, symbol, strategy))
+    else:
+        new_qty = max(0, quantity_change)
+        cursor.execute("INSERT INTO master_positions (symbol, strategy, net_quantity, updated_at) VALUES (?, ?, ?, datetime('now'))", (symbol, strategy, new_qty))
+        
+    conn.commit()
+    conn.close()
+    return new_qty
+
+def get_master_position(symbol: str, strategy: str) -> float:
+    """Returns Master's current net quantity for a symbol."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else 0.0
 
 def get_user_coin_config(user_id: int, exchange: str, symbol: str):
     """Возвращает конфигурацию конкретной монеты."""
