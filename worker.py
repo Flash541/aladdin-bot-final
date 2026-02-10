@@ -135,11 +135,19 @@ class TradeCopier:
                     print(f"⏭ [SKIP] {symbol} - No users configured for this coin")
                     return
                 
-                master_bal = self._get_master_balance('okx')
-                if master_bal == 0: master_bal = 1000.0
+                if symbol not in active_coins:
+                    print(f"⏭ [SKIP] {symbol} - No users configured for this coin")
+                    return
                 
-                trade_cost = qty * price
-                ratio = min((trade_cost / master_bal), 0.99)
+                # FIX: Use ratio from master_tracker if available (for Partial Sells)
+                ratio = event_data.get('ratio')
+                
+                if ratio is None:
+                    # Fallback for legacy / safety
+                    master_bal = self._get_master_balance('okx')
+                    if master_bal == 0: master_bal = 1000.0
+                    trade_cost = qty * price
+                    ratio = min((trade_cost / master_bal), 0.99)
 
                 print(f"\n🚀 [QUEUE] SIGNAL (OKX SPOT): {side} {symbol} | Ratio: {ratio*100:.2f}%")
                 # Pass symbol to execute_trade_parallel for per-coin filtering

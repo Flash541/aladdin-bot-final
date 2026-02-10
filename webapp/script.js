@@ -333,7 +333,7 @@ const translations = {
         manage_allocations: "Управление аллокациями",
 
         // New Keys
-        lbl_reserved_capital: "Торговый Капітал", // RU
+        lbl_reserved_capital: "Торговый Капитал", // RU
         msg_amount_reserved: "Сумма, зарезервированная для этой стратегии.",
         msg_risk_pct: "Процент капитала, рискуемый на каждую сделку.",
         lbl_active_coins: "Активные Монеты",
