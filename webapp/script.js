@@ -692,10 +692,80 @@ document.addEventListener("DOMContentLoaded", async () => {
     // setupWizard(); // Removed obsolete wizard
     setupReserveModal();
     setupCopyTradingModal();
+    setupReferralModal(); // Added Referral Logic
     setupActionButtons();
     setupLanguageSelector();
     setupWithdrawButton();
 });
+
+// --- REFERRAL LOGIC ---
+function setupReferralModal() {
+    const btn = document.getElementById('btn-referral');
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const modal = document.getElementById('modal-referral');
+        if (modal) {
+            modal.style.display = 'flex';
+            // Fetch stats when opening
+            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                await fetchReferralStats(tg.initDataUnsafe.user.id);
+            } else {
+                // Fallback for testing
+                await fetchReferralStats(7777777);
+            }
+        }
+    };
+}
+
+async function fetchReferralStats(userId) {
+    try {
+        const res = await fetch(`${API_BASE}/api/referral_stats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch referral stats");
+
+        const data = await res.json();
+
+        // Update Link
+        const linkEl = document.getElementById('referral-link');
+        if (linkEl && data.referral_link) {
+            linkEl.innerText = data.referral_link;
+            linkEl.onclick = () => {
+                copyText(data.referral_link);
+                showToast("Referral Link Copied!");
+            };
+        }
+
+        // Update Counts
+        const l1 = document.getElementById('level-1-count');
+        const l2 = document.getElementById('level-2-count');
+        const l3 = document.getElementById('level-3-count');
+
+        if (l1) l1.innerText = `${data.level_1} referrals`;
+        if (l2) l2.innerText = `${data.level_2} referrals`;
+        if (l3) l3.innerText = `${data.level_3} referrals`;
+
+    } catch (e) {
+        console.error("Referral Stats Error:", e);
+    }
+}
+
+function closeReferralModal() {
+    const modal = document.getElementById('modal-referral');
+    if (modal) modal.style.display = 'none';
+}
+
+function copyReferralLink() {
+    const linkEl = document.getElementById('referral-link');
+    if (linkEl) {
+        copyText(linkEl.innerText);
+        showToast("Link Copied!");
+    }
+}
 
 async function fetchUserData(userId) {
     try {

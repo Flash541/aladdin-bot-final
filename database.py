@@ -474,13 +474,34 @@ def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key:
 
 # database.py
 
-def get_referral_counts(user_id: int) -> dict:
+def get_referral_count(user_id: int, level: int = 1) -> int:
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE referrer_id = ?", (user_id,))
-    l1_ids = [row[0] for row in cursor.fetchall()]
-    l1_count = len(l1_ids)
-    return {"l1": l1_count}
+    
+    if level == 1:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (user_id,))
+        count = cursor.fetchone()[0]
+    elif level == 2:
+        cursor.execute("""
+            SELECT COUNT(*) FROM users WHERE referrer_id IN (
+                SELECT user_id FROM users WHERE referrer_id = ?
+            )
+        """, (user_id,))
+        count = cursor.fetchone()[0]
+    elif level == 3:
+        cursor.execute("""
+            SELECT COUNT(*) FROM users WHERE referrer_id IN (
+                SELECT user_id FROM users WHERE referrer_id IN (
+                    SELECT user_id FROM users WHERE referrer_id = ?
+                )
+            )
+        """, (user_id,))
+        count = cursor.fetchone()[0]
+    else:
+        count = 0
+        
+    conn.close()
+    return count
 
 # def get_user_decrypted_keys(user_id: int):
 #     conn = sqlite3.connect(DB_NAME)
