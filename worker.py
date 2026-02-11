@@ -892,8 +892,8 @@ class TradeCopier:
                         
                     msg = (
                         f"✅ <b>TradeMax Trade Closed ({symbol})</b>\n"
-                        f"💵 Profit: <b>${pnl:.2f}</b>\n"
                         f"💰 Amount: <b>${trade_amount_usd:.2f}</b>\n"
+                        f"💵 Profit: <b>${pnl:.2f}</b>\n"
                         f"💰 Balance: <b>{bal_text}</b>"
                     )
                     
