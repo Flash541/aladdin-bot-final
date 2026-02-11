@@ -6,6 +6,8 @@ import glob
 # Common Supervisor Log Paths
 # Tries to find the most recent log file
 LOG_PATTERNS = [
+    "/var/log/aladdin_master.out.log",
+    "/var/log/aladdin_master.err.log",
     "/var/log/supervisor/aladdin-master*.log",
     "/root/aladdin-bot-final/master_tracker.log",
     "/root/aladdin-bot-final/nohup.out"
