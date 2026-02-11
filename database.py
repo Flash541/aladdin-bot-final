@@ -1201,38 +1201,8 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
         print(f"Error in get_text: {e}")
         return key
 
-def get_referral_count(user_id, level=1):
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        
-        if level == 1:
-            query = "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?"
-            cursor.execute(query, (user_id,))
-        elif level == 2:
-            query = """
-                SELECT COUNT(*) FROM referrals r2
-                JOIN referrals r1 ON r2.referrer_id = r1.user_id
-                WHERE r1.referrer_id = ?
-            """
-            cursor.execute(query, (user_id,))
-        elif level == 3:
-            query = """
-                SELECT COUNT(*) FROM referrals r3
-                JOIN referrals r2 ON r3.referrer_id = r2.user_id
-                JOIN referrals r1 ON r2.referrer_id = r1.user_id
-                WHERE r1.referrer_id = ?
-            """
-            cursor.execute(query, (user_id,))
-        else:
-            return 0
-            
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count
-    except Exception as e:
-        print(f"[ERROR] get_referral_count failed for user {user_id}, level {level}: {e}")
-        return 0
+# REMOVED: duplicate get_referral_count that referenced non-existent 'referrals' table.
+# The correct version is defined at line ~477, querying the 'users' table.
 
 
 # ========================================
