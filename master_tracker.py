@@ -347,9 +347,13 @@ def start_okx_listener():
 
     # OKX требует timestamp в секундах для подписи
     import base64
+    from collections import OrderedDict
     
-    # Track processed order IDs to prevent duplicates
-    processed_order_ids = set()
+    # Track processed order IDs to prevent duplicates (ordered for FIFO eviction)
+    processed_order_ids = OrderedDict()
+    
+    # Track last disconnect time for REST API fallback
+    last_disconnect_time = [None]  # mutable container for closure
     
     def get_ws_auth():
         """Генерирует подпись для WebSocket аутентификации"""
@@ -419,12 +423,12 @@ def start_okx_listener():
                             # print(f"   ⏭ Skipping duplicate order {order_id}")
                             continue
                         
-                        # Mark as processed
-                        processed_order_ids.add(order_id)
+                        # Mark as processed (OrderedDict for FIFO eviction)
+                        processed_order_ids[order_id] = time.time()
                         
-                        # Keep only last 1000 IDs to prevent memory leak
-                        if len(processed_order_ids) > 1000:
-                            processed_order_ids.pop()
+                        # Keep only last 2000 IDs, evict OLDEST first
+                        while len(processed_order_ids) > 2000:
+                            processed_order_ids.popitem(last=False)
                         
                         symbol = order['instId'].replace('-', '/')  # BTC-USDT -> BTC/USDT
                         side = order['side']  # buy/sell
@@ -502,22 +506,127 @@ def start_okx_listener():
 
     def on_close(ws, close_code, close_msg):
         print(f"⚠️ OKX WS Closed: {close_code} {close_msg}")
+        last_disconnect_time[0] = time.time()
 
     def on_open(ws):
         print("🔗 OKX WebSocket Connected. Authenticating...")
         auth_msg = get_ws_auth()
         ws.send(json.dumps(auth_msg))
         
-        # Ping thread - отправляет ping каждые 25 сек чтобы соединение не закрылось
+        # OKX-level text 'ping' every 15s — in ADDITION to native WebSocket ping frames
+        # OKX docs: "send 'ping' if no message within 30s, server replies 'pong'"
         def ping_loop():
+            consecutive_failures = 0
             while True:
-                time.sleep(25)
+                time.sleep(15)  # Every 15s (OKX timeout is 30s, so 15s gives safe margin)
                 try:
                     ws.send('ping')
-                except:
-                    break
+                    consecutive_failures = 0
+                except Exception as e:
+                    consecutive_failures += 1
+                    print(f"⚠️ OKX Ping failed ({consecutive_failures}x): {e}")
+                    if consecutive_failures >= 3:
+                        print("❌ OKX Ping failed 3x, closing WS for reconnect...")
+                        try:
+                            ws.close()
+                        except:
+                            pass
+                        break
         
         threading.Thread(target=ping_loop, daemon=True).start()
+    
+    def check_missed_orders_after_reconnect():
+        """After reconnect, use REST API to check recent orders and process any missed ones."""
+        if last_disconnect_time[0] is None:
+            return
+        
+        gap_seconds = time.time() - last_disconnect_time[0]
+        if gap_seconds < 3:
+            return  # Very short gap, likely no missed orders
+        
+        print(f"🔍 [RECOVERY] Checking missed orders (gap: {gap_seconds:.0f}s)...")
+        
+        try:
+            # Fetch recent filled orders from OKX REST API
+            recent_orders = okx.fetch_orders(
+                symbol=None,  # All symbols
+                since=int((last_disconnect_time[0] - 5) * 1000),  # 5s buffer before disconnect
+                limit=50,
+                params={'instType': 'SPOT', 'state': 'filled'}
+            )
+            
+            recovered = 0
+            for order in recent_orders:
+                order_id = order.get('id')
+                if order_id and order_id not in processed_order_ids:
+                    # This order was missed!
+                    symbol = order['symbol']  # Already in 'BTC/USDT' format from ccxt
+                    side = order['side']  # 'buy' or 'sell'
+                    filled_qty = float(order['filled'])
+                    avg_price = float(order['average']) if order['average'] else float(order['price'])
+                    
+                    if filled_qty <= 0:
+                        continue
+                    
+                    trade_usd = filled_qty * avg_price
+                    dt = datetime.fromtimestamp(order['timestamp'] / 1000).strftime("%d.%m.%Y %H:%M:%S")
+                    
+                    print(f"\n🔄 [RECOVERED] OKX: {dt} | {symbol} | {side.upper()} | ${trade_usd:.2f}")
+                    
+                    # Mark as processed
+                    processed_order_ids[order_id] = time.time()
+                    
+                    # Record master order
+                    from database import record_master_order
+                    master_order_id = record_master_order(
+                        master_exchange='okx',
+                        symbol=symbol,
+                        side=side,
+                        order_type='spot_trade',
+                        price=avg_price,
+                        quantity=filled_qty,
+                        strategy='cgt'
+                    )
+                    
+                    # Master position tracking
+                    from database import update_master_position, get_master_position
+                    sell_ratio = 1.0
+                    
+                    if side == 'buy':
+                        update_master_position(symbol, 'cgt', filled_qty)
+                        print(f"   📈 [RECOVERED] Master Position INC: +{filled_qty} {symbol}")
+                    elif side == 'sell':
+                        current_master_qty = get_master_position(symbol, 'cgt')
+                        if current_master_qty > 0:
+                            sell_ratio = min(filled_qty / current_master_qty, 1.0)
+                            print(f"   📉 [RECOVERED] Partial Sell: {filled_qty}/{current_master_qty} = {sell_ratio*100:.1f}%")
+                        update_master_position(symbol, 'cgt', -filled_qty)
+                    
+                    # Send to worker queue
+                    event_queue.put({
+                        'master_order_id': master_order_id,
+                        'master_exchange': 'okx',
+                        'strategy': 'cgt',
+                        's': symbol,
+                        'S': side.upper(),
+                        'o': 'MARKET',
+                        'X': 'FILLED',
+                        'q': filled_qty,
+                        'p': avg_price,
+                        'ap': avg_price,
+                        'ot': 'SPOT',
+                        'ro': False,
+                        'ratio': sell_ratio
+                    })
+                    recovered += 1
+            
+            if recovered > 0:
+                print(f"✅ [RECOVERY] Recovered {recovered} missed order(s)!")
+            else:
+                print(f"✅ [RECOVERY] No missed orders found.")
+                
+        except Exception as e:
+            print(f"⚠️ [RECOVERY] REST API check failed: {e}")
 
     # Главный цикл с автореконнектом
     while True:
@@ -530,13 +639,21 @@ def start_okx_listener():
                 on_open=on_open
             )
             
-            ws.run_forever()
+            # Native WebSocket ping frames every 20s (OKX timeout = 30s)
+            # This is IN ADDITION to the OKX text 'ping' in ping_loop
+            ws.run_forever(ping_interval=20, ping_timeout=10)
             
         except Exception as e:
             print(f"❌ OKX WS Exception: {e}")
         
-        print("♻️ Reconnecting OKX WebSocket in 5 sec...")
-        time.sleep(5)
+        print("♻️ Reconnecting OKX WebSocket in 2 sec...")
+        time.sleep(2)
+        
+        # After reconnect, check for any missed orders via REST API
+        try:
+            check_missed_orders_after_reconnect()
+        except Exception as e:
+            print(f"⚠️ Recovery check error: {e}")
 
 
 # ==========================================
