@@ -779,11 +779,15 @@ class TradeCopier:
         else:
             print(f"   📉 User {user_id} Loss: ${pnl:.2f}")
 
+    # Persistent event loop for sending Telegram messages (shared across calls)
+    _send_loop = None
+
     def _safe_send_message(self, user_id, text):
-        """Helper to send messages from thread safely"""
+        """Helper to send messages from thread safely (reuses persistent event loop)"""
         try:
             if not self.bot: return
-            # Try to use existing loop if running (e.g. from main async context)
+            
+            # Try to use existing running loop (e.g. from main async context)
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -791,11 +795,12 @@ class TradeCopier:
                     return
             except: pass
             
-            # Fallback for separate threads (Create new loop safely)
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.bot.send_message(user_id, text, parse_mode=ParseMode.HTML))
-            loop.close()
+            # Reuse persistent loop (DO NOT close it — closing kills the bot's HTTP client)
+            if TradeCopier._send_loop is None or TradeCopier._send_loop.is_closed():
+                TradeCopier._send_loop = asyncio.new_event_loop()
+            
+            asyncio.set_event_loop(TradeCopier._send_loop)
+            TradeCopier._send_loop.run_until_complete(self.bot.send_message(user_id, text, parse_mode=ParseMode.HTML))
         except Exception as e:
             print(f"   ⚠️ Async Send Error: {e}")
 
