@@ -2324,11 +2324,14 @@ async def daily_subscription_check(context: ContextTypes.DEFAULT_TYPE):
             print(f"Failed to notify expired user {user_id}: {e}")
 
 def main():
+    from daily_report import send_daily_reports
     print("Starting bot with Enhanced Subscription & Referral System & Admin Panel & View Chart & Promocodes...")
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     job_queue = application.job_queue
-    # Запускать каждый день в 00:05 по UTC
+    # subscription expiry check at 00:05 UTC
     job_queue.run_daily(daily_subscription_check, time=datetime.strptime("00:05", "%H:%M").time())
+    # daily pnl report at 07:00 UTC (= 08:00 CET)
+    job_queue.run_daily(send_daily_reports, time=datetime.strptime("07:00", "%H:%M").time())
     # Withdrawal conversation handler
     withdraw_conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^Withdraw Tokens 💰$|' + '|'.join([f"^{v}$" for v in get_all_translations("btn_withdraw")])), withdraw_start)],  

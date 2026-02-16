@@ -1,4 +1,3 @@
-# database.py (v-FINAL-ROBUST - With Retry & WAL)
 import sqlite3
 import uuid
 import os
@@ -6,27 +5,21 @@ import json
 import time
 from datetime import datetime, timedelta
 from typing import Literal
-from cryptography.fernet import Fernet 
+from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 
-load_dotenv() 
+load_dotenv()
 
-# --- КОНФИГУРАЦИЯ ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RENDER_DISK_PATH = os.getenv("RENDER_DISK_PATH")
-
-if RENDER_DISK_PATH:
-    DB_NAME = os.path.join(RENDER_DISK_PATH, "aladdin_users.db")
-else:
-    DB_NAME = os.path.join(BASE_DIR, "aladdin_dev.db")
-
-print(f"✅ Database path set to: {DB_NAME}")
+DB_NAME = os.path.join(RENDER_DISK_PATH, "aladdin_users.db") if RENDER_DISK_PATH else os.path.join(BASE_DIR, "aladdin_dev.db")
+print(f"✅ Database path: {DB_NAME}")
 
 FERNET_KEY = os.getenv("FERNET_KEY")
 if not FERNET_KEY:
-    raise ValueError("FATAL ERROR: FERNET_KEY not found in environment variables.")
-
+    raise ValueError("FATAL: FERNET_KEY not found in env")
 CIPHER = Fernet(FERNET_KEY.encode())
+
 
 def encrypt_data(data: str) -> str:
     if not data: return None
@@ -40,67 +33,52 @@ def decrypt_data(encrypted_data: str) -> str:
         print(f"❌ Decryption failed: {e}")
         return None
 
-# --- ЯДРО БАЗЫ ДАННЫХ (ЗАЩИТА ОТ БЛОКИРОВОК) ---
+
+# ── core db helpers (retry + WAL) ──
 
 def execute_write_query(query, params=()):
-    """
-    Выполняет запись в базу (INSERT/UPDATE/DELETE).
-    Если база занята (Locked), делает 5 попыток с паузой.
-    """
-    max_retries = 5
-    for i in range(max_retries):
+    """write with retry on lock (5 attempts)"""
+    for i in range(5):
         conn = None
         try:
             conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute(query, params)
+            conn.cursor().execute(query, params)
             conn.commit()
-            return # Успех
+            return
         except sqlite3.OperationalError as e:
             if "locked" in str(e):
-                # База занята, ждем и пробуем снова
                 time.sleep(0.1)
                 continue
-            else:
-                # Другая ошибка SQL
-                print(f"❌ SQL Error: {e}")
-                raise e
+            raise
         except Exception as e:
-            print(f"❌ General DB Error: {e}")
-            raise e
+            print(f"❌ DB Error: {e}")
+            raise
         finally:
             if conn: conn.close()
-    
-    print(f"❌ CRITICAL: Database locked after {max_retries} retries. Query failed.")
+    print(f"❌ CRITICAL: DB locked after 5 retries")
 
 def execute_read_query(query, params=()):
-    """
-    Выполняет чтение из базы.
-    Использует WAL режим, поэтому не блокирует запись.
-    """
+    """read with row_factory for named access"""
     conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row # Позволяет обращаться к полям по имени
-    cursor = conn.cursor()
+    conn.row_factory = sqlite3.Row
     try:
+        cursor = conn.cursor()
         cursor.execute(query, params)
-        result = cursor.fetchall()
-        return result
+        return cursor.fetchall()
     except Exception as e:
-        print(f"❌ Read Query Error: {e}")
+        print(f"❌ Read Error: {e}")
         return []
     finally:
         conn.close()
 
+
+# ── schema + migrations ──
+
 def initialize_db():
     conn = sqlite3.connect(DB_NAME)
-    
-    # !!! ВКЛЮЧАЕМ РЕЖИМ WAL (Write-Ahead Logging) !!!
-    # Это позволяет читать базу, пока в нее идет запись.
     conn.execute("PRAGMA journal_mode=WAL;")
-    
     cursor = conn.cursor()
-    
-    # Таблица пользователей
+
     cursor.execute("""
        CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -109,29 +87,28 @@ def initialize_db():
             status TEXT DEFAULT 'active',
             subscription_expiry TEXT,
             referrer_id INTEGER,
+            referred_by INTEGER,
             referral_code TEXT UNIQUE,
             token_balance REAL DEFAULT 0,
+            unc_balance REAL DEFAULT 0,
             is_copytrading_enabled BOOLEAN DEFAULT 1,
-            
             account_balance REAL DEFAULT 1000.0,
             risk_per_trade_pct REAL DEFAULT 1.0,
             exchange_name TEXT,
             api_key_public TEXT,
             api_secret_encrypted TEXT,
             api_passphrase_encrypted TEXT,
-                   
-            selected_strategy TEXT DEFAULT 'bro-bot', -- bro-bot или cgt
+            selected_strategy TEXT DEFAULT 'bro-bot',
             daily_analysis_count INTEGER DEFAULT 0,
             last_analysis_date TEXT,
             language_code TEXT DEFAULT 'en'
         )
     """)
-    
+
     cursor.execute("CREATE TABLE IF NOT EXISTS used_tx_hashes (tx_hash TEXT PRIMARY KEY)")
     cursor.execute("CREATE TABLE IF NOT EXISTS withdrawals (request_id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, wallet_address TEXT, request_date TEXT, status TEXT DEFAULT 'pending')")
     cursor.execute("CREATE TABLE IF NOT EXISTS promo_codes (code TEXT PRIMARY KEY, duration_days INTEGER, is_used INTEGER DEFAULT 0, used_by_user_id INTEGER, activation_date TEXT)")
-    
-    # Таблица сделок (UNIQUE constraint убран - разрешаем множественные позиции)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS copied_trades (
             trade_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,21 +117,20 @@ def initialize_db():
             side TEXT NOT NULL,
             avg_entry_price REAL DEFAULT 0,
             total_quantity REAL DEFAULT 0,
-            open_date TEXT, 
+            open_date TEXT,
             status TEXT DEFAULT 'open'
         )
     """)
 
-    # Таблица подключенных бирж (Multi-Exchange Support)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_exchanges (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
-            exchange_name TEXT, -- 'binance', 'bybit', 'okx', etc.
+            exchange_name TEXT,
             api_key TEXT,
             api_secret_encrypted TEXT,
-            passphrase_encrypted TEXT, -- for OKX
-            strategy TEXT DEFAULT 'bro-bot', -- 'bro-bot' or 'cgt'
+            passphrase_encrypted TEXT,
+            strategy TEXT DEFAULT 'bro-bot',
             reserved_amount REAL DEFAULT 0.0,
             risk_pct REAL DEFAULT 1.0,
             is_active BOOLEAN DEFAULT 1,
@@ -162,8 +138,7 @@ def initialize_db():
             UNIQUE(user_id, exchange_name)
         )
     """)
-    
-    # Таблица конфигурации монет (Multi-Coin Support for OKX CGT)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS coin_configs (
             config_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,8 +152,7 @@ def initialize_db():
             UNIQUE(user_id, exchange_name, symbol)
         )
     """)
-    
-    # Таблица мастер-ордеров (INVESTIGATION SYSTEM)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_orders (
             order_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,8 +166,7 @@ def initialize_db():
             strategy TEXT NOT NULL
         )
     """)
-    
-    # Таблица копий клиентов (INVESTIGATION SYSTEM)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS client_copies (
             copy_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,7 +185,6 @@ def initialize_db():
         )
     """)
 
-    # Таблица позиций мастера (PARTIAL SELL SUPPORT)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS master_positions (
             symbol TEXT NOT NULL,
@@ -222,8 +194,7 @@ def initialize_db():
             PRIMARY KEY (symbol, strategy)
         )
     """)
-    
-    # Таблица транзакций (Top Up)
+
     cursor.execute("""
        CREATE TABLE IF NOT EXISTS transactions (
             tx_hash TEXT PRIMARY KEY,
@@ -236,87 +207,50 @@ def initialize_db():
        )
     """)
 
-    # --- MIGRATION: LEGACY USERS to USER_EXCHANGES ---
-    # migrate legacy keys from 'users' table to 'user_exchanges' ---
-    # This ensures existing users continue copying without needing to reconnect.
+    # legacy migration: users table -> user_exchanges
     try:
         cursor.execute("SELECT user_id, exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted, selected_strategy FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
-        legacy_users = cursor.fetchall()
-        
-        for u in legacy_users:
+        legacy = cursor.fetchall()
+        for u in legacy:
             uid, ex_name, pub, sec, pas, strat = u
-            if not ex_name: ex_name = 'binance' # Default
-            
-            # Use safe INSERT OR IGNORE to avoid duplicates if migration ran before
+            if not ex_name: ex_name = 'binance'
             cursor.execute("""
                 INSERT OR IGNORE INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (uid, ex_name.lower(), pub, sec, pas, strat, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            
-        if legacy_users:
-            print(f"🔄 Migrated {len(legacy_users)} legacy users to 'user_exchanges'.")
-            
+        if legacy:
+            print(f"🔄 Migrated {len(legacy)} legacy users to user_exchanges")
     except Exception as e:
-        print(f"⚠️ Limit migration warning: {e}")
+        print(f"⚠️ Migration warning: {e}")
 
-    # --- MIGRATION: ADD RISK_PCT COLUMN TO USER_EXCHANGES IF MISSING ---
-    try:
-        cursor.execute("SELECT risk_pct FROM user_exchanges LIMIT 1")
-    except sqlite3.OperationalError as err:
-        print("🔄 Adding 'risk_pct' column to user_exchanges...")
-        cursor.execute("ALTER TABLE user_exchanges ADD COLUMN risk_pct REAL DEFAULT 1.0;")
-        conn.commit()
-        print(f"✅ Migration successful. Added risk_pct.")
-    except Exception as err:
-        print(f"⚠️ Migration warning: {err}")
-
-    conn.commit()
-    
-    # Миграции (на случай, если таблица старая)
-    try: cursor.execute("ALTER TABLE users ADD COLUMN exchange_name TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE copied_trades ADD COLUMN open_date TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN selected_strategy TEXT DEFAULT 'bro-bot'")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN daily_analysis_count INTEGER DEFAULT 0")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN last_analysis_date TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN api_passphrase_encrypted TEXT")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN unc_balance REAL DEFAULT 0")
-    except: pass
-    
-    # Init Transactions Table (for migration)
-    try:
-        cursor.execute("""
-           CREATE TABLE IF NOT EXISTS transactions (
-                tx_hash TEXT PRIMARY KEY,
-                user_id INTEGER,
-                amount REAL,
-                currency TEXT,
-                from_address TEXT,
-                status TEXT,
-                created_at TEXT
-           )
-        """)
-    except: pass
+    # column migrations (safe — silently ignored if column exists)
+    migrations = [
+        "ALTER TABLE user_exchanges ADD COLUMN risk_pct REAL DEFAULT 1.0",
+        "ALTER TABLE users ADD COLUMN exchange_name TEXT",
+        "ALTER TABLE copied_trades ADD COLUMN open_date TEXT",
+        "ALTER TABLE users ADD COLUMN selected_strategy TEXT DEFAULT 'bro-bot'",
+        "ALTER TABLE users ADD COLUMN daily_analysis_count INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN last_analysis_date TEXT",
+        "ALTER TABLE users ADD COLUMN api_passphrase_encrypted TEXT",
+        "ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'",
+        "ALTER TABLE users ADD COLUMN referred_by INTEGER",
+        "ALTER TABLE users ADD COLUMN unc_balance REAL DEFAULT 0",
+    ]
+    for m in migrations:
+        try: cursor.execute(m)
+        except: pass
 
     conn.commit()
     conn.close()
-    print("✅ Database initialized successfully (WAL Mode ON).")
+    print("✅ Database initialized (WAL mode)")
+
+
+# ── user settings ──
 
 def save_user_language(user_id: int, lang_code: str):
-    """Сохраняет выбранный язык пользователя."""
     execute_write_query("UPDATE users SET language_code = ? WHERE user_id = ?", (lang_code, user_id))
 
 def get_user_language(user_id: int) -> str:
-    """Возвращает код языка пользователя (по умолчанию 'en')."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT language_code FROM users WHERE user_id = ?", (user_id,))
@@ -324,44 +258,28 @@ def get_user_language(user_id: int) -> str:
     conn.close()
     return res[0] if res and res[0] else 'en'
 
-# --- ФУНКЦИИ КОПИ-ТРЕЙДИНГА (БЕЗОПАСНЫЕ) ---
-
 def check_analysis_limit(user_id: int, limit: int = 5) -> bool:
-    """Проверяет и обновляет дневной лимит анализов."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
     today = datetime.now().strftime("%Y-%m-%d")
-    
     cursor.execute("SELECT daily_analysis_count, last_analysis_date FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
-    
-    current_count = 0
-    last_date = ""
-    
-    if row:
-        current_count = row[0] if row[0] else 0
-        last_date = row[1] if row[1] else ""
-    
-    # Если наступил новый день, сбрасываем счетчик
+
+    count = row[0] if row and row[0] else 0
+    last_date = row[1] if row and row[1] else ""
+
     if last_date != today:
         cursor.execute("UPDATE users SET daily_analysis_count = 1, last_analysis_date = ? WHERE user_id = ?", (today, user_id))
-        conn.commit()
-        conn.close()
+        conn.commit(); conn.close()
         return True
-    
-    # Если день тот же, проверяем лимит
-    if current_count < limit:
+    if count < limit:
         cursor.execute("UPDATE users SET daily_analysis_count = daily_analysis_count + 1 WHERE user_id = ?", (user_id,))
-        conn.commit()
-        conn.close()
+        conn.commit(); conn.close()
         return True
-    else:
-        conn.close()
-        return False
+    conn.close()
+    return False
 
 def set_user_strategy(user_id: int, strategy: str):
-    """Сохраняет выбранную стратегию (bro-bot или cgt)."""
     execute_write_query("UPDATE users SET selected_strategy = ? WHERE user_id = ?", (strategy, user_id))
 
 def get_user_strategy(user_id: int):
@@ -373,7 +291,6 @@ def get_user_strategy(user_id: int):
     return res[0] if res else 'bro-bot'
 
 def get_user_risk_profile(user_id: int) -> float:
-    """Returns risk per trade percentage (e.g. 1.0 for 1%)."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT risk_per_trade_pct FROM users WHERE user_id = ?", (user_id,))
@@ -382,255 +299,178 @@ def get_user_risk_profile(user_id: int) -> float:
     return float(res[0]) if res and res[0] is not None else 1.0
 
 
-# Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
-# Также обнови get_users_for_copytrade, чтобы можно было фильтровать по стратегии
+# ── copy trading connections ──
+
 def get_users_for_copytrade(strategy: str = None) -> list:
-    # LEGACY: Returns lists of user_ids. 
-    # Used by checks, but worker should migrate to get_active_exchange_connections
+    """legacy: returns user_ids from users table"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if strategy:
         cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != '' AND is_copytrading_enabled = 1 AND selected_strategy = ?", (strategy,))
     else:
         cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != '' AND is_copytrading_enabled = 1")
-    user_ids = [row[0] for row in cursor.fetchall()]
+    ids = [row[0] for row in cursor.fetchall()]
     conn.close()
-    return user_ids
+    return ids
 
 def get_active_exchange_connections(strategy: str = None, symbol: str = None) -> list:
-    """
-    Returns list of dicts: {user_id, exchange_name, reserved_amount, strategy, risk_pct, symbol (if applicable)}
-    
-    For CGT (OKX) strategy with symbol: returns per-coin configs from coin_configs table
-    Otherwise: returns exchange-level configs from user_exchanges table
-    """
+    """returns active connections. for cgt+symbol: joins coin_configs for per-coin filtering."""
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
-    # For CGT strategy with a specific symbol, get per-coin configs
+
     if strategy == 'cgt' and symbol:
-        query = """
-            SELECT 
-                ue.user_id, 
-                ue.exchange_name, 
-                ue.reserved_amount, 
-                ue.risk_pct,
-                cc.symbol,
-                ue.strategy
+        cursor.execute("""
+            SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.risk_pct, cc.symbol, ue.strategy
             FROM user_exchanges ue
             INNER JOIN coin_configs cc ON ue.user_id = cc.user_id AND ue.exchange_name = cc.exchange_name
             JOIN users u ON ue.user_id = u.user_id
-            WHERE ue.is_active = 1 
-              AND cc.is_active = 1
-              AND u.is_copytrading_enabled = 1 
-              AND u.token_balance > 0
-              AND ue.strategy = ?
-              AND cc.symbol = ?
-        """
-        params = [strategy, symbol]
+            WHERE ue.is_active = 1 AND cc.is_active = 1 AND u.is_copytrading_enabled = 1
+              AND u.token_balance > 0 AND ue.strategy = ? AND cc.symbol = ?
+        """, (strategy, symbol))
     else:
-        # Original query for non-CGT or when no symbol specified
         query = """
             SELECT ue.user_id, ue.exchange_name, ue.reserved_amount, ue.strategy, ue.risk_pct
-            FROM user_exchanges ue
-            JOIN users u ON ue.user_id = u.user_id
+            FROM user_exchanges ue JOIN users u ON ue.user_id = u.user_id
             WHERE ue.is_active = 1 AND u.is_copytrading_enabled = 1 AND u.token_balance > 0
         """
         params = []
-        
         if strategy:
             query += " AND ue.strategy = ?"
             params.append(strategy)
-        
-    cursor.execute(query, params)
+        cursor.execute(query, params)
+
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
+# ── api keys ──
 
-# def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str):
-#     encrypted_secret = encrypt_data(secret_key)
-#     execute_write_query("""
-#         UPDATE users 
-#         SET exchange_name = ?, api_key_public = ?, api_secret_encrypted = ?
-#         WHERE user_id = ?
-#     """, (exchange, public_key, encrypted_secret, user_id))
-#     print(f"🔐 API keys for user {user_id} saved.")
+def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
+    """redirects to save_user_exchange"""
+    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase)
 
-def save_user_api_keys(user_id: int, exchange: str, public_key: str, secret_key: str, passphrase: str = None):
-    """Шифрует Secret и Passphrase (если есть) и сохраняет."""
-    encrypted_secret = encrypt_data(secret_key)
-    encrypted_passphrase = encrypt_data(passphrase) if passphrase else None
-    
-    execute_write_query("""
-        UPDATE users 
-        SET exchange_name = ?, api_key_public = ?, api_secret_encrypted = ?, api_passphrase_encrypted = ?
-        WHERE user_id = ?
-    """, (exchange, public_key, encrypted_secret, encrypted_passphrase, user_id))
-    print(f"🔐 API keys for user {user_id} saved.")
+def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'bro-bot'):
+    enc_secret = encrypt_data(secret_key)
+    enc_pass = encrypt_data(passphrase) if passphrase else None
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-
-# database.py
-
-def get_referral_count(user_id: int, level: int = 1) -> int:
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    if level == 1:
-        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (user_id,))
-        count = cursor.fetchone()[0]
-    elif level == 2:
-        cursor.execute("""
-            SELECT COUNT(*) FROM users WHERE referrer_id IN (
-                SELECT user_id FROM users WHERE referrer_id = ?
-            )
-        """, (user_id,))
-        count = cursor.fetchone()[0]
-    elif level == 3:
-        cursor.execute("""
-            SELECT COUNT(*) FROM users WHERE referrer_id IN (
-                SELECT user_id FROM users WHERE referrer_id IN (
-                    SELECT user_id FROM users WHERE referrer_id = ?
-                )
-            )
-        """, (user_id,))
-        count = cursor.fetchone()[0]
+    cursor.execute("SELECT id FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+
+    if cursor.fetchone():
+        execute_write_query("""
+            UPDATE user_exchanges SET api_key = ?, api_secret_encrypted = ?, passphrase_encrypted = ?, strategy = ?, is_active = 1
+            WHERE user_id = ? AND exchange_name = ?
+        """, (api_key, enc_secret, enc_pass, strategy, user_id, exchange))
     else:
-        count = 0
-        
+        execute_write_query("""
+            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0.0, ?)
+        """, (user_id, exchange, api_key, enc_secret, enc_pass, strategy, now))
     conn.close()
-    return count
-
-# def get_user_decrypted_keys(user_id: int):
-#     conn = sqlite3.connect(DB_NAME)
-#     cursor = conn.cursor()
-#     cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted FROM users WHERE user_id = ?", (user_id,))
-#     result = cursor.fetchone()
-#     conn.close()
-    
-#     if not result or not result[2]: return None
-#     exchange, public, encrypted_secret = result
-#     decrypted_secret = decrypt_data(encrypted_secret)
-#     return {"exchange": exchange, "apiKey": public, "secret": decrypted_secret}
-
 
 def get_user_decrypted_keys(user_id: int, exchange_name: str = None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # 1. New Table Lookup
+
+    # new table lookup
     query = "SELECT exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, reserved_amount FROM user_exchanges WHERE user_id = ?"
     params = [user_id]
     if exchange_name:
         query += " AND exchange_name = ?"
         params.append(exchange_name)
-    
+
     cursor.execute(query, params)
     res = cursor.fetchone()
-    
-    # Если нашли в новой таблице
     if res:
-        ex_name, pub, sec_enc, pass_enc, res_amt = res
         conn.close()
-        return {
-            "exchange": ex_name,
-            "apiKey": pub,
-            "secret": decrypt_data(sec_enc),
-            "password": decrypt_data(pass_enc) if pass_enc else None,
-            "reserved_amount": res_amt or 0.0
-        }
+        return {"exchange": res[0], "apiKey": res[1], "secret": decrypt_data(res[2]),
+                "password": decrypt_data(res[3]) if res[3] else None, "reserved_amount": res[4] or 0.0}
 
-    # 2. Legacy Lookup (users table)
+    # legacy fallback (users table)
     cursor.execute("SELECT exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
-    
     if not result or not result[2]: return None
-    
-    exchange, public, encrypted_secret, encrypted_pass = result
-    if exchange_name and exchange != exchange_name: return None # Mismatch
+    if exchange_name and result[0] != exchange_name: return None
 
-    decrypted_secret = decrypt_data(encrypted_secret)
-    decrypted_pass = decrypt_data(encrypted_pass) if encrypted_pass else None
-    
-    return {
-        "exchange": exchange,
-        "apiKey": public,
-        "secret": decrypted_secret,
-        "password": decrypted_pass,
-        "reserved_amount": 0.0 # Legacy has no reserve
-    }
+    return {"exchange": result[0], "apiKey": result[1], "secret": decrypt_data(result[2]),
+            "password": decrypt_data(result[3]) if result[3] else None, "reserved_amount": 0.0}
 
-# def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quantity: float):
-#     """
-#     Записывает вход в сделку. 
-#     Использует обычный SELECT, но безопасный execute_write_query для записи.
-#     """
-#     conn = sqlite3.connect(DB_NAME)
-#     cursor = conn.cursor()
-#     # Чтение (не блокирует в WAL режиме)
-#     cursor.execute("SELECT trade_id, avg_entry_price, total_quantity FROM copied_trades WHERE user_id = ? AND symbol = ? AND status = 'open'", (user_id, symbol))
-#     existing_trade = cursor.fetchone()
-#     conn.close()
-    
-#     if existing_trade:
-#         # Усреднение (UPDATE)
-#         trade_id, old_price, old_qty = existing_trade
-#         new_total_qty = old_qty + quantity
-#         new_avg_price = ((old_price * old_qty) + (price * quantity)) / new_total_qty
-        
-#         execute_write_query(
-#             "UPDATE copied_trades SET avg_entry_price = ?, total_quantity = ? WHERE trade_id = ?", 
-#             (new_avg_price, new_total_qty, trade_id)
-#         )
-#         print(f"   -> DB: Averaged position for user {user_id}. New Qty: {new_total_qty:.4f}")
-#     else:
-#         # Новая сделка (INSERT)
-#         execute_write_query("""
-#             INSERT INTO copied_trades (user_id, symbol, side, avg_entry_price, total_quantity, open_date)
-#             VALUES (?, ?, ?, ?, ?, ?)
-#         """, (user_id, symbol, side, price, quantity, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-#         print(f"   -> DB: Recorded NEW position for user {user_id}.")
+
+# ── referrals ──
+
+def get_referral_count(user_id: int, level: int = 1) -> int:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    if level == 1:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (user_id,))
+    elif level == 2:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id IN (SELECT user_id FROM users WHERE referrer_id = ?)", (user_id,))
+    elif level == 3:
+        cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id IN (SELECT user_id FROM users WHERE referrer_id IN (SELECT user_id FROM users WHERE referrer_id = ?))", (user_id,))
+    else:
+        conn.close(); return 0
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def get_referrer_upline(user_id: int, levels: int = 3) -> list:
+    chain = []
+    current_id = user_id
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    for _ in range(levels):
+        cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (current_id,))
+        result = cursor.fetchone()
+        if result and result[0]:
+            chain.append(result[0])
+            current_id = result[0]
+        else:
+            break
+    conn.close()
+    return chain
+
+def credit_referral_tokens(user_id: int, amount: float):
+    execute_write_query("UPDATE users SET token_balance = token_balance + ? WHERE user_id = ?", (amount, user_id))
+
+def get_referrer(user_id: int) -> int | None:
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone(); conn.close()
+    return res[0] if res else None
+
+
+# ── trades ──
 
 def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quantity: float):
-    """
-    Записывает вход или усреднение.
-    Использует логику 'Попробуй вставить, если занято - обнови' (Upsert-like logic).
-    """
+    """upsert: average into existing open position or create new one"""
     conn = sqlite3.connect(DB_NAME)
-    # Включаем WAL для скорости
-    conn.execute("PRAGMA journal_mode=WAL;") 
+    conn.execute("PRAGMA journal_mode=WAL;")
     cursor = conn.cursor()
-    
+
     try:
-        # 1. Сначала пробуем найти открытую сделку
         cursor.execute("SELECT trade_id, avg_entry_price, total_quantity FROM copied_trades WHERE user_id = ? AND symbol = ? AND status = 'open'", (user_id, symbol))
-        existing_trade = cursor.fetchone()
-        
-        if existing_trade:
-            # УСРЕДНЕНИЕ (DCA)
-            trade_id, old_price, old_qty = existing_trade
-            new_total_qty = old_qty + quantity
-            # Формула средней цены: (СтараяЦена * СтароеКолво + НоваяЦена * НовоеКолво) / ОбщееКолво
-            new_avg_price = ((old_price * old_qty) + (price * quantity)) / new_total_qty
-            
-            cursor.execute("UPDATE copied_trades SET avg_entry_price = ?, total_quantity = ? WHERE trade_id = ?", (new_avg_price, new_total_qty, trade_id))
-            print(f"   -> DB: Averaged position for user {user_id}. New Qty: {new_total_qty:.4f}")
+        existing = cursor.fetchone()
+
+        if existing:
+            trade_id, old_price, old_qty = existing
+            new_qty = old_qty + quantity
+            new_avg = ((old_price * old_qty) + (price * quantity)) / new_qty
+            cursor.execute("UPDATE copied_trades SET avg_entry_price = ?, total_quantity = ? WHERE trade_id = ?", (new_avg, new_qty, trade_id))
+            print(f"   -> DB: averaged position for user {user_id}, qty: {new_qty:.4f}")
         else:
-            # НОВАЯ СДЕЛКА
-            # Используем INSERT OR IGNORE, чтобы не падать с ошибкой, если запись появилась за миллисекунду до этого
             try:
                 cursor.execute("""
                     INSERT INTO copied_trades (user_id, symbol, side, avg_entry_price, total_quantity, open_date, status)
                     VALUES (?, ?, ?, ?, ?, ?, 'open')
                 """, (user_id, symbol, side, price, quantity, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                print(f"   -> DB: Recorded NEW position for user {user_id}.")
+                print(f"   -> DB: new position for user {user_id}")
             except sqlite3.IntegrityError:
-                # Если сработал UNIQUE constraint, значит сделка УЖЕ есть (гонка данных).
-                # В этом случае мы рекурсивно вызываем сами себя, чтобы попасть в ветку "УСРЕДНЕНИЕ"
-                print(f"   -> DB: Race condition detected. Switching to Average mode.")
+                # race condition — retry as average
                 conn.close()
                 time.sleep(0.1)
                 record_trade_entry(user_id, symbol, side, price, quantity)
@@ -646,13 +486,10 @@ def record_trade_entry(user_id: int, symbol: str, side: str, price: float, quant
 def get_open_trade(user_id: int, symbol: str):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Выбрать ПОСЛЕДНЮЮ открытую позицию (если несколько)
     cursor.execute("""
-        SELECT side, avg_entry_price, total_quantity 
-        FROM copied_trades 
+        SELECT side, avg_entry_price, total_quantity FROM copied_trades
         WHERE user_id = ? AND symbol = ? AND status = 'open'
-        ORDER BY trade_id DESC
-        LIMIT 1
+        ORDER BY trade_id DESC LIMIT 1
     """, (user_id, symbol))
     result = cursor.fetchone()
     conn.close()
@@ -660,78 +497,219 @@ def get_open_trade(user_id: int, symbol: str):
     return {"side": result[0], "entry_price": result[1], "quantity": result[2]}
 
 def close_trade_in_db(user_id: int, symbol: str):
-    execute_write_query(
-        "UPDATE copied_trades SET status = 'closed' WHERE user_id = ? AND symbol = ? AND status = 'open'", 
-        (user_id, symbol)
-    )
-    print(f"   -> DB: Closed position for user {user_id}.")
+    execute_write_query("UPDATE copied_trades SET status = 'closed' WHERE user_id = ? AND symbol = ? AND status = 'open'", (user_id, symbol))
 
 def set_copytrading_status(user_id: int, is_enabled: bool):
-    execute_write_query(
-        "UPDATE users SET is_copytrading_enabled = ? WHERE user_id = ?", 
-        (1 if is_enabled else 0, user_id)
-    )
-    status = "ENABLED" if is_enabled else "DISABLED"
-    print(f"COPY TRADING for user {user_id} has been {status}.")
+    execute_write_query("UPDATE users SET is_copytrading_enabled = ? WHERE user_id = ?", (1 if is_enabled else 0, user_id))
 
 
-# database.py
-
-def get_referrer_upline(user_id: int, levels: int = 3) -> list:
-    chain = []
-    current_id = user_id
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    for _ in range(levels):
-        cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (current_id,))
-        result = cursor.fetchone()
-        
-        # Если реферер есть и он не None
-        if result and result[0]:
-            referrer_id = result[0]
-            chain.append(referrer_id)
-            current_id = referrer_id # Поднимаемся выше
-        else:
-            break # Цепочка прервалась
-            
-    conn.close()
-    return chain
+# ── billing ──
 
 def deduct_performance_fee(user_id: int, fee_amount: float) -> float:
-    # 1. Списываем (Безопасная запись)
-    execute_write_query(
-        "UPDATE users SET token_balance = token_balance - ? WHERE user_id = ?", 
-        (fee_amount, user_id)
-    )
-    
-    # 2. Получаем новый баланс (Чтение)
+    execute_write_query("UPDATE users SET token_balance = token_balance - ? WHERE user_id = ?", (fee_amount, user_id))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    conn.close()
-    
-    new_balance = res[0] if res else 0
-    print(f"   -> BILLING: Deducted {fee_amount:.2f}. New balance: {new_balance:.2f}")
-    return new_balance
-
-def get_all_users_with_keys() -> list:
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
-    users = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return users
+    res = cursor.fetchone(); conn.close()
+    new_bal = res[0] if res else 0
+    print(f"   -> BILLING: deducted {fee_amount:.2f}, balance: {new_bal:.2f}")
+    return new_bal
 
 def credit_tokens_from_payment(user_id: int, amount_usd: float):
-    execute_write_query(
-        "UPDATE users SET token_balance = token_balance + ? WHERE user_id = ?", 
-        (amount_usd, user_id)
-    )
-    print(f"💰 Credited {amount_usd} tokens to user {user_id}.")
+    execute_write_query("UPDATE users SET token_balance = token_balance + ? WHERE user_id = ?", (amount_usd, user_id))
+    print(f"💰 Credited {amount_usd} to user {user_id}")
 
-# --- ОСТАЛЬНЫЕ ФУНКЦИИ (АДАПТИРОВАННЫЕ ПОД НОВЫЙ СТИЛЬ) ---
+
+# ── exchange management ──
+
+def get_user_exchanges(user_id: int) -> list[dict]:
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_exchanges WHERE user_id = ? AND is_active = 1", (user_id,))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
+    execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
+
+def update_exchange_risk(user_id: int, exchange: str, risk_pct: float):
+    execute_write_query("UPDATE user_exchanges SET risk_pct = ? WHERE user_id = ? AND exchange_name = ?", (risk_pct, user_id, exchange))
+
+def delete_user_exchange(user_id: int, exchange: str):
+    execute_write_query("DELETE FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+
+
+# ── coin configs ──
+
+def add_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float = 1.0):
+    execute_write_query("""
+        INSERT OR REPLACE INTO coin_configs (user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+    """, (user_id, exchange, symbol, capital, risk_pct))
+
+def get_coin_configs(user_id: int, exchange: str) -> list:
+    result = execute_read_query("""
+        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
+        FROM coin_configs WHERE user_id = ? AND exchange_name = ? AND is_active = 1
+        ORDER BY created_at DESC
+    """, (user_id, exchange))
+    return [{'config_id': r[0], 'user_id': r[1], 'exchange_name': r[2], 'symbol': r[3],
+             'reserved_amount': r[4], 'risk_pct': r[5], 'is_active': r[6], 'created_at': r[7]} for r in result]
+
+def get_user_coin_config(user_id: int, exchange: str, symbol: str):
+    result = execute_read_query("""
+        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
+        FROM coin_configs WHERE user_id = ? AND exchange_name = ? AND symbol = ? AND is_active = 1 LIMIT 1
+    """, (user_id, exchange, symbol))
+    if not result: return None
+    r = result[0]
+    return {'config_id': r[0], 'user_id': r[1], 'exchange_name': r[2], 'symbol': r[3],
+            'reserved_amount': r[4], 'risk_pct': r[5], 'is_active': r[6], 'created_at': r[7]}
+
+def update_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float):
+    execute_write_query("UPDATE coin_configs SET reserved_amount = ?, risk_pct = ? WHERE user_id = ? AND exchange_name = ? AND symbol = ?",
+                        (capital, risk_pct, user_id, exchange, symbol))
+
+def delete_coin_config(user_id: int, exchange: str, symbol: str):
+    execute_write_query("DELETE FROM coin_configs WHERE user_id = ? AND exchange_name = ? AND symbol = ?", (user_id, exchange, symbol))
+
+def get_active_coins_for_strategy(strategy: str) -> list:
+    result = execute_read_query("""
+        SELECT DISTINCT cc.symbol FROM coin_configs cc
+        INNER JOIN user_exchanges ue ON cc.user_id = ue.user_id AND cc.exchange_name = ue.exchange_name
+        WHERE ue.strategy = ? AND cc.is_active = 1 AND ue.is_active = 1
+    """, (strategy,))
+    return [row[0] for row in result]
+
+def validate_coin_allocation(user_id: int, exchange: str, new_capital: float, symbol: str = None) -> dict:
+    query = "SELECT SUM(reserved_amount) FROM coin_configs WHERE user_id = ? AND exchange_name = ? AND is_active = 1"
+    params = [user_id, exchange]
+    if symbol:
+        query += " AND symbol != ?"
+        params.append(symbol)
+
+    result = execute_read_query(query, tuple(params))
+    current_total = result[0][0] if result and result[0][0] else 0.0
+
+    exchange_data = execute_read_query("SELECT reserved_amount FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
+    max_balance = exchange_data[0][0] if exchange_data else 0.0
+
+    total_after = current_total + new_capital
+    if total_after > (max_balance + 0.01):
+        print(f"⚠️ Allocation exceeds reserve ({max_balance}), allowing (auto-expand)")
+
+    return {'valid': True, 'message': 'OK', 'total_allocated': total_after, 'available': max_balance}
+
+
+# ── master positions (partial sell support) ──
+
+def update_master_position(symbol: str, strategy: str, quantity_change: float):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
+    row = cursor.fetchone()
+
+    if row:
+        new_qty = max(0, row[0] + quantity_change)
+        cursor.execute("UPDATE master_positions SET net_quantity = ?, updated_at = datetime('now') WHERE symbol = ? AND strategy = ?", (new_qty, symbol, strategy))
+    else:
+        new_qty = max(0, quantity_change)
+        cursor.execute("INSERT INTO master_positions (symbol, strategy, net_quantity, updated_at) VALUES (?, ?, ?, datetime('now'))", (symbol, strategy, new_qty))
+
+    conn.commit(); conn.close()
+    return new_qty
+
+def get_master_position(symbol: str, strategy: str) -> float:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
+    row = cursor.fetchone(); conn.close()
+    return row[0] if row else 0.0
+
+
+# ── investigation system ──
+
+def record_master_order(master_exchange: str, symbol: str, side: str, order_type: str,
+                        price: float, quantity: float, strategy: str) -> int:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO master_orders (master_exchange, symbol, side, order_type, price, quantity, timestamp, strategy)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (master_exchange, symbol, side, order_type, price, quantity, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), strategy))
+    order_id = cursor.lastrowid
+    conn.commit(); conn.close()
+    print(f"   📝 [MASTER] ID={order_id} {side.upper()} {symbol} @ ${price}")
+    return order_id
+
+def record_client_copy(master_order_id: int, user_id: int, symbol: str, side: str,
+                       entry_price: float, quantity: float):
+    execute_write_query("""
+        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
+    """, (master_order_id, user_id, symbol, side, entry_price, quantity, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+def get_open_client_copy(user_id: int, symbol: str) -> dict:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT copy_id, master_order_id, side, entry_price, quantity, opened_at
+        FROM client_copies WHERE user_id = ? AND symbol = ? AND status = 'open'
+        ORDER BY copy_id DESC LIMIT 1
+    """, (user_id, symbol))
+    r = cursor.fetchone(); conn.close()
+    if not r: return None
+    return {"copy_id": r[0], "master_order_id": r[1], "side": r[2], "entry_price": r[3], "quantity": r[4], "opened_at": r[5]}
+
+def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
+    open_copy = get_open_client_copy(user_id, symbol)
+    if not open_copy: return 0.0
+
+    entry = open_copy['entry_price']
+    qty = open_copy['quantity']
+    pnl = (exit_price - entry) * qty if open_copy['side'] == 'buy' else (entry - exit_price) * qty
+
+    execute_write_query("""
+        UPDATE client_copies SET exit_price = ?, profit_loss = ?, closed_at = ?, status = 'closed'
+        WHERE copy_id = ?
+    """, (exit_price, pnl, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), open_copy['copy_id']))
+    return pnl
+
+def get_investigation_report(user_id: int = None, symbol: str = None, limit: int = 100) -> dict:
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    query = """
+        SELECT cc.copy_id, cc.user_id, cc.symbol, cc.side, cc.entry_price, cc.exit_price,
+               cc.quantity, cc.profit_loss, cc.opened_at, cc.closed_at, cc.status,
+               mo.master_exchange, mo.order_type
+        FROM client_copies cc LEFT JOIN master_orders mo ON cc.master_order_id = mo.order_id
+        WHERE 1=1
+    """
+    params = []
+    if user_id: query += " AND cc.user_id = ?"; params.append(user_id)
+    if symbol: query += " AND cc.symbol = ?"; params.append(symbol)
+    query += " ORDER BY cc.opened_at DESC LIMIT ?"
+    params.append(limit)
+
+    cursor.execute(query, params)
+    copies = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    closed = [c for c in copies if c['status'] == 'closed']
+    return {
+        "copies": copies,
+        "stats": {
+            "total_trades": len(copies), "closed_trades": len(closed),
+            "open_trades": len(copies) - len(closed),
+            "total_pnl": sum(c['profit_loss'] for c in copies if c['profit_loss'])
+        }
+    }
+
+
+# ── user management ──
 
 UserStatus = Literal["pending_payment", "active", "expired"]
 
@@ -739,23 +717,20 @@ def add_user(user_id: int, username: str = None, referrer_id: int = None) -> boo
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     if not cursor.fetchone():
-        join_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ref_code = f"ref_{user_id}"
-        # Используем execute_write_query для INSERT
-        conn.close() # Закрываем читалку
+        conn.close()
         execute_write_query(
-            "INSERT INTO users (user_id, username, join_date, referrer_id, referred_by, referral_code, status, account_balance, risk_per_trade_pct, unc_balance) VALUES (?, ?, ?, ?, ?, ?, 'active', 1000.0, 1.0, 0.0)", 
-            (user_id, username, join_date, referrer_id, referrer_id, ref_code)
+            "INSERT INTO users (user_id, username, join_date, referrer_id, referred_by, referral_code, status, account_balance, risk_per_trade_pct, unc_balance) VALUES (?, ?, ?, ?, ?, ?, 'active', 1000.0, 1.0, 0.0)",
+            (user_id, username, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), referrer_id, referrer_id, f"ref_{user_id}")
         )
         return True
-    else:
-        conn.close()
-        return False
+    conn.close()
+    return False
 
 def get_user_status(user_id: int) -> UserStatus | None:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,)); result = cursor.fetchone()
-    conn.close(); return result[0] if result else None
+    cursor.execute("SELECT status FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone(); conn.close()
+    return res[0] if res else None
 
 def activate_user(user_id: int):
     execute_write_query("UPDATE users SET status = 'active' WHERE user_id = ?", (user_id,))
@@ -763,19 +738,17 @@ def activate_user(user_id: int):
 def activate_user_subscription(user_id: int, duration_days: int = 30) -> int | None:
     expiry = (datetime.now() + timedelta(days=duration_days)).strftime("%Y-%m-%d")
     execute_write_query("UPDATE users SET status = 'active', subscription_expiry = ? WHERE user_id = ?", (expiry, user_id))
-    
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,)); referrer = cursor.fetchone()
-    conn.close(); return referrer[0] if referrer else None
-
+    cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone(); conn.close()
+    return res[0] if res else None
 
 def get_all_active_user_ids() -> list[int]:
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE status = 'active'")
-    user_ids = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return user_ids
+    ids = [row[0] for row in cursor.fetchall()]; conn.close()
+    return ids
 
 def get_user_profile(user_id: int) -> dict | None:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
@@ -793,588 +766,135 @@ def get_user_risk_settings(user_id: int) -> dict:
 def update_user_risk_settings(user_id: int, balance: float, risk_pct: float):
     execute_write_query("UPDATE users SET account_balance = ?, risk_per_trade_pct = ? WHERE user_id = ?", (balance, risk_pct, user_id))
 
-# --- MULTI-EXCHANGE MANAGEMENT ---
-
-def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'bro-bot'):
-    """Сохраняет или обновляет подключение к бирже."""
-    encrypted_secret = encrypt_data(secret_key)
-    encrypted_pass = encrypt_data(passphrase) if passphrase else None
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Upsert logic (INSERT OR REPLACE) - но лучше проверить, чтобы не затереть reserved_amount если он есть
-    # Поэтому делаем INSERT ON CONFLICT DO UPDATE
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    
-    # Проверяем, есть ли запись
-    cursor.execute("SELECT id FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
-    row = cursor.fetchone()
-    
-    if row:
-        # Обновляем ключи, стратегию, но оставляем reserved_amount
-        execute_write_query("""
-            UPDATE user_exchanges 
-            SET api_key = ?, api_secret_encrypted = ?, passphrase_encrypted = ?, strategy = ?, is_active = 1
-            WHERE user_id = ? AND exchange_name = ?
-        """, (api_key, encrypted_secret, encrypted_pass, strategy, user_id, exchange))
-    else:
-        # Новая запись
-        execute_write_query("""
-            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 0.0, ?)
-        """, (user_id, exchange, api_key, encrypted_secret, encrypted_pass, strategy, created_at))
-    
-    conn.close()
-
-def get_user_exchanges(user_id: int) -> list[dict]:
-    """Возвращает список всех подключенных бирж пользователя."""
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM user_exchanges WHERE user_id = ? AND is_active = 1", (user_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    
-    exchanges = []
-    for row in rows:
-        exchanges.append(dict(row))
-    return exchanges
-
-def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
-    """Обновляет сумму резерва для конкретной биржи."""
-    execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
-
-def delete_user_exchange(user_id: int, exchange: str):
-    """Удаляет (или помечает неактивной) биржу."""
-    execute_write_query("UPDATE user_exchanges SET is_active = 0 WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
-
-# Backwards compatibility wrapper (if needed for old single-exchange calls, though we should refactor them too)
-def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
-    # Just redirect to new function, defaulting strategy to whatever
-    # But wait, old function implied 'ratner' usually. 
-    # We will assume 'ratner' unless context provided, but save_user_exchange takes strategy.
-    # For now, let's keep it simple.
-    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase)
-
-
-# --- MULTI-EXCHANGE MANAGEMENT ---
-
-def save_user_exchange(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None, strategy: str = 'bro-bot'):
-    """Сохраняет или обновляет подключение к бирже."""
-    encrypted_secret = encrypt_data(secret_key)
-    encrypted_pass = encrypt_data(passphrase) if passphrase else None
-    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Upsert logic (INSERT OR REPLACE) - но лучше проверить, чтобы не затереть reserved_amount если он есть
-    # Поэтому делаем INSERT ON CONFLICT DO UPDATE
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    
-    # Проверяем, есть ли запись
-    cursor.execute("SELECT id FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
-    row = cursor.fetchone()
-    
-    if row:
-        # Обновляем ключи, стратегию, но оставляем reserved_amount
-        execute_write_query("""
-            UPDATE user_exchanges 
-            SET api_key = ?, api_secret_encrypted = ?, passphrase_encrypted = ?, strategy = ?, is_active = 1
-            WHERE user_id = ? AND exchange_name = ?
-        """, (api_key, encrypted_secret, encrypted_pass, strategy, user_id, exchange))
-    else:
-        # Новая запись
-        execute_write_query("""
-            INSERT INTO user_exchanges (user_id, exchange_name, api_key, api_secret_encrypted, passphrase_encrypted, strategy, reserved_amount, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 0.0, ?)
-        """, (user_id, exchange, api_key, encrypted_secret, encrypted_pass, strategy, created_at))
-    
-    conn.close()
-
-def get_user_exchanges(user_id: int) -> list[dict]:
-    """Возвращает список всех подключенных бирж пользователя."""
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM user_exchanges WHERE user_id = ? AND is_active = 1", (user_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    
-    exchanges = []
-    for row in rows:
-        exchanges.append(dict(row))
-    return exchanges
-
-def update_exchange_reserve(user_id: int, exchange: str, reserve_amount: float):
-    """Обновляет сумму резерва для конкретной биржи."""
-    execute_write_query("UPDATE user_exchanges SET reserved_amount = ? WHERE user_id = ? AND exchange_name = ?", (reserve_amount, user_id, exchange))
-
-def update_exchange_risk(user_id: int, exchange: str, risk_pct: float):
-    """Обновляет риск на сделку для конкретной биржи."""
-    execute_write_query("UPDATE user_exchanges SET risk_pct = ? WHERE user_id = ? AND exchange_name = ?", (risk_pct, user_id, exchange))
-
-def delete_user_exchange(user_id: int, exchange: str):
-    """Удаляет (или помечает неактивной) биржу."""
-    execute_write_query("DELETE FROM user_exchanges WHERE user_id = ? AND exchange_name = ?", (user_id, exchange))
-
-# ===========================
-# COIN CONFIG FUNCTIONS (Multi-Coin Support)
-# ===========================
-
-def add_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float = 1.0):
-    """Добавляет конфигурацию для конкретной монеты."""
-    execute_write_query("""
-        INSERT OR REPLACE INTO coin_configs 
-        (user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at)
-        VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
-    """, (user_id, exchange, symbol, capital, risk_pct))
-    print(f"✅ Coin config added: User {user_id} | {exchange} | {symbol} | ${capital:.2f} | {risk_pct}%")
-
-def get_coin_configs(user_id: int, exchange: str) -> list:
-    """Возвращает все конфигурации монет для биржи."""
-    result = execute_read_query("""
-        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
-        FROM coin_configs
-        WHERE user_id = ? AND exchange_name = ? AND is_active = 1
-        ORDER BY created_at DESC
-    """, (user_id, exchange))
-    
-    coins = []
-    for row in result:
-        coins.append({
-            'config_id': row[0],
-            'user_id': row[1],
-            'exchange_name': row[2],
-            'symbol': row[3],
-            'reserved_amount': row[4],
-            'risk_pct': row[5],
-            'is_active': row[6],
-            'created_at': row[7]
-        })
-    return coins
-
-def update_master_position(symbol: str, strategy: str, quantity_change: float):
-    """
-    Updates the Master's net position.
-    quantity_change: +ve for BUY, -ve for SELL.
-    """
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    # Check if exists
-    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
-    row = cursor.fetchone()
-    
-    if row:
-        new_qty = max(0, row[0] + quantity_change) # Ensure not negative
-        cursor.execute("UPDATE master_positions SET net_quantity = ?, updated_at = datetime('now') WHERE symbol = ? AND strategy = ?", (new_qty, symbol, strategy))
-    else:
-        new_qty = max(0, quantity_change)
-        cursor.execute("INSERT INTO master_positions (symbol, strategy, net_quantity, updated_at) VALUES (?, ?, ?, datetime('now'))", (symbol, strategy, new_qty))
-        
-    conn.commit()
-    conn.close()
-    return new_qty
-
-def get_master_position(symbol: str, strategy: str) -> float:
-    """Returns Master's current net quantity for a symbol."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT net_quantity FROM master_positions WHERE symbol = ? AND strategy = ?", (symbol, strategy))
-    row = cursor.fetchone()
-    conn.close()
-    return row[0] if row else 0.0
-
-def get_user_coin_config(user_id: int, exchange: str, symbol: str):
-    """Возвращает конфигурацию конкретной монеты."""
-    result = execute_read_query("""
-        SELECT config_id, user_id, exchange_name, symbol, reserved_amount, risk_pct, is_active, created_at
-        FROM coin_configs
-        WHERE user_id = ? AND exchange_name = ? AND symbol = ? AND is_active = 1
-        LIMIT 1
-    """, (user_id, exchange, symbol))
-    
-    if not result:
-        return None
-    
-    row = result[0]
-    return {
-        'config_id': row[0],
-        'user_id': row[1],
-        'exchange_name': row[2],
-        'symbol': row[3],
-        'reserved_amount': row[4],
-        'risk_pct': row[5],
-        'is_active': row[6],
-        'created_at': row[7]
-    }
-
-def update_coin_config(user_id: int, exchange: str, symbol: str, capital: float, risk_pct: float):
-    """Обновляет конфигурацию монеты."""
-    execute_write_query("""
-        UPDATE coin_configs 
-        SET reserved_amount = ?, risk_pct = ?
-        WHERE user_id = ? AND exchange_name = ? AND symbol = ?
-    """, (capital, risk_pct, user_id, exchange, symbol))
-    print(f"✅ Coin config updated: User {user_id} | {exchange} | {symbol} | ${capital:.2f} | {risk_pct}%")
-
-def delete_coin_config(user_id: int, exchange: str, symbol: str):
-    """Удаляет конфигурацию монеты."""
-    execute_write_query("""
-        DELETE FROM coin_configs 
-        WHERE user_id = ? AND exchange_name = ? AND symbol = ?
-    """, (user_id, exchange, symbol))
-    print(f"🗑 Coin config deleted: User {user_id} | {exchange} | {symbol}")
-
-def get_active_coins_for_strategy(strategy: str) -> list:
-    """Возвращает список всех активных символов для стратегии (все пользователи)."""
-    result = execute_read_query("""
-        SELECT DISTINCT cc.symbol
-        FROM coin_configs cc
-        INNER JOIN user_exchanges ue ON cc.user_id = ue.user_id AND cc.exchange_name = ue.exchange_name
-        WHERE ue.strategy = ? AND cc.is_active = 1 AND ue.is_active = 1
-    """, (strategy,))
-    
-    return [row[0] for row in result]
-
-def validate_coin_allocation(user_id: int, exchange: str, new_capital: float, symbol: str = None) -> dict:
-    """
-    Валидирует новую аллокацию капитала.
-    Возвращает: {'valid': bool, 'message': str, 'total_allocated': float, 'available': float}
-    """
-    # Получить все текущие аллокации (исключая редактируемую монету)
-    query = """
-        SELECT SUM(reserved_amount) 
-        FROM coin_configs 
-        WHERE user_id = ? AND exchange_name = ? AND is_active = 1
-    """
-    params = [user_id, exchange]
-    
-    if symbol:
-        query += " AND symbol != ?"
-        params.append(symbol)
-    
-    result = execute_read_query(query, tuple(params))
-    current_total = result[0][0] if result and result[0][0] else 0.0
-    
-    # Получить баланс биржи
-    exchange_data = execute_read_query("""
-        SELECT reserved_amount FROM user_exchanges 
-        WHERE user_id = ? AND exchange_name = ?
-    """, (user_id, exchange))
-    
-    max_balance = exchange_data[0][0] if exchange_data else 0.0
-    
-    # Check if we are updating an existing config or adding new
-    # If updating, we subtract old value (handled by excluding symbol in query above)
-    
-    total_after = current_total + new_capital
-    
-    # Allow small floating point difference
-    # Allow small floating point difference
-    # if total_after > (max_balance + 0.01):
-    #     return {
-    #         'valid': False, 
-    #         'message': f"Allocation ${new_capital:.2f} exceeds available remaining (${max_balance - current_total:.2f})",
-    #         'total_allocated': total_after,
-    #         'available': max_balance
-    #     }
-    
-    # RELAXED VALIDATION: Allow update, reserved_amount will be updated in next step.
-    if total_after > (max_balance + 0.01):
-         print(f"⚠️ Allocation exceeds current reserve ({max_balance}), but allowing update (Reserve will auto-expand).")
-        
-    # Рассчитать новый total
-    
-    # Validation logic simplified: Checks removed to fix dead code issue and allow small test amounts.
-    new_total = total_after
-    
-    return {
-        'valid': True,
-        'message': 'OK',
-        'total_allocated': new_total,
-        'available': max_balance
-    }
-
-# Backwards compatibility wrapper (if needed for old single-exchange calls, though we should refactor them too)
-def save_user_api_keys(user_id: int, exchange: str, api_key: str, secret_key: str, passphrase: str = None):
-    # Just redirect to new function, defaulting strategy to whatever
-    # But wait, old function implied 'ratner' usually. 
-    # We will assume 'ratner' unless context provided, but save_user_exchange takes strategy.
-    # For now, let's keep it simple.
-    save_user_exchange(user_id, exchange, api_key, secret_key, passphrase)
-
-
-def credit_referral_tokens(user_id: int, amount: float):
-    execute_write_query("UPDATE users SET token_balance = token_balance + ? WHERE user_id = ?", (amount, user_id))
-
-def get_referrer(user_id: int) -> int | None:
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    cursor.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,)); res = cursor.fetchone()
-    conn.close(); return res[0] if res else None
-def get_users_with_api_keys() -> list:
+def get_all_users_with_keys() -> list:
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
-    user_ids = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return user_ids
+    users = [row[0] for row in cursor.fetchall()]; conn.close()
+    return users
+
+def get_users_with_api_keys() -> list:
+    return get_all_users_with_keys()
+
+
+# ── misc ──
+
 def is_tx_hash_used(tx_hash: str) -> bool:
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT tx_hash FROM used_tx_hashes WHERE tx_hash = ?", (tx_hash,)); res = cursor.fetchone(); conn.close(); return res is not None
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT tx_hash FROM used_tx_hashes WHERE tx_hash = ?", (tx_hash,))
+    res = cursor.fetchone(); conn.close()
+    return res is not None
 
 def mark_tx_hash_as_used(tx_hash: str):
     execute_write_query("INSERT OR IGNORE INTO used_tx_hashes (tx_hash) VALUES (?)", (tx_hash,))
 
 def get_user_by_referral_code(code: str) -> int | None:
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT user_id FROM users WHERE referral_code = ?", (code,)); res = cursor.fetchone(); conn.close(); return res[0] if res else None
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users WHERE referral_code = ?", (code,))
+    res = cursor.fetchone(); conn.close()
+    return res[0] if res else None
 
 def validate_and_use_promo_code(code: str, user_id: int) -> int | None:
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT duration_days FROM promo_codes WHERE code = ? AND is_used = 0", (code.upper(),)); res = cursor.fetchone()
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT duration_days FROM promo_codes WHERE code = ? AND is_used = 0", (code.upper(),))
+    res = cursor.fetchone()
     if not res: conn.close(); return None
-    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S"); 
     conn.close()
-    
-    execute_write_query("UPDATE promo_codes SET is_used = 1, used_by_user_id = ?, activation_date = ? WHERE code = ?", (user_id, date, code.upper()))
+    execute_write_query("UPDATE promo_codes SET is_used = 1, used_by_user_id = ?, activation_date = ? WHERE code = ?",
+                        (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), code.upper()))
     return res[0]
 
 def create_withdrawal_request(user_id: int, amount: float, wallet: str) -> bool:
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,)); res = cursor.fetchone()
-    conn.close()
-    
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone(); conn.close()
     if not res or amount > res[0]: return False
-    
-    # Тут две операции, в идеале нужна транзакция, но для SQLite retry тоже норм
     execute_write_query("UPDATE users SET token_balance = token_balance - ? WHERE user_id = ?", (amount, user_id))
-    execute_write_query("INSERT INTO withdrawals (user_id, amount, wallet_address, request_date) VALUES (?, ?, ?, ?)", (user_id, amount, wallet, datetime.now().strftime("%Y-%m-%d")))
+    execute_write_query("INSERT INTO withdrawals (user_id, amount, wallet_address, request_date) VALUES (?, ?, ?, ?)",
+                        (user_id, amount, wallet, datetime.now().strftime("%Y-%m-%d")))
     return True
 
 def generate_promo_codes(count: int, duration_days: int) -> list[str]:
     codes = []
-    for _ in range(count): 
+    for _ in range(count):
         c = f"ALADDIN-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
         execute_write_query("INSERT OR IGNORE INTO promo_codes (code, duration_days) VALUES (?, ?)", (c, duration_days))
         codes.append(c)
     return codes
 
 def check_and_expire_subscriptions():
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); today = datetime.now().strftime("%Y-%m-%d"); cursor.execute("SELECT user_id FROM users WHERE status = 'active' AND subscription_expiry < ?", (today,)); exp = [r[0] for r in cursor.fetchall()]
-    conn.close()
-    
-    if exp: 
-        for u in exp:
-            execute_write_query("UPDATE users SET status = 'expired' WHERE user_id = ?", (u,))
-    return exp
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    today = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("SELECT user_id FROM users WHERE status = 'active' AND subscription_expiry < ?", (today,))
+    expired = [r[0] for r in cursor.fetchall()]; conn.close()
+    for u in expired:
+        execute_write_query("UPDATE users SET status = 'expired' WHERE user_id = ?", (u,))
+    return expired
 
 def get_admin_stats():
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    total = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]; active = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'").fetchone()[0]
-    pending = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'pending_payment'").fetchone()[0]; tokens = cursor.execute("SELECT SUM(token_balance) FROM users").fetchone()[0] or 0
-    w_count = cursor.execute("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").fetchone()[0]; w_sum = cursor.execute("SELECT SUM(amount) FROM withdrawals WHERE status = 'pending'").fetchone()[0] or 0
-    p_total = cursor.execute("SELECT COUNT(*) FROM promo_codes").fetchone()[0]; p_used = cursor.execute("SELECT COUNT(*) FROM promo_codes WHERE is_used = 1").fetchone()[0]
-    conn.close(); return {"total_users": total, "active_users": active, "pending_payment": pending, "total_tokens": tokens, "pending_withdrawals_count": w_count, "pending_withdrawals_sum": w_sum, "total_promo_codes": p_total, "used_promo_codes": p_used, "available_promo_codes": p_total-p_used}
+    total = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    active = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'active'").fetchone()[0]
+    pending = cursor.execute("SELECT COUNT(*) FROM users WHERE status = 'pending_payment'").fetchone()[0]
+    tokens = cursor.execute("SELECT SUM(token_balance) FROM users").fetchone()[0] or 0
+    w_count = cursor.execute("SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").fetchone()[0]
+    w_sum = cursor.execute("SELECT SUM(amount) FROM withdrawals WHERE status = 'pending'").fetchone()[0] or 0
+    p_total = cursor.execute("SELECT COUNT(*) FROM promo_codes").fetchone()[0]
+    p_used = cursor.execute("SELECT COUNT(*) FROM promo_codes WHERE is_used = 1").fetchone()[0]
+    conn.close()
+    return {"total_users": total, "active_users": active, "pending_payment": pending, "total_tokens": tokens,
+            "pending_withdrawals_count": w_count, "pending_withdrawals_sum": w_sum,
+            "total_promo_codes": p_total, "used_promo_codes": p_used, "available_promo_codes": p_total - p_used}
 
 def get_active_users_report(limit=20):
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT user_id, username, token_balance FROM users WHERE status = 'active' ORDER BY join_date DESC LIMIT ?", (limit,)); users = cursor.fetchall(); report = []
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT user_id, username, token_balance FROM users WHERE status = 'active' ORDER BY join_date DESC LIMIT ?", (limit,))
+    users = cursor.fetchall()
+    report = []
     for u in users:
         l1 = cursor.execute("SELECT COUNT(*) FROM users WHERE referrer_id = ?", (u[0],)).fetchone()[0]
         report.append({"user_id": u[0], "username": u[1], "balance": u[2], "referrals": {"l1": l1, "l2": 0}})
-    conn.close(); return report
+    conn.close()
+    return report
 
 def get_pending_withdrawals():
-    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor(); cursor.execute("SELECT request_id, user_id, amount, wallet_address, request_date FROM withdrawals WHERE status = 'pending' ORDER BY request_id ASC"); res = cursor.fetchall(); conn.close(); return res
+    conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
+    cursor.execute("SELECT request_id, user_id, amount, wallet_address, request_date FROM withdrawals WHERE status = 'pending' ORDER BY request_id ASC")
+    res = cursor.fetchall(); conn.close()
+    return res
 
-# Запуск инициализации при импорте
-initialize_db()
 def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
-    """Retrieves translated text for a user."""
-    if not lang:
-        lang = get_user_language(user_id)
-    
+    if not lang: lang = get_user_language(user_id)
     try:
         file_path = os.path.join("locales", f"{lang}.json")
         if not os.path.exists(file_path):
             file_path = os.path.join("locales", "en.json")
-            
         with open(file_path, 'r', encoding='utf-8') as f:
             translations = json.load(f)
-            
-        text = translations.get(key, translations.get(key, key))
-        return text.format(**kwargs)
-    except Exception as e:
-        print(f"Error in get_text: {e}")
+        return translations.get(key, key).format(**kwargs)
+    except Exception:
         return key
 
-# REMOVED: duplicate get_referral_count that referenced non-existent 'referrals' table.
-# The correct version is defined at line ~477, querying the 'users' table.
 
+# ── daily pnl report ──
 
-# ========================================
-# INVESTIGATION SYSTEM FUNCTIONS
-# ========================================
-
-def record_master_order(master_exchange: str, symbol: str, side: str, order_type: str, 
-                        price: float, quantity: float, strategy: str) -> int:
-    """
-    Записывает ордер мастер-аккаунта в БД.
-    Возвращает master_order_id для передачи в worker.
-    """
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+def get_daily_pnl_report(date_str: str) -> list[dict]:
+    """returns per-user per-symbol pnl for a given date (YYYY-MM-DD).
+    only includes closed trades with positive pnl.
+    result: [{user_id, symbol, pnl}, ...]"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
     cursor.execute("""
-        INSERT INTO master_orders (master_exchange, symbol, side, order_type, price, quantity, timestamp, strategy)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (master_exchange, symbol, side, order_type, price, quantity, timestamp, strategy))
-    
-    order_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
-    print(f"   📝 [MASTER ORDER] ID={order_id} {side.upper()} {symbol} @ ${price}")
-    return order_id
-
-
-def record_client_copy(master_order_id: int, user_id: int, symbol: str, side: str, 
-                       entry_price: float, quantity: float):
-    """
-    Записывает копирование сделки клиентом.
-    """
-    opened_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    execute_write_query("""
-        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
-    """, (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at))
-    
-    print(f"   ✅ [CLIENT COPY] User {user_id}: {side.upper()} {quantity} {symbol} @ ${entry_price}")
-
-
-def get_open_client_copy(user_id: int, symbol: str) -> dict:
-    """
-    Возвращает открытую позицию клиента для данного символа.
-    None если позиции нет.
-    """
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT copy_id, master_order_id, side, entry_price, quantity, opened_at
+        SELECT user_id, symbol, SUM(profit_loss) as total_pnl
         FROM client_copies
-        WHERE user_id = ? AND symbol = ? AND status = 'open'
-        ORDER BY copy_id DESC
-        LIMIT 1
-    """, (user_id, symbol))
-    
-    result = cursor.fetchone()
+        WHERE status = 'closed' AND closed_at LIKE ? AND profit_loss > 0
+        GROUP BY user_id, symbol
+        ORDER BY user_id, total_pnl DESC
+    """, (f"{date_str}%",))
+    rows = cursor.fetchall()
     conn.close()
-    
-    if not result:
-        return None
-    
-    return {
-        "copy_id": result[0],
-        "master_order_id": result[1],
-        "side": result[2],
-        "entry_price": result[3],
-        "quantity": result[4],
-        "opened_at": result[5]
-    }
+    return [{"user_id": r[0], "symbol": r[1], "pnl": r[2]} for r in rows]
 
 
-def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
-    """
-    Закрывает открытую позицию клиента и рассчитывает PnL.
-    Возвращает PnL (положительный или отрицательный).
-    """
-    open_copy = get_open_client_copy(user_id, symbol)
-    
-    if not open_copy:
-        print(f"   ⚠️ [CLOSE COPY] No open position for User {user_id} {symbol}")
-        return 0.0
-    
-    # Расчет PnL
-    entry_price = open_copy['entry_price']
-    quantity = open_copy['quantity']
-    side = open_copy['side']
-    
-    if side == 'buy':
-        pnl = (exit_price - entry_price) * quantity
-    else:  # sell
-        pnl = (entry_price - exit_price) * quantity
-    
-    closed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Обновляем запись
-    execute_write_query("""
-        UPDATE client_copies
-        SET exit_price = ?, profit_loss = ?, closed_at = ?, status = 'closed'
-        WHERE copy_id = ?
-    """, (exit_price, pnl, closed_at, open_copy['copy_id']))
-    
-    print(f"   💰 [CLOSE COPY] User {user_id}: PnL = ${pnl:.2f}")
-    return pnl
-
-
-def get_investigation_report(user_id: int = None, symbol: str = None, limit: int = 100) -> dict:
-    """
-    Генерирует отчет для investigation.
-    user_id: фильтр по пользователю (опционально)
-    symbol: фильтр по символу (опционально)
-    limit: максимум записей
-    """
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # Собираем копии клиентов
-    query = """
-        SELECT 
-            cc.copy_id,
-            cc.user_id,
-            cc.symbol,
-            cc.side,
-            cc.entry_price,
-            cc.exit_price,
-            cc.quantity,
-            cc.profit_loss,
-            cc.opened_at,
-            cc.closed_at,
-            cc.status,
-            mo.master_exchange,
-            mo.order_type
-        FROM client_copies cc
-        LEFT JOIN master_orders mo ON cc.master_order_id = mo.order_id
-        WHERE 1=1
-    """
-    params = []
-    
-    if user_id:
-        query += " AND cc.user_id = ?"
-        params.append(user_id)
-    if symbol:
-        query += " AND cc.symbol = ?"
-        params.append(symbol)
-    
-    query += " ORDER BY cc.opened_at DESC LIMIT ?"
-    params.append(limit)
-    
-    cursor.execute(query, params)
-    copies = [dict(row) for row in cursor.fetchall()]
-    
-    # Подсчет статистики
-    total_trades = len(copies)
-    closed_trades = len([c for c in copies if c['status'] == 'closed'])
-    open_trades = total_trades - closed_trades
-    
-    total_pnl = sum(c['profit_loss'] for c in copies if c['profit_loss'])
-    
-    conn.close()
-    
-    return {
-        "copies": copies,
-        "stats": {
-            "total_trades": total_trades,
-            "closed_trades": closed_trades,
-            "open_trades": open_trades,
-            "total_pnl": total_pnl
-        }
-    }
+# auto-init on import
+initialize_db()

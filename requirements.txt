@@ -12,3 +12,4 @@ binance-futures-connector
 pybit
 websocket-client
 cryptography
+Pillow

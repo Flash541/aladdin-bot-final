@@ -1,53 +1,52 @@
-import asyncio
-import ccxt.async_support as ccxt
-import sys
+import os
+import ccxt
+from dotenv import load_dotenv
 
-# OKX Credentials provided by user
-API_KEY = "35da235c-fa34-4717-b392-7e2113703c7d"
-SECRET = "FED6775506E418C26A9B45A6434E3591"
-PASSWORD = "Qwertyuiop1."
+load_dotenv()
 
-async def test_okx_connection():
-    print(f"🔄 Testing OKX Connection...")
-    print(f"API Key: {API_KEY[:4]}...{API_KEY[-4:]}")
+def check_balance():
+    print("--- 🔍 OKX BALANCE INSPECTOR ---")
     
+    key = os.getenv("OKX_MASTER_KEY")
+    secret = os.getenv("OKX_MASTER_SECRET")
+    password = os.getenv("OKX_MASTER_PASSWORD")
+
+    if not key:
+        print("❌ Нет ключей в .env")
+        return
+
     try:
-        exchange = ccxt.okx({
-            'apiKey': API_KEY,
-            'secret': SECRET,
-            'password': PASSWORD,
+        okx = ccxt.okx({
+            'apiKey': key,
+            'secret': secret,
+            'password': password,
             'options': {'defaultType': 'spot'}
         })
         
-        # 1. Fetch Balance
-        print("\n1. Fetching Balance...")
-        balance = await exchange.fetch_balance()
+        # Загружаем баланс
+        bal = okx.fetch_balance()
         
-        usdt_bal = 0
-        if 'USDT' in balance:
-            if 'free' in balance['USDT']:
-                usdt_bal = float(balance['USDT']['free'])
-        
-        print(f"✅ Balance Fetch Success!")
-        print(f"💰 USDT Free: {usdt_bal}")
-        
-        # 2. Check Minimum Requirement ($5)
-        if usdt_bal < 5:
-            print(f"⚠️ WARNING: Balance ${usdt_bal} is less than $5 minimum!")
-        else:
-            print(f"✅ Balance matches requirement (>= $5)")
+        # Смотрим USDT
+        if 'USDT' in bal:
+            usdt = bal['USDT']
+            free = float(usdt['free'])      # Доступно для торговли
+            used = float(usdt['used'])      # Заморожено в ордерах
+            total = float(usdt['total'])    # Всего на счету
             
-        await exchange.close()
-        return True
-        
-    except ccxt.AuthenticationError as e:
-        print(f"\n❌ AUTHENTICATION ERROR: Invalid API Key, Secret or Password.")
-        print(f"Error details: {e}")
-        return False
+            print(f"💰 USDT TOTAL (Всего):     ${total:,.2f}")
+            print(f"🔒 USDT USED (В ордерах):  ${used:,.2f}  <-- Если тут не 0, значит висят лимитки")
+            print(f"✅ USDT FREE (Свободно):   ${free:,.2f}  <-- Бот использует ЭТУ сумму")
+        else:
+            print("⚠️ USDT на счету не найдено!")
+
+        # Проверка других монет (чтобы понять, где остальные деньги)
+        print("\n--- 💼 ДРУГИЕ АКТИВЫ ---")
+        for coin, amount in bal['total'].items():
+            if float(amount) > 0 and coin != 'USDT':
+                print(f"🔹 {coin}: {amount}")
+
     except Exception as e:
-        print(f"\n❌ CONNECTION ERROR: {e}")
-        return False
+        print(f"❌ Ошибка: {e}")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_okx_connection())
+    check_balance()
