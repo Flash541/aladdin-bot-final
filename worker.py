@@ -157,9 +157,9 @@ class TradeCopier:
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
 
-        # late entry protection: skip sell if no open buy
+        # late entry protection: skip sell if no open buy (for spot CGT)
         open_client_copy = get_open_client_copy(user_id, symbol)
-        if side == 'sell' and not open_client_copy:
+        if strategy == 'cgt' and side == 'sell' and not open_client_copy:
             print(f"   ⚠️ User {user_id}: SKIP SELL (no open buy for {symbol})")
             return
 
@@ -168,7 +168,8 @@ class TradeCopier:
             print(f"   ⚠️ User {user_id}: ignoring ReduceOnly (no position)")
             return
 
-        is_closing = bool(open_trade and open_trade['side'] != side)
+        # determine if this signal closes an existing position
+        is_closing = is_reduce_only or bool(open_trade and open_trade['side'] != side)
 
         try:
             # init exchange client
@@ -192,7 +193,8 @@ class TradeCopier:
         # ── BINGX FUTURES (RATNER) ──
         if exchange_id == 'bingx':
             self._execute_bingx_futures(keys, user_id, symbol, side, reserve, percentage_used,
-                                        is_closing, is_reduce_only, open_trade)
+                                        is_closing, is_reduce_only, open_trade,
+                                        master_order_id, open_client_copy)
 
     def _execute_okx_spot(self, client, user_id, symbol, side, reserve, risk_pct,
                           master_order_id, open_client_copy, open_trade, sell_ratio_raw):
@@ -270,7 +272,10 @@ class TradeCopier:
             print(f"   ✅ User {user_id} [OKX]: SOLD | PnL: ${pnl:.2f}")
 
     def _execute_bingx_futures(self, keys, user_id, symbol, side, reserve, percentage_used,
-                                is_closing, is_reduce_only, open_trade):
+                                is_closing, is_reduce_only, open_trade,
+                                master_order_id=None, open_client_copy=None):
+        from database import record_client_copy, close_client_copy
+
         try:
             client = ccxt.bingx({
                 'apiKey': keys['apiKey'], 'secret': keys['secret'],
@@ -303,6 +308,9 @@ class TradeCopier:
 
             # hedge mode position side
             if is_closing or is_reduce_only:
+                if not open_trade:
+                    print(f"   ⚠️ User {user_id}: SKIP close (no open position for {symbol})")
+                    return
                 pos_side = 'LONG' if open_trade['side'] == 'buy' else 'SHORT'
                 params = {'positionSide': pos_side, 'reduceOnly': True}
             else:
@@ -315,7 +323,18 @@ class TradeCopier:
             exec_q = filled['filled']
 
             print(f"   ✅ User {user_id} [BINGX]: {side.upper()} {exec_q} @ {exec_p}")
+
+            # write to copied_trades (legacy)
             self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
+
+            # write to client_copies (for daily PnL reports)
+            if is_closing and open_trade:
+                entry_price = open_client_copy['entry_price'] if open_client_copy else open_trade.get('entry_price', 0)
+                if entry_price > 0:
+                    self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'])
+                close_client_copy(user_id, symbol, exec_p)
+            elif master_order_id:
+                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
 
         except Exception as e:
             print(f"   ❌ User {user_id} BingX Error: {e}")
@@ -323,6 +342,8 @@ class TradeCopier:
     # ── close positions ──
 
     def _close_single_user(self, user_id, symbol, exchange_name=None):
+        from database import close_client_copy
+
         keys = get_user_decrypted_keys(user_id, exchange_name)
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
@@ -348,9 +369,12 @@ class TradeCopier:
                 print(f"   👉 User {user_id}: closed {amt}")
                 time.sleep(0.5)
                 ticker = client.fetch_ticker(ccxt_sym)
+                exit_price = ticker['last']
                 op = get_open_trade(user_id, symbol)
                 if op:
-                    self._handle_pnl_and_billing(user_id, symbol, op['entry_price'], ticker['last'], op['quantity'], op['side'])
+                    self._handle_pnl_and_billing(user_id, symbol, op['entry_price'], exit_price, op['quantity'], op['side'])
+                # record in client_copies for daily PnL reports
+                close_client_copy(user_id, symbol, exit_price)
             close_trade_in_db(user_id, symbol)
         except Exception as e:
             print(f"   ❌ User {user_id} Close Error: {e}")
