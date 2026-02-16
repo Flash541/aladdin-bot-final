@@ -1537,11 +1537,31 @@ async function saveStrategySettings() {
     }
 }
 
-async function disconnectStrategy() {
-    if (!currentStrategySettings) return;
-
+async function disconnectStrategy(exchangeNameOverride) {
     const user = tg.initDataUnsafe.user;
+    if (!user) return;
     const t = translations[currentLang];
+
+    // determine exchange name: explicit param, currentStrategySettings, or currentOKXData
+    const exchange = exchangeNameOverride
+        || (currentStrategySettings && currentStrategySettings.name)
+        || (typeof currentOKXData !== 'undefined' && currentOKXData && currentOKXData.exchange)
+        || null;
+
+    if (!exchange) {
+        tg.showAlert('No exchange selected.');
+        return;
+    }
+
+    // determine user_id
+    const userId = user.id
+        || (typeof currentOKXData !== 'undefined' && currentOKXData && currentOKXData.userId)
+        || null;
+
+    if (!userId) {
+        tg.showAlert('User not found.');
+        return;
+    }
 
     // Show confirmation popup
     tg.showPopup({
@@ -1558,17 +1578,21 @@ async function disconnectStrategy() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: user.id,
-                        exchange: currentStrategySettings.name
+                        user_id: userId,
+                        exchange: exchange
                     })
                 });
 
                 if (res.ok) {
-                    closeStrategySettings();
+                    // close whichever settings modal is open
+                    if (typeof closeStrategySettings === 'function') try { closeStrategySettings(); } catch (e) { }
+                    if (typeof closeOKXSettings === 'function') try { closeOKXSettings(); } catch (e) { }
                     showToast(getTranslation('toast_strategy_disconnected') || "Strategy Disconnected");
-                    if (user.id) fetchUserData(user.id); // Refresh UI
+                    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    if (userId) fetchUserData(userId);
                 } else {
-                    tg.showAlert("Failed to disconnect strategy. Please try again.");
+                    const result = await res.json().catch(() => ({}));
+                    tg.showAlert('Error disconnecting: ' + (result.detail || result.msg || 'Unknown error'));
                 }
             } catch (e) {
                 console.error(e);
@@ -2286,7 +2310,7 @@ async function disconnectExchange(exchange) {
     if (!user) return;
     tg.MainButton.showProgress();
     try {
-        await fetch(`${API_BASE} /api/disconnect`, {
+        await fetch(`${API_BASE}/api/disconnect`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: user.id, exchange: exchange })
         });
@@ -3234,30 +3258,5 @@ async function saveOKXSettings() {
     }
 }
 
-async function disconnectStrategy(exchangeName) {
-    if (!confirm('Are you sure you want to disconnect this strategy? Your API keys will be deleted.')) return;
-
-    try {
-        const response = await fetch(`${API_BASE}/api/disconnect`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentOKXData.userId,
-                exchange: exchangeName
-            })
-        });
-
-        const result = await response.json();
-        if (result.status === 'ok') {
-            closeOKXSettings();
-            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-        } else {
-            alert('Error disconnecting: ' + (result.msg || 'Unknown error'));
-        }
-
-    } catch (error) {
-        console.error('Error disconnecting:', error);
-        alert('Error disconnecting: ' + error.message);
-    }
-}
+// disconnectStrategy is already defined above — unified version handles both BingX and OKX
 
