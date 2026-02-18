@@ -40,21 +40,29 @@ def start_bingx_listener():
 
     def get_listen_key():
         try:
-            path = "/openApi/swap/v2/user/auth/userDataStream"
             base_url = "https://open-api.bingx.com"
             timestamp = int(time.time() * 1000)
             params = {"timestamp": timestamp}
             query_string = urlencode(sorted(params.items()))
             signature = hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+            headers = {"X-BX-APIKEY": key}
 
-            resp = requests.post(
-                f"{base_url}{path}?{query_string}&signature={signature}",
-                headers={"X-BX-APIKEY": key}, timeout=5
-            )
-            if resp.status_code != 200: return None
-
-            data = resp.json()
-            return data['data']['listenKey'] if data.get('code') == 0 else None
+            # try v1 endpoint first (works with newer keys)
+            for path in ["/openApi/user/auth/userDataStream",
+                         "/openApi/swap/v2/user/auth/userDataStream"]:
+                resp = requests.post(
+                    f"{base_url}{path}?{query_string}&signature={signature}",
+                    headers=headers, timeout=5
+                )
+                if resp.status_code != 200: continue
+                data = resp.json()
+                # v1 returns {"listenKey": "..."}, v2 returns {"code":0, "data":{"listenKey":"..."}}
+                lk = data.get('listenKey') or (data.get('data', {}) or {}).get('listenKey')
+                if lk:
+                    print(f"✅ BingX listenKey obtained via {path}")
+                    return lk
+            print("❌ BingX: all listenKey endpoints failed")
+            return None
         except Exception as e:
             print(f"❌ BingX Request Error: {repr(e)}")
             return None
@@ -125,13 +133,17 @@ def start_bingx_listener():
                 time.sleep(30 * 60)
                 if stop_extend.is_set(): break
                 try:
-                    path = "/openApi/swap/v2/user/auth/userDataStream"
                     base_url = "https://open-api.bingx.com"
                     timestamp = int(time.time() * 1000)
                     params = {"timestamp": timestamp, "listenKey": listen_key}
                     query = urlencode(sorted(params.items()))
                     sig = hmac.new(secret.encode(), query.encode(), hashlib.sha256).hexdigest()
-                    requests.put(f"{base_url}{path}?{query}&signature={sig}", headers={"X-BX-APIKEY": key}, timeout=5)
+                    # try both endpoints for extend
+                    for path in ["/openApi/user/auth/userDataStream",
+                                 "/openApi/swap/v2/user/auth/userDataStream"]:
+                        r = requests.put(f"{base_url}{path}?{query}&signature={sig}",
+                                        headers={"X-BX-APIKEY": key}, timeout=5)
+                        if r.status_code == 200: break
                 except: pass
 
         threading.Thread(target=auto_extend, daemon=True).start()
@@ -358,6 +370,133 @@ def start_okx_listener():
         except Exception as e: print(f"⚠️ Recovery error: {e}")
 
 
+# ── bybit listener ──
+
+def start_bybit_listener():
+    key = os.getenv("BYBIT_MASTER_KEY")
+    secret = os.getenv("BYBIT_MASTER_SECRET")
+
+    if not key or len(key) < 10:
+        print("ℹ️ Bybit Listener skipped (no key)")
+        return
+
+    print("🎧 Starting Bybit Listener...")
+
+    processed_order_ids = OrderedDict()
+
+    def on_message(ws, message):
+        try:
+            msg = json.loads(message)
+
+            # auth response
+            if msg.get('op') == 'auth':
+                if msg.get('success'):
+                    print("✅ Bybit WS: Authenticated!")
+                    ws.send(json.dumps({"op": "subscribe", "args": ["order"]}))
+                else:
+                    print(f"❌ Bybit Auth Failed: {msg}")
+                return
+
+            # subscription response
+            if msg.get('op') == 'subscribe':
+                if msg.get('success'):
+                    print("✅ Bybit: Subscribed to orders channel")
+                return
+
+            # pong
+            if msg.get('op') == 'pong':
+                return
+
+            # order updates
+            if msg.get('topic') != 'order' or 'data' not in msg:
+                return
+
+            for order in msg['data']:
+                if order.get('orderStatus') != 'Filled':
+                    continue
+
+                # BTC only
+                raw_symbol = order.get('symbol', '')
+                if raw_symbol != 'BTCUSDT':
+                    continue
+
+                order_id = order.get('orderId')
+                if order_id in processed_order_ids:
+                    continue
+
+                # dedup — keep last 2000
+                processed_order_ids[order_id] = time.time()
+                while len(processed_order_ids) > 2000:
+                    processed_order_ids.popitem(last=False)
+
+                side = order.get('side', '').lower() 
+                filled_qty = float(order.get('cumExecQty', 0))
+                avg_price = float(order.get('avgPrice', 0)) or float(order.get('price', 0))
+                is_reduce_only = order.get('reduceOnly', False)
+
+                symbol = 'BTCUSDT'
+                trade_usd = filled_qty * avg_price
+                dt = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+                print(f"\n🔔 Bybit WS: {dt} | {symbol} | {side.upper()} | ${trade_usd:.2f} | RO={is_reduce_only}")
+
+                from database import record_master_order
+                master_order_id = record_master_order(
+                    master_exchange='bybit', symbol=symbol, side=side,
+                    order_type='MARKET', price=avg_price,
+                    quantity=filled_qty, strategy='aitrading'
+                )
+
+                event_queue.put({
+                    'master_order_id': master_order_id,
+                    'master_exchange': 'bybit',
+                    'strategy': 'aitrading',
+                    's': symbol,
+                    'S': side.upper(),
+                    'o': 'MARKET',
+                    'X': 'FILLED',
+                    'q': filled_qty,
+                    'p': avg_price,
+                    'ap': avg_price,
+                    'ot': 'MARKET',
+                    'ro': is_reduce_only
+                })
+
+        except Exception as e:
+            print(f"⚠️ Bybit WS Parse Error: {e}")
+
+    def on_error(ws, error):
+        print(f"❌ Bybit WS Error: {error}")
+
+    def on_close(ws, close_code, close_msg):
+        print(f"⚠️ Bybit WS Closed: {close_code} {close_msg}")
+
+    def on_open(ws):
+        print("🔗 Bybit WebSocket Connected. Authenticating...")
+        # Bybit v5 auth
+        expires = int((time.time() + 10) * 1000)
+        val = f"GET/realtime{expires}"
+        signature = hmac.new(secret.encode(), val.encode(), hashlib.sha256).hexdigest()
+        ws.send(json.dumps({
+            "op": "auth",
+            "args": [key, expires, signature]
+        }))
+
+    # reconnect loop
+    while True:
+        try:
+            ws = websocket.WebSocketApp(
+                "wss://stream.bybit.com/v5/private",
+                on_message=on_message, on_error=on_error,
+                on_close=on_close, on_open=on_open
+            )
+            ws.run_forever(ping_interval=20, ping_timeout=10)
+        except Exception as e:
+            print(f"❌ Bybit WS Exception: {e}")
+
+        print("♻️ Reconnecting Bybit in 5 sec...")
+        time.sleep(5)
+
+
 # ── main ──
 
 def main():
@@ -375,6 +514,9 @@ def main():
 
     if os.getenv("OKX_MASTER_KEY") and len(os.getenv("OKX_MASTER_KEY")) > 10:
         threading.Thread(target=start_okx_listener, daemon=True).start()
+
+    if os.getenv("BYBIT_MASTER_KEY") and len(os.getenv("BYBIT_MASTER_KEY")) > 10:
+        threading.Thread(target=start_bybit_listener, daemon=True).start()
 
     try:
         while True: time.sleep(1)

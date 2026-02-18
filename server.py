@@ -348,6 +348,8 @@ async def connect_exchange(req: ConnectRequest):
     if req.strategy == 'bingbot': req.strategy = 'ratner'
     if exchange and exchange.lower() == 'bingx' and req.strategy not in ['ratner']:
         req.strategy = 'ratner'
+    if exchange and exchange.lower() == 'bybit' and req.strategy not in ['aitrading']:
+        req.strategy = 'aitrading'
 
     if not exchange or not secret:
         raise HTTPException(status_code=422, detail="Missing required fields (exchange/secret)")

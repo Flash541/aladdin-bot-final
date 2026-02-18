@@ -484,6 +484,19 @@
                     <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Futures</div>
                 </div>
 
+                <!-- AiTrading Strategy (Bybit) -->
+                <div class="strategy-selector-btn" data-strategy="aitrading" data-exchange="bybit"
+                    style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="usdt_bep_icon.svg" width="32" height="32">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600; color: #fff;">AiTrading</div>
+                            <div style="font-size: 13px; color: #9CA3AF;">Bybit Only</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 14px; color: #467EE7; font-weight: 500;">Futures</div>
+                </div>
+
                 <!-- TradeMax Strategy -->
                 <div class="strategy-selector-btn" data-strategy="trademax" data-exchange="okx"
                     style="background: #1A1926; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;">
@@ -550,6 +563,55 @@
 
                 <button class="ct-submit-btn" onclick="submitBingXAPI()" data-i18n="btn_connect_bingx">Connect
                     BingX</button>
+            </div>
+
+            <!-- Step 2b: API Configuration (Bybit) -->
+            <div id="ct-step-bybit-api" class="ct-step" style="display:none;">
+                <button class="modal-back-btn" onclick="showCTStep('strategy')">← Back</button>
+
+                <h2
+                    style="font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">
+                    Bybit API Setup</h2>
+
+                <a href="https://www.bybit.com/app/user/api-management" target="_blank"
+                    style="display:block; text-align:center; color:#467EE7; font-size:14px; margin-bottom:20px; text-decoration:none;">
+                    Get API Keys ↗
+                </a>
+
+                <div style="margin-bottom:24px;">
+                    <label class="ct-label" style="text-align:center;" data-i18n="lbl_whitelist_ip">Whitelist this IP
+                        Address</label>
+                    <div class="address-box" onclick="copyText('167.99.130.80')"
+                        style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
+                        <span
+                            style="font-family: 'Inconsolata', monospace; font-size: 16px; letter-spacing: 1px; color:#fff;">167.99.130.80</span>
+                        <img src="copy_icon.svg" width="20" height="20" style="opacity: 0.7;">
+                    </div>
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label" data-i18n="lbl_api_key">API Key</label>
+                    <input type="text" id="bybit-api-key" class="ct-input" placeholder="Enter API Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label" data-i18n="lbl_secret_key">Secret Key</label>
+                    <input type="password" id="bybit-secret-key" class="ct-input" placeholder="Enter Secret Key">
+                </div>
+
+                <div class="ct-input-group">
+                    <label class="ct-label" data-i18n="trading_capital_label">Trading Capital (USDT)</label>
+                    <input type="number" id="bybit-capital" class="ct-input" placeholder="0.00" step="0.01">
+                    <div style="font-size: 12px; color: #6B7280; margin-top: 4px;" data-i18n="msg_set_trading_capital">
+                        Set the amount you want to allocate for trading
+                    </div>
+                    <div style="font-size: 13px; color: #FF9F0A; margin-top: 8px; font-weight: 500;"
+                        data-i18n="min_balance_warning">
+                        Minimum trading balance: 100 USDT
+                    </div>
+                </div>
+
+                <button class="ct-submit-btn" onclick="submitBybitAPI()">Connect Bybit</button>
             </div>
 
             <!-- Step 3: API Configuration (OKX) -->

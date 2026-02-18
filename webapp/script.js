@@ -826,6 +826,8 @@ function renderExchanges(exchanges, credits = 0) {
         const exNameLow = ex.name.toLowerCase();
         if (exNameLow === 'okx' || ex.strategy === 'trademax' || ex.strategy === 'cgt') {
             stratName = 'TradeMax';
+        } else if (exNameLow === 'bybit' || ex.strategy === 'aitrading') {
+            stratName = 'AiTrading';
         } else if (exNameLow === 'bingx') {
             stratName = 'BingBot';
         }
@@ -957,11 +959,14 @@ function renderActiveStrategies(exchanges, credits = 0) {
         const exNameLow = ex.name.toLowerCase();
         if (exNameLow === 'okx' || ex.strategy === 'trademax' || ex.strategy === 'cgt') {
             stratName = 'TradeMax';
+        } else if (exNameLow === 'bybit' || ex.strategy === 'aitrading') {
+            stratName = 'AiTrading';
         } else if (exNameLow === 'bingx') {
             stratName = 'BingBot';
         }
         let typeDesc = 'Spot';
         if (ex.name.toLowerCase() === 'bingx') typeDesc = 'BingX Futures';
+        else if (ex.name.toLowerCase() === 'bybit') typeDesc = 'Bybit Futures';
         else if (ex.name.toLowerCase() === 'okx') typeDesc = 'OKX Spot';
 
         const logoPath = `logo_bots/${ex.name.toLowerCase()}.png?v=2`;
@@ -1681,6 +1686,7 @@ function setupCopyTradingModal() {
             const exchange = strategyBtn.dataset.exchange;
 
             if (exchange === 'bingx') showCTStep('bingx-api');
+            else if (exchange === 'bybit') showCTStep('bybit-api');
             else if (exchange === 'okx') showCTStep('okx-api');
 
             if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -1691,15 +1697,18 @@ function setupCopyTradingModal() {
 // Filter strategies based on market type
 function filterStrategiesByMarket(marketType) {
     const bingbotCard = document.querySelector('.strategy-selector-btn[data-strategy="bingbot"]');
+    const aitradingCard = document.querySelector('.strategy-selector-btn[data-strategy="aitrading"]');
     const trademaxCard = document.querySelector('.strategy-selector-btn[data-strategy="trademax"]');
 
     if (marketType === 'futures') {
-        // Show only BingBot
+        // Show BingBot + AiTrading
         if (bingbotCard) bingbotCard.style.display = 'flex';
+        if (aitradingCard) aitradingCard.style.display = 'flex';
         if (trademaxCard) trademaxCard.style.display = 'none';
     } else if (marketType === 'spot') {
         // Show only TradeMax
         if (bingbotCard) bingbotCard.style.display = 'none';
+        if (aitradingCard) aitradingCard.style.display = 'none';
         if (trademaxCard) trademaxCard.style.display = 'flex';
     }
 }
@@ -1715,7 +1724,7 @@ function showCTStep(stepName) {
     // Dynamic Height Adjustment
     const modalContent = document.querySelector('#modal-copytrading .modal-content');
     if (modalContent) {
-        if (stepName === 'bingx-api' || stepName === 'okx-api' || stepName === 'coin-select' || stepName === 'coin-config') {
+        if (stepName === 'bingx-api' || stepName === 'bybit-api' || stepName === 'okx-api' || stepName === 'coin-select' || stepName === 'coin-config') {
             // Expand for API forms and coin selection/config
             modalContent.style.height = '85vh'; // Use viewport percentage
             modalContent.style.overflowY = 'auto'; // Enable scrolling for forms, but config handles its own
@@ -1828,6 +1837,50 @@ async function submitBingXAPI() {
         const data = await response.json();
         if (data.status === 'ok') {
             showToast('BingX Connected!');
+            closeCopyTradingModal();
+            await fetchUserData(user.id);
+        } else {
+            console.error(data.message || 'Connection failed');
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function submitBybitAPI() {
+    const apiKey = document.getElementById('bybit-api-key').value.trim();
+    const secretKey = document.getElementById('bybit-secret-key').value.trim();
+    const capital = parseFloat(document.getElementById('bybit-capital').value);
+
+    if (!apiKey || !secretKey || isNaN(capital)) {
+        alert('Please fill API fields correctly');
+        return;
+    }
+
+    if (capital < 100) {
+        alert('Minimum trading capital must be at least 100 USDT');
+        return;
+    }
+
+    try {
+        const user = tg.initDataUnsafe.user;
+        const response = await fetch(`${API_BASE}/api/connect_exchange`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                exchange: 'bybit',
+                strategy: 'aitrading',
+                api_key: apiKey,
+                secret: secretKey,
+                password: '',
+                reserve: capital
+            })
+        });
+
+        const data = await response.json();
+        if (data.status === 'ok') {
+            showToast('Bybit Connected!');
             closeCopyTradingModal();
             await fetchUserData(user.id);
         } else {

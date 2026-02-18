@@ -52,6 +52,18 @@ class TradeCopier:
                 print("✅ Master [bingx] initialized.")
             except: pass
 
+        # bybit futures
+        key_by = os.getenv("BYBIT_MASTER_KEY")
+        sec_by = os.getenv("BYBIT_MASTER_SECRET")
+        if key_by:
+            try:
+                self.masters['bybit'] = ccxt.bybit({
+                    'apiKey': key_by, 'secret': sec_by,
+                    'options': {'defaultType': 'linear'}
+                })
+                print("✅ Master [bybit] initialized.")
+            except: pass
+
     def _get_master_balance(self, exchange_name):
         try:
             if exchange_name == 'okx':
@@ -109,19 +121,32 @@ class TradeCopier:
             return
 
         # futures signals (bingx)
-        if status not in ['FILLED', 'PARTIALLY_FILLED']: return
+        if master_exchange == 'bingx':
+            if status not in ['FILLED', 'PARTIALLY_FILLED']: return
 
-        if orig_type in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
-            print(f"\n🚨 [SIGNAL] CLOSE ALL ({master_exchange}): {symbol}")
-            self.close_all_positions_parallel(symbol, executor)
+            if orig_type in ['STOP_MARKET', 'TAKE_PROFIT_MARKET']:
+                print(f"\n🚨 [SIGNAL] CLOSE ALL ({master_exchange}): {symbol}")
+                self.close_all_positions_parallel(symbol, executor, strategy='ratner')
 
-        elif order_type in ['MARKET', 'LIMIT']:
-            master_bal = self._get_master_balance(master_exchange)
+            elif order_type in ['MARKET', 'LIMIT']:
+                master_bal = self._get_master_balance(master_exchange)
+                ratio = min((qty * price) / master_bal, 0.99) if master_bal > 0 else 0
+                use_strategy = event_data.get('strategy', 'ratner')
+
+                print(f"\n🚀 [SIGNAL] {master_exchange}: {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
+                self.execute_trade_parallel(symbol, side.lower(), ratio, executor, use_strategy, is_reduce_only=is_reduce_only, master_order_id=master_order_id)
+            return
+
+        # futures signals (bybit) — BTC only
+        if master_exchange == 'bybit':
+            if status != 'FILLED': return
+
+            master_bal = self._get_master_balance('bybit')
             ratio = min((qty * price) / master_bal, 0.99) if master_bal > 0 else 0
-            use_strategy = event_data.get('strategy', 'ratner')
 
-            print(f"\n🚀 [SIGNAL] {master_exchange}: {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
-            self.execute_trade_parallel(symbol, side.lower(), ratio, executor, use_strategy, is_reduce_only=is_reduce_only, master_order_id=master_order_id)
+            print(f"\n🚀 [SIGNAL] Bybit AiTrading: {side} {symbol} | Ratio: {ratio*100:.2f}% (RO={is_reduce_only})")
+            self.execute_trade_parallel(symbol, side.lower(), ratio, executor, 'aitrading', is_reduce_only=is_reduce_only, master_order_id=master_order_id)
+            return
 
     # ── parallel execution ──
 
@@ -141,9 +166,9 @@ class TradeCopier:
                 risk_pct, master_order_id
             )
 
-    def close_all_positions_parallel(self, symbol, executor):
-        connections = get_active_exchange_connections(strategy='ratner')
-        print(f"⚡ Closing {symbol} for {len(connections)} connections")
+    def close_all_positions_parallel(self, symbol, executor, strategy='ratner'):
+        connections = get_active_exchange_connections(strategy=strategy)
+        print(f"⚡ Closing {symbol} for {len(connections)} connections ({strategy})")
         for conn in connections:
             executor.submit(self._close_single_user, conn['user_id'], symbol, conn['exchange_name'])
 
@@ -191,8 +216,14 @@ class TradeCopier:
             print(f"   ❌ User {user_id} Error: {e}")
 
         # ── BINGX FUTURES (RATNER) ──
-        if exchange_id == 'bingx':
+        if exchange_id == 'bingx' and strategy == 'ratner':
             self._execute_bingx_futures(keys, user_id, symbol, side, reserve, percentage_used,
+                                        is_closing, is_reduce_only, open_trade,
+                                        master_order_id, open_client_copy)
+
+        # ── BYBIT FUTURES (AITRADING) ──
+        elif exchange_id == 'bybit' and strategy == 'aitrading':
+            self._execute_bybit_futures(keys, user_id, symbol, side, reserve, percentage_used,
                                         is_closing, is_reduce_only, open_trade,
                                         master_order_id, open_client_copy)
 
@@ -287,39 +318,76 @@ class TradeCopier:
             if 'USDT' in symbol and '/' not in symbol:
                 ccxt_sym = symbol.replace('USDT', '/USDT:USDT')
 
-            bal = client.fetch_balance({'type': 'future'})
-            usdt = float(bal['USDT']['free'])
-
-            if usdt < 100:
-                print(f"   ⚠️ User {user_id}: balance too low (${usdt:.2f})")
-                return
-
-            usdt = max(0, usdt - reserve)
-            amt_usd = usdt * percentage_used
-            if amt_usd < 2 and not is_closing: return
-
-            ticker = client.fetch_ticker(ccxt_sym)
-            price = float(ticker['last'])
-            qty = float(client.amount_to_precision(ccxt_sym, amt_usd / price))
-            if qty == 0: return
-
-            try: client.set_leverage(4, ccxt_sym)
-            except: pass
-
-            # hedge mode position side
+            # ── CLOSING: use real position size from exchange ──
             if is_closing or is_reduce_only:
                 if not open_trade:
                     print(f"   ⚠️ User {user_id}: SKIP close (no open position for {symbol})")
                     return
-                pos_side = 'LONG' if open_trade['side'] == 'buy' else 'SHORT'
-                params = {'positionSide': pos_side, 'reduceOnly': True}
-            else:
-                params = {'positionSide': 'LONG' if side == 'buy' else 'SHORT'}
 
-            order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
+                pos_side = 'LONG' if open_trade['side'] == 'buy' else 'SHORT'
+
+                # fetch actual position from exchange
+                try:
+                    positions = client.fetch_positions([ccxt_sym])
+                    target_pos = None
+                    for pos in positions:
+                        if pos['side'] and pos['side'].upper() == pos_side[0].upper() + pos_side[1:].lower():
+                            if abs(float(pos['contracts'] or 0)) > 0:
+                                target_pos = pos
+                                break
+                        # fallback: match by positionSide string
+                        if pos.get('info', {}).get('positionSide', '').upper() == pos_side:
+                            if abs(float(pos['contracts'] or 0)) > 0:
+                                target_pos = pos
+                                break
+
+                    if target_pos:
+                        qty = abs(float(target_pos['contracts']))
+                        print(f"   📊 User {user_id}: Real position = {qty} {symbol} ({pos_side})")
+                    else:
+                        print(f"   ⚠️ User {user_id}: No open {pos_side} position on exchange for {symbol}")
+                        return
+                except Exception as e:
+                    print(f"   ⚠️ User {user_id}: fetch_positions failed ({e}), falling back to DB qty")
+                    # fallback: use quantity from our DB record
+                    db_qty = open_trade.get('quantity', 0)
+                    if db_qty > 0:
+                        qty = db_qty
+                    else:
+                        return
+
+                try: client.set_leverage(4, ccxt_sym)
+                except: pass
+
+                params = {'positionSide': pos_side, 'reduceOnly': True}
+                order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
+
+            # ── OPENING: calculate from live balance × ratio ──
+            else:
+                bal = client.fetch_balance({'type': 'future'})
+                usdt = float(bal['USDT']['free'])
+
+                if usdt < 100:
+                    print(f"   ⚠️ User {user_id}: balance too low (${usdt:.2f})")
+                    return
+
+                usdt = max(0, usdt - reserve)
+                amt_usd = usdt * percentage_used
+                if amt_usd < 2: return
+
+                ticker = client.fetch_ticker(ccxt_sym)
+                price = float(ticker['last'])
+                qty = float(client.amount_to_precision(ccxt_sym, amt_usd / price))
+                if qty == 0: return
+
+                try: client.set_leverage(4, ccxt_sym)
+                except: pass
+
+                params = {'positionSide': 'LONG' if side == 'buy' else 'SHORT'}
+                order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
             time.sleep(0.5)
             filled = client.fetch_order(order['id'], ccxt_sym)
-            exec_p = filled['average'] or price
+            exec_p = filled['average'] or filled.get('price') or 0
             exec_q = filled['filled']
 
             print(f"   ✅ User {user_id} [BINGX]: {side.upper()} {exec_q} @ {exec_p}")
@@ -339,6 +407,101 @@ class TradeCopier:
         except Exception as e:
             print(f"   ❌ User {user_id} BingX Error: {e}")
 
+    def _execute_bybit_futures(self, keys, user_id, symbol, side, reserve, percentage_used,
+                                is_closing, is_reduce_only, open_trade,
+                                master_order_id=None, open_client_copy=None):
+        from database import record_client_copy, close_client_copy
+
+        try:
+            client = ccxt.bybit({
+                'apiKey': keys['apiKey'], 'secret': keys['secret'],
+                'options': {'defaultType': 'linear'}, 'enableRateLimit': True
+            })
+
+            ccxt_sym = 'BTC/USDT:USDT'
+
+            # ── CLOSING: use real position size from exchange ──
+            if is_closing or is_reduce_only:
+                if not open_trade:
+                    print(f"   ⚠️ User {user_id}: SKIP close (no open position for {symbol})")
+                    return
+
+                close_side_expected = 'long' if open_trade['side'] == 'buy' else 'short'
+
+                try:
+                    positions = client.fetch_positions([ccxt_sym])
+                    target_pos = None
+                    for pos in positions:
+                        if pos.get('side', '').lower() == close_side_expected:
+                            if abs(float(pos['contracts'] or 0)) > 0:
+                                target_pos = pos
+                                break
+
+                    if target_pos:
+                        qty = abs(float(target_pos['contracts']))
+                        print(f"   📊 User {user_id}: Real Bybit position = {qty} BTC ({close_side_expected})")
+                    else:
+                        print(f"   ⚠️ User {user_id}: No open {close_side_expected} position on Bybit for BTC")
+                        return
+                except Exception as e:
+                    print(f"   ⚠️ User {user_id}: fetch_positions failed ({e}), falling back to DB qty")
+                    db_qty = open_trade.get('quantity', 0)
+                    if db_qty > 0:
+                        qty = db_qty
+                    else:
+                        return
+
+                try: client.set_leverage(5, ccxt_sym)
+                except: pass
+
+                params = {'reduceOnly': True}
+                order = client.create_order(ccxt_sym, 'market', side, qty, params=params)
+
+            # ── OPENING: calculate from live balance × ratio ──
+            else:
+                bal = client.fetch_balance({'type': 'linear'})
+                usdt = float(bal['USDT']['free'])
+
+                if usdt < 100:
+                    print(f"   ⚠️ User {user_id}: Bybit balance too low (${usdt:.2f})")
+                    return
+
+                usdt = max(0, usdt - reserve)
+                amt_usd = usdt * percentage_used
+                if amt_usd < 2: return
+
+                ticker = client.fetch_ticker(ccxt_sym)
+                price = float(ticker['last'])
+                qty = float(client.amount_to_precision(ccxt_sym, amt_usd / price))
+                if qty == 0: return
+
+                try: client.set_leverage(5, ccxt_sym)
+                except: pass
+
+                order = client.create_order(ccxt_sym, 'market', side, qty)
+
+            time.sleep(0.5)
+            filled = client.fetch_order(order['id'], ccxt_sym)
+            exec_p = filled['average'] or filled.get('price') or 0
+            exec_q = filled['filled']
+
+            print(f"   ✅ User {user_id} [BYBIT]: {side.upper()} {exec_q} BTC @ {exec_p}")
+
+            # write to copied_trades (legacy)
+            self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
+
+            # write to client_copies (for daily PnL reports)
+            if is_closing and open_trade:
+                entry_price = open_client_copy['entry_price'] if open_client_copy else open_trade.get('entry_price', 0)
+                if entry_price > 0:
+                    self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'])
+                close_client_copy(user_id, symbol, exec_p)
+            elif master_order_id:
+                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
+
+        except Exception as e:
+            print(f"   ❌ User {user_id} Bybit Error: {e}")
+
     # ── close positions ──
 
     def _close_single_user(self, user_id, symbol, exchange_name=None):
@@ -348,13 +511,19 @@ class TradeCopier:
         if not keys: return
         exchange_id = keys.get('exchange', 'binance').lower()
 
-        if exchange_id != 'bingx': return
+        if exchange_id not in ('bingx', 'bybit'): return
 
         try:
-            client = ccxt.bingx({
-                'apiKey': keys['apiKey'], 'secret': keys['secret'],
-                'options': {'defaultType': 'future'}
-            })
+            if exchange_id == 'bingx':
+                client = ccxt.bingx({
+                    'apiKey': keys['apiKey'], 'secret': keys['secret'],
+                    'options': {'defaultType': 'future'}
+                })
+            else:
+                client = ccxt.bybit({
+                    'apiKey': keys['apiKey'], 'secret': keys['secret'],
+                    'options': {'defaultType': 'linear'}
+                })
 
             ccxt_sym = symbol
             if 'USDT' in symbol and '/' not in symbol:
@@ -365,8 +534,16 @@ class TradeCopier:
             if target:
                 amt = float(target['contracts'])
                 close_side = 'sell' if target['side'] == 'long' else 'buy'
-                client.create_order(ccxt_sym, 'market', close_side, amt, params={'reduceOnly': True})
-                print(f"   👉 User {user_id}: closed {amt}")
+
+                if exchange_id == 'bingx':
+                    pos_side_str = 'LONG' if target['side'] == 'long' else 'SHORT'
+                    client.create_order(ccxt_sym, 'market', close_side, amt,
+                                        params={'positionSide': pos_side_str, 'reduceOnly': True})
+                else:
+                    client.create_order(ccxt_sym, 'market', close_side, amt,
+                                        params={'reduceOnly': True})
+
+                print(f"   👉 User {user_id}: closed {amt} on {exchange_id}")
                 time.sleep(0.5)
                 ticker = client.fetch_ticker(ccxt_sym)
                 exit_price = ticker['last']
