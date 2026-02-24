@@ -1813,8 +1813,8 @@ async function submitBingXAPI() {
         return;
     }
 
-    if (capital < 100) {
-        alert('Minimum trading capital must be at least 100 USDT');
+    if (capital < 1) {
+        alert('Minimum trading capital must be at least 1 USDT');
         return;
     }
 
@@ -1840,7 +1840,7 @@ async function submitBingXAPI() {
             closeCopyTradingModal();
             await fetchUserData(user.id);
         } else {
-            console.error(data.message || 'Connection failed');
+            alert('BingX Connection Error: ' + (data.detail || data.message || 'Unknown error'));
         }
     } catch (error) {
         console.error(error);
@@ -1857,8 +1857,8 @@ async function submitBybitAPI() {
         return;
     }
 
-    if (capital < 100) {
-        alert('Minimum trading capital must be at least 100 USDT');
+    if (capital < 1) {
+        alert('Minimum trading capital must be at least 1 USDT');
         return;
     }
 
@@ -1884,7 +1884,7 @@ async function submitBybitAPI() {
             closeCopyTradingModal();
             await fetchUserData(user.id);
         } else {
-            console.error(data.message || 'Connection failed');
+            alert('Bybit Connection Error: ' + (data.detail || data.message || 'Unknown error'));
         }
     } catch (error) {
         console.error(error);

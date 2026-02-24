@@ -20,7 +20,7 @@ async def fetch_exchange_balance_safe(exchange_name, api_key, secret, passphrase
             ex_class = getattr(ccxt, exchange_name)
             options = {}
             if exchange_name == 'bingx': options['defaultType'] = 'swap'
-            elif exchange_name == 'bybit': options['defaultType'] = 'future'
+            elif exchange_name == 'bybit': options['defaultType'] = 'linear'
 
             ex = ex_class({'apiKey': api_key, 'secret': secret, 'options': options})
             bal = ex.fetch_balance()
