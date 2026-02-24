@@ -359,9 +359,9 @@ async def connect_exchange(req: ConnectRequest):
         raise HTTPException(status_code=400, detail="Invalid API Keys or Connection Failed")
 
     total_balance = balance_info.get('total', 0.0)
-    if (total_balance - reserve) < 1:  # temporarily lowered from $10 for testing
+    if (total_balance - reserve) < 100:
         raise HTTPException(status_code=400,
-            detail=f"Insufficient trading balance. Available: {total_balance:.2f}, Reserve: {reserve:.2f}. Need > $1.")
+            detail=f"Insufficient trading balance. Available: {total_balance:.2f}, Reserve: {reserve:.2f}. Need > $100.")
 
     try:
         conn = sqlite3.connect(DB_NAME)

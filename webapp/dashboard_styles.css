@@ -43,14 +43,12 @@
     justify-content: center;
     margin-right: 12px;
     overflow: hidden;
-    padding: 4px;
-    /* White padding around icon if needed */
 }
 
 .strat-icon img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
 }
 
 .strat-info {

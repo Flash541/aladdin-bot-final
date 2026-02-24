@@ -113,8 +113,10 @@
 }
 
 .exchange-icon {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 .exchange-name {

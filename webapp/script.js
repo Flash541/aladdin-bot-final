@@ -152,7 +152,7 @@ const translations = {
         referrals: "referrals",
         get_referral_link: "Get Your Referral Link",
         btn_analyze: "Analyze",
-        min_balance_warning: "Minimum trading balance: 1 USDT",
+        min_balance_warning: "Minimum trading balance: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Configure Coins",
@@ -287,7 +287,7 @@ const translations = {
         commission_3: "3% комиссия",
         referrals: "рефералов",
         get_referral_link: "Получить реферальную ссылку",
-        min_balance_warning: "Минимальный торговый баланс: 1 USDT",
+        min_balance_warning: "Минимальный торговый баланс: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Настройка монет",
@@ -423,7 +423,7 @@ const translations = {
         commission_3: "3% комісія",
         referrals: "рефералів",
         get_referral_link: "Отримати реферальне посилання",
-        min_balance_warning: "Мінімальний баланс: 1 USDT",
+        min_balance_warning: "Мінімальний баланс: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Налаштування монет",
@@ -560,7 +560,7 @@ const translations = {
         commission_3: "3% komissiya",
         referrals: "referallar",
         get_referral_link: "Referal havolangizni oling",
-        min_balance_warning: "Minimal savdo balansi: 1 USDT",
+        min_balance_warning: "Minimal savdo balansi: 100 USDT",
 
         // Coin Configuration
         configure_coins: "Coinlarni Sozlash",
@@ -1805,16 +1805,15 @@ function closeCopyTradingModal() {
 async function submitBingXAPI() {
     const apiKey = document.getElementById('bingx-api-key').value.trim();
     const secretKey = document.getElementById('bingx-secret-key').value.trim();
-    const capital = parseFloat(document.getElementById('bingx-capital').value);
+    const reserve = parseFloat(document.getElementById('bingx-capital').value) || 0;
 
-    // Allow 0 capital (means no trading yet)
-    if (!apiKey || !secretKey || isNaN(capital)) {
-        alert('Please fill API rules correctly');
+    if (!apiKey || !secretKey) {
+        alert('Please fill API Key and Secret Key');
         return;
     }
 
-    if (capital < 1) {
-        alert('Minimum trading capital must be at least 1 USDT');
+    if (reserve < 0) {
+        alert('Reserve cannot be negative');
         return;
     }
 
@@ -1830,7 +1829,7 @@ async function submitBingXAPI() {
                 api_key: apiKey,
                 secret: secretKey,
                 password: '',
-                reserve: capital
+                reserve: reserve
             })
         });
 
@@ -1844,21 +1843,22 @@ async function submitBingXAPI() {
         }
     } catch (error) {
         console.error(error);
+        alert('Network error connecting to BingX');
     }
 }
 
 async function submitBybitAPI() {
     const apiKey = document.getElementById('bybit-api-key').value.trim();
     const secretKey = document.getElementById('bybit-secret-key').value.trim();
-    const capital = parseFloat(document.getElementById('bybit-capital').value);
+    const reserve = parseFloat(document.getElementById('bybit-capital').value) || 0;
 
-    if (!apiKey || !secretKey || isNaN(capital)) {
-        alert('Please fill API fields correctly');
+    if (!apiKey || !secretKey) {
+        alert('Please fill API Key and Secret Key');
         return;
     }
 
-    if (capital < 1) {
-        alert('Minimum trading capital must be at least 1 USDT');
+    if (reserve < 0) {
+        alert('Reserve cannot be negative');
         return;
     }
 
@@ -1874,7 +1874,7 @@ async function submitBybitAPI() {
                 api_key: apiKey,
                 secret: secretKey,
                 password: '',
-                reserve: capital
+                reserve: reserve
             })
         });
 
@@ -1888,6 +1888,7 @@ async function submitBybitAPI() {
         }
     } catch (error) {
         console.error(error);
+        alert('Network error connecting to Bybit');
     }
 }
 
