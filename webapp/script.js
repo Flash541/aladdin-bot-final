@@ -152,7 +152,7 @@ const translations = {
         referrals: "referrals",
         get_referral_link: "Get Your Referral Link",
         btn_analyze: "Analyze",
-        min_balance_warning: "Minimum trading balance: 100 USDT",
+        min_balance_warning: "Minimum trading balance: 1 USDT",
 
         // Coin Configuration
         configure_coins: "Configure Coins",
@@ -287,7 +287,7 @@ const translations = {
         commission_3: "3% комиссия",
         referrals: "рефералов",
         get_referral_link: "Получить реферальную ссылку",
-        min_balance_warning: "Минимальный торговый баланс: 100 USDT",
+        min_balance_warning: "Минимальный торговый баланс: 1 USDT",
 
         // Coin Configuration
         configure_coins: "Настройка монет",
@@ -423,7 +423,7 @@ const translations = {
         commission_3: "3% комісія",
         referrals: "рефералів",
         get_referral_link: "Отримати реферальне посилання",
-        min_balance_warning: "Мінімальний баланс: 100 USDT",
+        min_balance_warning: "Мінімальний баланс: 1 USDT",
 
         // Coin Configuration
         configure_coins: "Налаштування монет",
@@ -560,7 +560,7 @@ const translations = {
         commission_3: "3% komissiya",
         referrals: "referallar",
         get_referral_link: "Referal havolangizni oling",
-        min_balance_warning: "Minimal savdo balansi: 100 USDT",
+        min_balance_warning: "Minimal savdo balansi: 1 USDT",
 
         // Coin Configuration
         configure_coins: "Coinlarni Sozlash",
