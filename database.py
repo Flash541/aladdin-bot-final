@@ -676,6 +676,21 @@ def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
     """, (exit_price, pnl, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), open_copy['copy_id']))
     return pnl
 
+
+def record_partial_sell_pnl(user_id: int, symbol: str, side: str,
+                            entry_price: float, exit_price: float, quantity: float):
+    """Record PnL for a partial sell as a new already-closed entry in client_copies.
+    This ensures daily reports capture partial sell profits."""
+    pnl = (exit_price - entry_price) * quantity if side == 'buy' else (entry_price - exit_price) * quantity
+    execute_write_query("""
+        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, exit_price,
+                                   quantity, profit_loss, opened_at, closed_at, status)
+        VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'closed')
+    """, (user_id, symbol, side, entry_price, exit_price, quantity, pnl,
+          datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+          datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    print(f"   📝 [PARTIAL PnL] User {user_id}: {symbol} qty={quantity:.6f}, PnL=${pnl:.4f}")
+
 def get_investigation_report(user_id: int = None, symbol: str = None, limit: int = 100) -> dict:
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
@@ -880,14 +895,14 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
 
 def get_daily_pnl_report(date_str: str) -> list[dict]:
     """returns per-user per-symbol pnl for a given date (YYYY-MM-DD).
-    only includes closed trades with positive pnl.
+    includes ALL closed trades (profit and loss) so users see full activity.
     result: [{user_id, symbol, pnl}, ...]"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT user_id, symbol, SUM(profit_loss) as total_pnl
         FROM client_copies
-        WHERE status = 'closed' AND closed_at LIKE ? AND profit_loss > 0
+        WHERE status = 'closed' AND closed_at LIKE ? AND profit_loss IS NOT NULL
         GROUP BY user_id, symbol
         ORDER BY user_id, total_pnl DESC
     """, (f"{date_str}%",))

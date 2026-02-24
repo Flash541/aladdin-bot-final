@@ -151,7 +151,7 @@ def generate_report_image(date_str: str, total_pnl: float, coin_breakdown: list[
 
     # big pnl number
     f_pnl = _font(96, bold=True)
-    pnl_str = f"+{total_pnl:.2f} USDT"
+    pnl_str = f"+{total_pnl:.2f} USDT" if total_pnl >= 0 else f"{total_pnl:.2f} USDT"
     pnl_color = GREEN if total_pnl >= 0 else RED
     bbox = draw.textbbox((0, 0), pnl_str, font=f_pnl)
     tw = bbox[2] - bbox[0]
@@ -210,12 +210,24 @@ async def send_daily_reports(context):
     """scheduler callback — queries yesterday's pnl, generates images, sends to users."""
     from database import get_daily_pnl_report, get_user_language
 
+    ADMIN_USER_ID = int(os.getenv("ADMIN_USER_ID", "0"))
+
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     print(f"📊 [DAILY REPORT] Generating reports for {yesterday}...")
 
     rows = get_daily_pnl_report(yesterday)
     if not rows:
-        print("📊 [DAILY REPORT] No profitable trades yesterday, skipping.")
+        print("📊 [DAILY REPORT] No closed trades yesterday.")
+        # notify admin that no trades were closed
+        if ADMIN_USER_ID:
+            try:
+                await context.bot.send_message(
+                    chat_id=ADMIN_USER_ID,
+                    text=f"📊 Daily Report ({yesterday})\n\nНет закрытых сделок за вчера.",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                print(f"❌ [DAILY REPORT] Admin notify failed: {e}")
         return
 
     # group by user
@@ -223,11 +235,9 @@ async def send_daily_reports(context):
     for r in rows:
         user_data[r["user_id"]].append({"symbol": r["symbol"], "pnl": r["pnl"]})
 
-    sent, failed = 0, 0
+    sent, failed, skipped = 0, 0, 0
     for user_id, coins in user_data.items():
         total_pnl = sum(c["pnl"] for c in coins)
-        if total_pnl <= 0:
-            continue
 
         coins.sort(key=lambda x: x["pnl"], reverse=True)
 
@@ -235,12 +245,20 @@ async def send_daily_reports(context):
             img_buf = generate_report_image(yesterday, total_pnl, coins)
             lang = get_user_language(user_id)
 
-            if lang == "ru":
-                caption = f"📊 Отчёт за {yesterday}\n💰 Общая прибыль: +{total_pnl:.2f} USDT"
-            elif lang == "uk":
-                caption = f"📊 Звіт за {yesterday}\n💰 Загальний прибуток: +{total_pnl:.2f} USDT"
+            if total_pnl >= 0:
+                if lang == "ru":
+                    caption = f"📊 Отчёт за {yesterday}\n💰 Общая прибыль: +{total_pnl:.2f} USDT"
+                elif lang == "uk":
+                    caption = f"📊 Звіт за {yesterday}\n💰 Загальний прибуток: +{total_pnl:.2f} USDT"
+                else:
+                    caption = f"📊 Daily Report — {yesterday}\n💰 Total Profit: +{total_pnl:.2f} USDT"
             else:
-                caption = f"📊 Daily Report — {yesterday}\n💰 Total Profit: +{total_pnl:.2f} USDT"
+                if lang == "ru":
+                    caption = f"📊 Отчёт за {yesterday}\n📉 Убыток: {total_pnl:.2f} USDT"
+                elif lang == "uk":
+                    caption = f"📊 Звіт за {yesterday}\n📉 Збиток: {total_pnl:.2f} USDT"
+                else:
+                    caption = f"📊 Daily Report — {yesterday}\n📉 Loss: {total_pnl:.2f} USDT"
 
             await context.bot.send_photo(
                 chat_id=user_id, photo=img_buf, caption=caption, parse_mode=ParseMode.HTML
@@ -251,4 +269,23 @@ async def send_daily_reports(context):
             print(f"❌ [DAILY REPORT] Failed to send to {user_id}: {e}")
             failed += 1
 
-    print(f"📊 [DAILY REPORT] Done. Sent: {sent}, Failed: {failed}")
+    print(f"📊 [DAILY REPORT] Done. Sent: {sent}, Failed: {failed}, Skipped: {skipped}")
+
+    # send admin summary
+    if ADMIN_USER_ID:
+        try:
+            total_users = len(user_data)
+            total_pnl_all = sum(sum(c["pnl"] for c in coins) for coins in user_data.values())
+            await context.bot.send_message(
+                chat_id=ADMIN_USER_ID,
+                text=(
+                    f"📊 <b>Daily Report Summary ({yesterday})</b>\n\n"
+                    f"👥 Users with trades: {total_users}\n"
+                    f"✅ Reports sent: {sent}\n"
+                    f"❌ Failed: {failed}\n"
+                    f"💰 Total PnL (all users): {total_pnl_all:+.2f} USDT"
+                ),
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            print(f"❌ [DAILY REPORT] Admin summary failed: {e}")

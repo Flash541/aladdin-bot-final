@@ -219,13 +219,13 @@ class TradeCopier:
         if exchange_id == 'bingx' and strategy == 'ratner':
             self._execute_bingx_futures(keys, user_id, symbol, side, reserve, percentage_used,
                                         is_closing, is_reduce_only, open_trade,
-                                        master_order_id, open_client_copy)
+                                        master_order_id, open_client_copy, risk_pct)
 
         # ── BYBIT FUTURES (AITRADING) ──
         elif exchange_id == 'bybit' and strategy == 'aitrading':
             self._execute_bybit_futures(keys, user_id, symbol, side, reserve, percentage_used,
                                         is_closing, is_reduce_only, open_trade,
-                                        master_order_id, open_client_copy)
+                                        master_order_id, open_client_copy, risk_pct)
 
     def _execute_okx_spot(self, client, user_id, symbol, side, reserve, risk_pct,
                           master_order_id, open_client_copy, open_trade, sell_ratio_raw):
@@ -291,20 +291,36 @@ class TradeCopier:
             filled = client.fetch_order(order['id'], symbol)
             exit_price = filled['average'] or price
 
-            entry_price = open_client_copy['entry_price'] if open_client_copy else (open_trade[1] if open_trade else 0)
+            # Use AVERAGE entry price from copied_trades (real position cost basis)
+            # NOT the latest individual buy from client_copies (which can be misleading)
+            if open_trade and open_trade.get('entry_price', 0) > 0:
+                entry_price = open_trade['entry_price']
+            elif open_client_copy:
+                entry_price = open_client_copy['entry_price']
+            else:
+                entry_price = 0
+
+            print(f"   📊 User {user_id}: avg_entry=${entry_price:.2f}, exit=${exit_price:.2f}, qty={qty_to_sell:.6f}")
+
             if entry_price > 0:
                 self._handle_pnl_and_billing(user_id, symbol, entry_price, exit_price, qty_to_sell, 'buy')
 
             if sell_ratio >= 0.99:
+                # full close — mark the open client_copy as closed
                 close_client_copy(user_id, symbol, exit_price)
                 if open_trade: close_trade_in_db(user_id, symbol)
+            else:
+                # partial sell — record PnL as a separate closed entry for daily reports
+                from database import record_partial_sell_pnl
+                if entry_price > 0:
+                    record_partial_sell_pnl(user_id, symbol, 'buy', entry_price, exit_price, qty_to_sell)
 
             pnl = (exit_price - entry_price) * qty_to_sell if entry_price > 0 else 0
             print(f"   ✅ User {user_id} [OKX]: SOLD | PnL: ${pnl:.2f}")
 
     def _execute_bingx_futures(self, keys, user_id, symbol, side, reserve, percentage_used,
                                 is_closing, is_reduce_only, open_trade,
-                                master_order_id=None, open_client_copy=None):
+                                master_order_id=None, open_client_copy=None, risk_pct=1.0):
         from database import record_client_copy, close_client_copy
 
         try:
@@ -372,8 +388,11 @@ class TradeCopier:
                     return
 
                 usdt = max(0, usdt - reserve)
-                amt_usd = usdt * percentage_used
+                # use user's risk_pct (e.g. 1% of available capital)
+                amt_usd = usdt * (float(risk_pct) / 100.0)
                 if amt_usd < 2: return
+
+                print(f"   📊 User {user_id} [BINGX]: bal=${usdt+reserve:.2f}, reserve=${reserve:.2f}, risk={risk_pct}%, trade=${amt_usd:.2f}")
 
                 ticker = client.fetch_ticker(ccxt_sym)
                 price = float(ticker['last'])
@@ -409,7 +428,7 @@ class TradeCopier:
 
     def _execute_bybit_futures(self, keys, user_id, symbol, side, reserve, percentage_used,
                                 is_closing, is_reduce_only, open_trade,
-                                master_order_id=None, open_client_copy=None):
+                                master_order_id=None, open_client_copy=None, risk_pct=1.0):
         from database import record_client_copy, close_client_copy
 
         try:
@@ -467,8 +486,11 @@ class TradeCopier:
                     return
 
                 usdt = max(0, usdt - reserve)
-                amt_usd = usdt * percentage_used
+                # use user's risk_pct (e.g. 1% of available capital)
+                amt_usd = usdt * (float(risk_pct) / 100.0)
                 if amt_usd < 2: return
+
+                print(f"   📊 User {user_id} [BYBIT]: bal=${usdt+reserve:.2f}, reserve=${reserve:.2f}, risk={risk_pct}%, trade=${amt_usd:.2f}")
 
                 ticker = client.fetch_ticker(ccxt_sym)
                 price = float(ticker['last'])
