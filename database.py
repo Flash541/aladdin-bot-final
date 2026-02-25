@@ -894,21 +894,22 @@ def get_text(user_id: int, key: str, lang: str = None, **kwargs) -> str:
 # ── daily pnl report ──
 
 def get_daily_pnl_report(date_str: str) -> list[dict]:
-    """returns per-user per-symbol pnl for a given date (YYYY-MM-DD).
-    includes ALL closed trades (profit and loss) so users see full activity.
-    result: [{user_id, symbol, pnl}, ...]"""
+    """returns per-user per-exchange pnl for a given date (YYYY-MM-DD).
+    includes ALL closed trades grouped by exchange.
+    result: [{user_id, exchange, pnl}, ...]"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT user_id, symbol, SUM(profit_loss) as total_pnl
-        FROM client_copies
-        WHERE status = 'closed' AND closed_at LIKE ? AND profit_loss IS NOT NULL
-        GROUP BY user_id, symbol
-        ORDER BY user_id, total_pnl DESC
+        SELECT cc.user_id, COALESCE(mo.master_exchange, 'okx') as exchange, SUM(cc.profit_loss) as total_pnl
+        FROM client_copies cc
+        LEFT JOIN master_orders mo ON cc.master_order_id = mo.order_id
+        WHERE cc.status = 'closed' AND cc.closed_at LIKE ? AND cc.profit_loss IS NOT NULL
+        GROUP BY cc.user_id, exchange
+        ORDER BY cc.user_id, total_pnl DESC
     """, (f"{date_str}%",))
     rows = cursor.fetchall()
     conn.close()
-    return [{"user_id": r[0], "symbol": r[1], "pnl": r[2]} for r in rows]
+    return [{"user_id": r[0], "exchange": r[1], "pnl": r[2]} for r in rows]
 
 
 # auto-init on import
