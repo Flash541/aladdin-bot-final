@@ -84,6 +84,31 @@ function setupActionButtons() {
             }
         };
     }
+
+    // AI-Trade Button
+    const aiTradeBtn = document.querySelector('[data-action="aitrade"]');
+    if (aiTradeBtn) {
+        aiTradeBtn.onclick = () => {
+            const modal = document.getElementById('modal-aitrade');
+            if (modal) {
+                modal.style.display = 'flex';
+                showAITradeStep('select');
+                if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            }
+        };
+    }
+}
+
+// === AI-TRADE MODAL ===
+function showAITradeStep(step) {
+    document.querySelectorAll('.ait-step').forEach(s => s.style.display = 'none');
+    const target = document.getElementById('ait-step-' + step);
+    if (target) target.style.display = 'block';
+}
+
+function closeAITradeModal() {
+    const modal = document.getElementById('modal-aitrade');
+    if (modal) modal.style.display = 'none';
 }
 
 // === MODALS ===
@@ -223,7 +248,15 @@ const translations = {
         msg_set_trading_capital: "Set the amount you want to allocate for trading",
         btn_connect_bingx: "Connect BingX",
         btn_continue: "Continue",
-        lbl_trading_settings: "Trading Settings"
+        lbl_trading_settings: "Trading Settings",
+
+        // AI-Trade
+        btn_aitrade: "AI-Trade",
+        aitrade_title: "AI-Trade",
+        aitrade_invest: "Investments",
+        aitrade_invest_desc: "Long-term deposits",
+        aitrade_trading: "Trading",
+        aitrade_trading_desc: "Active trading"
     },
     ru: {
         welcome: "С возвращением",
@@ -358,7 +391,15 @@ const translations = {
         msg_set_trading_capital: "Укажите сумму для торговли",
         btn_connect_bingx: "Подключить BingX",
         btn_continue: "Продолжить",
-        lbl_trading_settings: "Настройки торговли"
+        lbl_trading_settings: "Настройки торговли",
+
+        // AI-Trade
+        btn_aitrade: "AI-Trade",
+        aitrade_title: "AI-Trade",
+        aitrade_invest: "Инвестиции",
+        aitrade_invest_desc: "Долгосрочные вложения",
+        aitrade_trading: "Торговля",
+        aitrade_trading_desc: "Активный трейдинг"
     },
     uk: {
         welcome: "З поверненням",
@@ -493,7 +534,15 @@ const translations = {
         msg_set_trading_capital: "Вкажіть суму для торгівлі",
         btn_connect_bingx: "Підключити BingX",
         btn_continue: "Продовжити",
-        lbl_trading_settings: "Налаштування торгівлі"
+        lbl_trading_settings: "Налаштування торгівлі",
+
+        // AI-Trade
+        btn_aitrade: "AI-Trade",
+        aitrade_title: "AI-Trade",
+        aitrade_invest: "Інвестиції",
+        aitrade_invest_desc: "Довгострокові вкладення",
+        aitrade_trading: "Торгівля",
+        aitrade_trading_desc: "Активний трейдинг"
     },
     uz: {
         welcome: "Xush Kelibsiz",
@@ -630,7 +679,15 @@ const translations = {
         msg_set_trading_capital: "Savdo uchun ajratiladigan summani kiriting",
         btn_connect_bingx: "BingX Ulash",
         btn_continue: "Davom Etish",
-        lbl_trading_settings: "Savdo Sozlamalari"
+        lbl_trading_settings: "Savdo Sozlamalari",
+
+        // AI-Trade
+        btn_aitrade: "AI-Trade",
+        aitrade_title: "AI-Trade",
+        aitrade_invest: "Investitsiyalar",
+        aitrade_invest_desc: "Uzoq muddatli investitsiyalar",
+        aitrade_trading: "Savdo",
+        aitrade_trading_desc: "Faol treyding"
     }
 };
 
@@ -1356,6 +1413,19 @@ function setupActionButtons() {
                 if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             }
         };
+    }
+
+    // AI-Trade Card
+    const aiTradeCard = document.querySelector('.action-card[data-action="aitrade"]');
+    if (aiTradeCard) {
+        aiTradeCard.addEventListener('click', () => {
+            const modal = document.getElementById('modal-aitrade');
+            if (modal) {
+                modal.style.display = 'flex';
+                showAITradeStep('select');
+                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            }
+        });
     }
 
     // View All Strategies Button (Dashboard)
