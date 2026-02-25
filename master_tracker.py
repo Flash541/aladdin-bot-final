@@ -149,7 +149,7 @@ def start_bingx_listener():
         threading.Thread(target=auto_extend, daemon=True).start()
 
         ws = websocket.WebSocketApp(ws_url, on_message=on_message, on_error=on_error, on_close=on_close, on_open=on_open)
-        ws.run_forever()
+        ws.run_forever(ping_interval=20, ping_timeout=10)
 
         stop_extend.set()
         print("♻️ Reconnecting BingX in 5 sec...")
@@ -210,10 +210,17 @@ def start_okx_listener():
             if msg.get('arg', {}).get('channel') != 'orders' or 'data' not in msg: return
 
             for order in msg['data']:
-                if order.get('state') not in ['filled', 'partially_filled']: continue
+                state = order.get('state')
+                if state not in ['filled', 'canceled']: 
+                    continue
+
+                filled_qty = float(order.get('accFillSz', 0))
+                if filled_qty <= 0: 
+                    continue
 
                 order_id = order.get('ordId')
-                if order_id in processed_order_ids: continue
+                if order_id in processed_order_ids: 
+                    continue
 
                 # dedup — keep last 2000 ids
                 processed_order_ids[order_id] = time.time()
@@ -222,7 +229,6 @@ def start_okx_listener():
 
                 symbol = order['instId'].replace('-', '/')
                 side = order['side']
-                filled_qty = float(order['accFillSz'])
                 avg_price = float(order['avgPx']) if order['avgPx'] else float(order['px'])
                 trade_usd = filled_qty * avg_price
 
