@@ -178,6 +178,7 @@ def initialize_db():
             exit_price REAL,
             quantity REAL NOT NULL,
             profit_loss REAL,
+            entry_amount_usd REAL,
             opened_at TEXT NOT NULL,
             closed_at TEXT,
             status TEXT DEFAULT 'open',
@@ -235,6 +236,7 @@ def initialize_db():
         "ALTER TABLE users ADD COLUMN language_code TEXT DEFAULT 'en'",
         "ALTER TABLE users ADD COLUMN referred_by INTEGER",
         "ALTER TABLE users ADD COLUMN unc_balance REAL DEFAULT 0",
+        "ALTER TABLE client_copies ADD COLUMN entry_amount_usd REAL",
     ]
     for m in migrations:
         try: cursor.execute(m)
@@ -644,31 +646,40 @@ def record_master_order(master_exchange: str, symbol: str, side: str, order_type
     return order_id
 
 def record_client_copy(master_order_id: int, user_id: int, symbol: str, side: str,
-                       entry_price: float, quantity: float):
+                       entry_price: float, quantity: float, entry_amount_usd: float = None):
+    if entry_amount_usd is None:
+        entry_amount_usd = entry_price * quantity
     execute_write_query("""
-        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, quantity, opened_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
-    """, (master_order_id, user_id, symbol, side, entry_price, quantity, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, quantity, entry_amount_usd, opened_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')
+    """, (master_order_id, user_id, symbol, side, entry_price, quantity, entry_amount_usd, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
 def get_open_client_copy(user_id: int, symbol: str) -> dict:
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT copy_id, master_order_id, side, entry_price, quantity, opened_at
+        SELECT copy_id, master_order_id, side, entry_price, quantity, opened_at, entry_amount_usd
         FROM client_copies WHERE user_id = ? AND symbol = ? AND status = 'open'
         ORDER BY copy_id DESC LIMIT 1
     """, (user_id, symbol))
     r = cursor.fetchone(); conn.close()
     if not r: return None
-    return {"copy_id": r[0], "master_order_id": r[1], "side": r[2], "entry_price": r[3], "quantity": r[4], "opened_at": r[5]}
+    entry_amt = r[6] if r[6] else (r[3] * r[4])  # fallback to price * qty for old records
+    return {"copy_id": r[0], "master_order_id": r[1], "side": r[2], "entry_price": r[3], "quantity": r[4], "opened_at": r[5], "entry_amount_usd": entry_amt}
 
-def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
+def close_client_copy(user_id: int, symbol: str, exit_price: float, exit_amount_usd: float = None) -> float:
     open_copy = get_open_client_copy(user_id, symbol)
     if not open_copy: return 0.0
 
-    entry = open_copy['entry_price']
-    qty = open_copy['quantity']
-    pnl = (exit_price - entry) * qty if open_copy['side'] == 'buy' else (entry - exit_price) * qty
+    entry_amount = open_copy['entry_amount_usd']
+    if exit_amount_usd is None:
+        exit_amount_usd = exit_price * open_copy['quantity']
+
+    # exact PnL from real USDT amounts
+    if open_copy['side'] == 'buy':
+        pnl = exit_amount_usd - entry_amount
+    else:
+        pnl = entry_amount - exit_amount_usd
 
     execute_write_query("""
         UPDATE client_copies SET exit_price = ?, profit_loss = ?, closed_at = ?, status = 'closed'
@@ -678,15 +689,19 @@ def close_client_copy(user_id: int, symbol: str, exit_price: float) -> float:
 
 
 def record_partial_sell_pnl(user_id: int, symbol: str, side: str,
-                            entry_price: float, exit_price: float, quantity: float):
+                            entry_price: float, exit_price: float, quantity: float,
+                            entry_amount_usd: float = None, exit_amount_usd: float = None):
     """Record PnL for a partial sell as a new already-closed entry in client_copies.
     This ensures daily reports capture partial sell profits."""
-    pnl = (exit_price - entry_price) * quantity if side == 'buy' else (entry_price - exit_price) * quantity
+    if entry_amount_usd is not None and exit_amount_usd is not None:
+        pnl = (exit_amount_usd - entry_amount_usd) if side == 'buy' else (entry_amount_usd - exit_amount_usd)
+    else:
+        pnl = (exit_price - entry_price) * quantity if side == 'buy' else (entry_price - exit_price) * quantity
     execute_write_query("""
         INSERT INTO client_copies (master_order_id, user_id, symbol, side, entry_price, exit_price,
-                                   quantity, profit_loss, opened_at, closed_at, status)
-        VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'closed')
-    """, (user_id, symbol, side, entry_price, exit_price, quantity, pnl,
+                                   quantity, profit_loss, entry_amount_usd, opened_at, closed_at, status)
+        VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'closed')
+    """, (user_id, symbol, side, entry_price, exit_price, quantity, pnl, entry_amount_usd,
           datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
           datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     print(f"   📝 [PARTIAL PnL] User {user_id}: {symbol} qty={quantity:.6f}, PnL=${pnl:.4f}")

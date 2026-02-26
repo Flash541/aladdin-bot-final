@@ -260,11 +260,12 @@ class TradeCopier:
             filled = client.fetch_order(order['id'], symbol)
             exec_p = filled['average'] or price
             exec_q = filled['filled']
+            entry_amount_usd = filled.get('cost') or (exec_p * exec_q)
 
             if master_order_id:
-                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
+                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q, entry_amount_usd=entry_amount_usd)
             record_trade_entry(user_id, symbol, side, exec_p, exec_q)
-            print(f"   ✅ User {user_id}: filled {exec_q} @ {exec_p}")
+            print(f"   ✅ User {user_id}: filled {exec_q} @ {exec_p} (cost=${entry_amount_usd:.4f})")
 
         elif side == 'sell':
             if not open_client_copy and not open_trade:
@@ -290,33 +291,44 @@ class TradeCopier:
             time.sleep(1)
             filled = client.fetch_order(order['id'], symbol)
             exit_price = filled['average'] or price
+            exit_amount_usd = filled.get('cost') or (exit_price * qty_to_sell)
 
-            # Use AVERAGE entry price from copied_trades (real position cost basis)
-            # NOT the latest individual buy from client_copies (which can be misleading)
-            if open_trade and open_trade.get('entry_price', 0) > 0:
-                entry_price = open_trade['entry_price']
-            elif open_client_copy:
-                entry_price = open_client_copy['entry_price']
-            else:
-                entry_price = 0
+            # Get exact entry amount from client_copies (real USDT spent on open)
+            entry_amount_usd = None
+            if open_client_copy and open_client_copy.get('entry_amount_usd'):
+                entry_amount_usd = open_client_copy['entry_amount_usd']
+                # For partial sells, scale the entry amount proportionally
+                if sell_ratio < 0.99 and open_client_copy.get('quantity', 0) > 0:
+                    entry_amount_usd = entry_amount_usd * (qty_to_sell / open_client_copy['quantity'])
+            elif open_trade and open_trade.get('entry_price', 0) > 0:
+                entry_amount_usd = open_trade['entry_price'] * qty_to_sell
 
-            print(f"   📊 User {user_id}: avg_entry=${entry_price:.2f}, exit=${exit_price:.2f}, qty={qty_to_sell:.6f}")
+            entry_price = open_client_copy['entry_price'] if open_client_copy else (open_trade.get('entry_price', 0) if open_trade else 0)
 
-            if entry_price > 0:
+            if entry_amount_usd and entry_amount_usd > 0:
+                exact_pnl = exit_amount_usd - entry_amount_usd
+                print(f"   📊 User {user_id}: entry_usd=${entry_amount_usd:.4f}, exit_usd=${exit_amount_usd:.4f}, exact_pnl=${exact_pnl:.4f}")
+                self._handle_pnl_and_billing(user_id, symbol, entry_price, exit_price, qty_to_sell, 'buy',
+                                             exact_pnl=exact_pnl, exact_entry_usd=entry_amount_usd)
+            elif entry_price > 0:
+                print(f"   📊 User {user_id}: fallback avg_entry=${entry_price:.2f}, exit=${exit_price:.2f}")
                 self._handle_pnl_and_billing(user_id, symbol, entry_price, exit_price, qty_to_sell, 'buy')
 
             if sell_ratio >= 0.99:
                 # full close — mark the open client_copy as closed
-                close_client_copy(user_id, symbol, exit_price)
+                close_client_copy(user_id, symbol, exit_price, exit_amount_usd=exit_amount_usd)
                 if open_trade: close_trade_in_db(user_id, symbol)
             else:
                 # partial sell — record PnL as a separate closed entry for daily reports
                 from database import record_partial_sell_pnl
-                if entry_price > 0:
+                if entry_amount_usd and entry_amount_usd > 0:
+                    record_partial_sell_pnl(user_id, symbol, 'buy', entry_price, exit_price, qty_to_sell,
+                                           entry_amount_usd=entry_amount_usd, exit_amount_usd=exit_amount_usd)
+                elif entry_price > 0:
                     record_partial_sell_pnl(user_id, symbol, 'buy', entry_price, exit_price, qty_to_sell)
 
-            pnl = (exit_price - entry_price) * qty_to_sell if entry_price > 0 else 0
-            print(f"   ✅ User {user_id} [OKX]: SOLD | PnL: ${pnl:.2f}")
+            pnl = (exit_amount_usd - entry_amount_usd) if entry_amount_usd and entry_amount_usd > 0 else ((exit_price - entry_price) * qty_to_sell if entry_price > 0 else 0)
+            print(f"   ✅ User {user_id} [OKX]: SOLD | PnL: ${pnl:.4f}")
 
     def _execute_bingx_futures(self, keys, user_id, symbol, side, reserve, percentage_used,
                                 is_closing, is_reduce_only, open_trade,
@@ -408,8 +420,9 @@ class TradeCopier:
             filled = client.fetch_order(order['id'], ccxt_sym)
             exec_p = filled['average'] or filled.get('price') or 0
             exec_q = filled['filled']
+            fill_cost = filled.get('cost') or (exec_p * exec_q)
 
-            print(f"   ✅ User {user_id} [BINGX]: {side.upper()} {exec_q} @ {exec_p}")
+            print(f"   ✅ User {user_id} [BINGX]: {side.upper()} {exec_q} @ {exec_p} (cost=${fill_cost:.4f})")
 
             # write to copied_trades (legacy)
             self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
@@ -417,11 +430,16 @@ class TradeCopier:
             # write to client_copies (for daily PnL reports)
             if is_closing and open_trade:
                 entry_price = open_client_copy['entry_price'] if open_client_copy else open_trade.get('entry_price', 0)
-                if entry_price > 0:
+                entry_amount_usd = open_client_copy.get('entry_amount_usd') if open_client_copy else None
+                if entry_amount_usd and entry_amount_usd > 0:
+                    exact_pnl = (fill_cost - entry_amount_usd) if open_trade['side'] == 'buy' else (entry_amount_usd - fill_cost)
+                    self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'],
+                                                 exact_pnl=exact_pnl, exact_entry_usd=entry_amount_usd)
+                elif entry_price > 0:
                     self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'])
-                close_client_copy(user_id, symbol, exec_p)
+                close_client_copy(user_id, symbol, exec_p, exit_amount_usd=fill_cost)
             elif master_order_id:
-                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
+                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q, entry_amount_usd=fill_cost)
 
         except Exception as e:
             print(f"   ❌ User {user_id} BingX Error: {e}")
@@ -506,8 +524,9 @@ class TradeCopier:
             filled = client.fetch_order(order['id'], ccxt_sym)
             exec_p = filled['average'] or filled.get('price') or 0
             exec_q = filled['filled']
+            fill_cost = filled.get('cost') or (exec_p * exec_q)
 
-            print(f"   ✅ User {user_id} [BYBIT]: {side.upper()} {exec_q} BTC @ {exec_p}")
+            print(f"   ✅ User {user_id} [BYBIT]: {side.upper()} {exec_q} BTC @ {exec_p} (cost=${fill_cost:.4f})")
 
             # write to copied_trades (legacy)
             self._safe_db_write(user_id, symbol, side, exec_p, exec_q, is_closing, open_trade)
@@ -515,11 +534,16 @@ class TradeCopier:
             # write to client_copies (for daily PnL reports)
             if is_closing and open_trade:
                 entry_price = open_client_copy['entry_price'] if open_client_copy else open_trade.get('entry_price', 0)
-                if entry_price > 0:
+                entry_amount_usd = open_client_copy.get('entry_amount_usd') if open_client_copy else None
+                if entry_amount_usd and entry_amount_usd > 0:
+                    exact_pnl = (fill_cost - entry_amount_usd) if open_trade['side'] == 'buy' else (entry_amount_usd - fill_cost)
+                    self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'],
+                                                 exact_pnl=exact_pnl, exact_entry_usd=entry_amount_usd)
+                elif entry_price > 0:
                     self._handle_pnl_and_billing(user_id, symbol, entry_price, exec_p, exec_q, open_trade['side'])
-                close_client_copy(user_id, symbol, exec_p)
+                close_client_copy(user_id, symbol, exec_p, exit_amount_usd=fill_cost)
             elif master_order_id:
-                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q)
+                record_client_copy(master_order_id, user_id, symbol, side, exec_p, exec_q, entry_amount_usd=fill_cost)
 
         except Exception as e:
             print(f"   ❌ User {user_id} Bybit Error: {e}")
@@ -618,17 +642,22 @@ class TradeCopier:
 
     # ── pnl + billing ──
 
-    def _handle_pnl_and_billing(self, user_id, symbol, entry, exit_p, qty, side):
+    def _handle_pnl_and_billing(self, user_id, symbol, entry, exit_p, qty, side,
+                                exact_pnl=None, exact_entry_usd=None):
         print(f"   💰 [BILLING] User {user_id}, Entry: {entry}, Exit: {exit_p}, Qty: {qty}")
 
-        gross_pnl = (exit_p - entry) * qty if side == 'buy' else (entry - exit_p) * qty
-
-        # subtract exchange fees (~0.1% taker per side)
-        exchange_fees = (entry * qty + exit_p * qty) * 0.001
-        pnl = gross_pnl - exchange_fees
-        trade_amount_usd = entry * qty
-
-        print(f"   💰 [BILLING] Gross: {gross_pnl:.4f}, Fees: {exchange_fees:.4f}, Net: {pnl:.4f} USDT")
+        if exact_pnl is not None:
+            # Use exact PnL from real USDT amounts (no fee deduction needed — already reflected in fill prices)
+            pnl = exact_pnl
+            trade_amount_usd = exact_entry_usd if exact_entry_usd else (entry * qty)
+            print(f"   💰 [BILLING] Exact PnL: {pnl:.4f} USDT (entry_usd=${trade_amount_usd:.4f})")
+        else:
+            # Fallback: old calculation for legacy trades without exact amounts
+            gross_pnl = (exit_p - entry) * qty if side == 'buy' else (entry - exit_p) * qty
+            exchange_fees = (entry * qty + exit_p * qty) * 0.001
+            pnl = gross_pnl - exchange_fees
+            trade_amount_usd = entry * qty
+            print(f"   💰 [BILLING] Gross: {gross_pnl:.4f}, Fees: {exchange_fees:.4f}, Net: {pnl:.4f} USDT")
 
         if pnl <= 0:
             print(f"   📉 User {user_id} Loss: ${pnl:.2f}")
