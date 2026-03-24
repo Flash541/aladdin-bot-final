@@ -22,7 +22,8 @@ from database import (
     get_user_risk_profile, get_referral_count, get_coin_configs,
     add_coin_config, update_coin_config, delete_coin_config,
     validate_coin_allocation, DB_NAME, get_text, credit_tokens_from_payment,
-    encrypt_data
+    encrypt_data, get_user_profile, transfer_to_ai_trade,
+    get_claimable_ai_profit, claim_ai_profit
 )
 from exchange_utils import fetch_exchange_balance_safe, validate_exchange_credentials
 from tx_verifier import verify_bsc_tx
@@ -137,6 +138,10 @@ class DeleteCoinConfig(BaseModel):
     exchange: str
     symbol: str
 
+class TransferRequest(BaseModel):
+    user_id: int
+    amount: float
+
 
 # ── helpers ──
 
@@ -156,13 +161,12 @@ async def get_user_data(user_id: int):
     exchanges = get_user_exchanges(user_id)
     language = get_user_language(user_id)
 
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT token_balance, unc_balance FROM users WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    token_balance = res[0] if res else 0.0
-    unc_balance = res[1] if (res and len(res) > 1 and res[1] is not None) else 0.0
-    conn.close()
+    profile = get_user_profile(user_id)
+    token_balance = profile["balance"] if profile else 0.0
+    unc_balance = profile.get("unc_balance", 0.0) if profile else 0.0
+    ai_trade_balance = profile.get("ai_trade_balance", 0.0) if profile else 0.0
+    ai_trade_daily_profit = profile.get("ai_trade_daily_profit", 0.0) if profile else 0.0
+    claimable_ai_profit = get_claimable_ai_profit(user_id)
 
     # fetch balances concurrently
     tasks = []
@@ -203,7 +207,10 @@ async def get_user_data(user_id: int):
         "exchanges": ex_list,
         "language": language,
         "credits": token_balance,
-        "unc_balance": unc_balance
+        "unc_balance": unc_balance,
+        "ai_trade_balance": ai_trade_balance,
+        "ai_trade_daily_profit": ai_trade_daily_profit,
+        "claimable_ai_profit": claimable_ai_profit
     }
 
 
@@ -540,6 +547,36 @@ async def delete_coin_config_alt(req: DeleteCoinConfig):
         print(f"Error deleting coin: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/transfer_to_aitrade")
+async def transfer_to_aitrade_endpoint(req: TransferRequest):
+    try:
+        if req.amount <= 0:
+            raise HTTPException(status_code=400, detail="Invalid transfer amount")
+        success = transfer_to_ai_trade(req.user_id, req.amount)
+        if not success:
+            raise HTTPException(status_code=400, detail="Insufficient Token Balance. Minimum 50 USDT must remain for commissions.")
+        return {"status": "ok", "msg": "Transfer successful"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Transfer error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ClaimProfitRequest(BaseModel):
+    user_id: int
+
+@app.post("/api/claim_ai_profit")
+async def claim_ai_profit_endpoint(req: ClaimProfitRequest):
+    try:
+        success = claim_ai_profit(req.user_id)
+        if not success:
+            raise HTTPException(status_code=400, detail="No profit to claim or the 20-minute window has expired.")
+        return {"status": "ok", "msg": "Profit claimed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Claim profit error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.mount("/", StaticFiles(directory="webapp", html=True), name="static")
 

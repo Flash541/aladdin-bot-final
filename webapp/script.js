@@ -89,22 +89,105 @@ function setupActionButtons() {
     const aiTradeBtn = document.querySelector('[data-action="aitrade"]');
     if (aiTradeBtn) {
         aiTradeBtn.onclick = () => {
-            const modal = document.getElementById('modal-aitrade');
-            if (modal) {
-                modal.style.display = 'flex';
-                showAITradeStep('select');
-                if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            }
+            showAITradeModal();
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         };
     }
 }
 
 // === AI-TRADE MODAL ===
-function showAITradeStep(step) {
-    document.querySelectorAll('.ait-step').forEach(s => s.style.display = 'none');
-    const target = document.getElementById('ait-step-' + step);
-    if (target) target.style.display = 'block';
+let aiTradeMaxTransfer = 0;
+
+function showAITradeModal() {
+    const modal = document.getElementById('modal-aitrade');
+    if (modal) {
+        modal.style.display = 'flex';
+
+        // Fetch data to setup balance correctly
+        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+            fetch(`${API_BASE}/api/data?user_id=${tg.initDataUnsafe.user.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    const credits = data.credits || 0;
+                    // Max user can transfer is credits - 50. If less than 0, then 0.
+                    aiTradeMaxTransfer = Math.max(0, credits - 50);
+
+                    const availableEl = document.getElementById('aitrade-available-balance');
+                    if (availableEl) {
+                        availableEl.innerText = `Available to Transfer: ${Math.max(0, credits).toFixed(2)} USDT (Max: ${aiTradeMaxTransfer.toFixed(2)})`;
+                    }
+                })
+                .catch(err => console.error("Error fetching balance for AI Trade:", err));
+        }
+    }
 }
+
+function setAITradeTransferMax() {
+    const input = document.getElementById('aitrade-transfer-amount');
+    if (input) {
+        input.value = aiTradeMaxTransfer.toFixed(2);
+    }
+}
+
+async function submitAITradeTransfer() {
+    const amountInput = document.getElementById('aitrade-transfer-amount');
+    const amount = parseFloat(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) {
+        tg.showAlert("Please enter a valid amount.");
+        return;
+    }
+
+    if (amount > aiTradeMaxTransfer) {
+        tg.showAlert(`You can only transfer up to ${aiTradeMaxTransfer.toFixed(2)} USDT. A minimum of 50 USDT must remain for commissions.`);
+        return;
+    }
+
+    const user = tg.initDataUnsafe.user;
+    if (!user) {
+        tg.showAlert("User not authenticated.");
+        return;
+    }
+
+    try {
+        const btn = document.querySelector("#modal-aitrade .btn-primary");
+        const originalText = btn.innerText;
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+
+        const res = await fetch(`${API_BASE}/api/transfer_to_aitrade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                amount: amount
+            })
+        });
+
+        const data = await res.json();
+
+        btn.innerText = originalText;
+        btn.disabled = false;
+
+        if (res.ok && data.status === 'ok') {
+            showToast("Transfer successful!");
+            closeAITradeModal();
+            amountInput.value = ''; // Reset
+
+            // Refresh User Data
+            await fetchUserData(user.id);
+
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        } else {
+            tg.showAlert("Transfer failed: " + (data.detail || data.msg || "Unknown error"));
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        }
+    } catch (e) {
+        console.error("AI Trade Transfer Error:", e);
+        tg.showAlert("Network error during transfer.");
+    }
+}
+
 
 function closeAITradeModal() {
     const modal = document.getElementById('modal-aitrade');
@@ -841,9 +924,73 @@ async function fetchUserData(userId) {
         const elUncSet = document.getElementById("unc-bal-settings");
         if (elUncSet) elUncSet.innerText = (data.unc_balance || 0).toFixed(2);
 
+        // Modal shows AI Trade balance and profit
+        const elAiTradeBal = document.getElementById("aitrade-bal-modal");
+        if (elAiTradeBal) elAiTradeBal.innerText = `$${(data.ai_trade_balance || 0).toFixed(2)}`;
+
+        const elAiTradeProfit = document.getElementById("aitrade-profit-modal");
+        if (elAiTradeProfit) {
+            const profitStr = (data.ai_trade_daily_profit || 0).toFixed(2);
+            elAiTradeProfit.innerText = `+$${profitStr}`;
+        }
+
+        // Setup Claim Profit Button
+        const claimContainer = document.getElementById("claim-profit-container");
+        const claimAmount = document.getElementById("claim-profit-amount");
+        if (claimContainer && claimAmount) {
+            const claimable = data.claimable_ai_profit || 0;
+            if (claimable > 0) {
+                claimAmount.innerText = claimable.toFixed(2);
+                claimContainer.style.display = "block";
+            } else {
+                claimContainer.style.display = "none";
+            }
+        }
+
         renderExchanges(data.exchanges, data.credits);
         renderActiveStrategies(data.exchanges, data.credits);
     } catch (e) { console.error(e); }
+}
+
+// --- AI TRADE CLAIM PROFIT ---
+async function claimAIProfit() {
+    const user = tg.initDataUnsafe.user;
+    if (!user || (!user.id && user.id !== 0)) {
+        tg.showAlert("User not authenticated.");
+        return;
+    }
+
+    const btn = document.getElementById("btn-claim-profit");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/api/claim_ai_profit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+            showToast("Profit Claimed! Added to your USDT Balance.");
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            await fetchUserData(user.id); // Refresh balances
+        } else {
+            tg.showAlert(data.detail || "Claim failed. Output may have reinvested.");
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        }
+    } catch (e) {
+        console.error("Claim Profit Error:", e);
+        tg.showAlert("Network error while claiming profit.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Claimed";
+        }
+    }
 }
 
 function setLanguage(lang) {
@@ -1419,12 +1566,8 @@ function setupActionButtons() {
     const aiTradeCard = document.querySelector('.action-card[data-action="aitrade"]');
     if (aiTradeCard) {
         aiTradeCard.addEventListener('click', () => {
-            const modal = document.getElementById('modal-aitrade');
-            if (modal) {
-                modal.style.display = 'flex';
-                showAITradeStep('select');
-                if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            }
+            showAITradeModal();
+            if (window.tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         });
     }
 

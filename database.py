@@ -101,7 +101,16 @@ def initialize_db():
             selected_strategy TEXT DEFAULT 'bro-bot',
             daily_analysis_count INTEGER DEFAULT 0,
             last_analysis_date TEXT,
-            language_code TEXT DEFAULT 'en'
+            language_code TEXT DEFAULT 'en',
+            ai_trade_balance REAL DEFAULT 0.0,
+            ai_trade_daily_profit REAL DEFAULT 0.0
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS global_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
 
@@ -208,6 +217,13 @@ def initialize_db():
        )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS global_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+
     # legacy migration: users table -> user_exchanges
     try:
         cursor.execute("SELECT user_id, exchange_name, api_key_public, api_secret_encrypted, api_passphrase_encrypted, selected_strategy FROM users WHERE api_key_public IS NOT NULL AND api_key_public != ''")
@@ -237,6 +253,9 @@ def initialize_db():
         "ALTER TABLE users ADD COLUMN referred_by INTEGER",
         "ALTER TABLE users ADD COLUMN unc_balance REAL DEFAULT 0",
         "ALTER TABLE client_copies ADD COLUMN entry_amount_usd REAL",
+        "ALTER TABLE users ADD COLUMN ai_trade_balance REAL DEFAULT 0.0",
+        "ALTER TABLE users ADD COLUMN ai_trade_daily_profit REAL DEFAULT 0.0",
+        "ALTER TABLE users ADD COLUMN pending_ai_profit REAL DEFAULT 0.0",
     ]
     for m in migrations:
         try: cursor.execute(m)
@@ -300,6 +319,119 @@ def get_user_risk_profile(user_id: int) -> float:
     conn.close()
     return float(res[0]) if res and res[0] is not None else 1.0
 
+# ── ai trade settings ──
+
+def get_ai_trade_monthly_percent() -> float:
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM global_settings WHERE key = 'ai_trade_monthly_percent'")
+    res = cursor.fetchone()
+    conn.close()
+    return float(res[0]) if res and res[0] else 0.0
+
+def set_ai_trade_monthly_percent(percent: float):
+    # Generate 30 exact randomized days summing up to the percent
+    import random, json
+    
+    # Generate 30 random numbers
+    random_parts = [random.uniform(0.5, 1.5) for _ in range(30)]
+    total_parts = sum(random_parts)
+    
+    # Scale them so their sum is exactly equal to `percent`
+    schedule = [(p / total_parts) * percent for p in random_parts]
+    
+    # Adjust for floating point errors in the last element to guarantee exact match
+    schedule[-1] = percent - sum(schedule[:-1])
+    
+    # Ensure no precision errors drop the value below 0 (safeguard)
+    schedule = [max(0.0001, x) for x in schedule]
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('ai_trade_monthly_percent', str(percent)))
+    cursor.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('ai_trade_schedule_json', json.dumps(schedule)))
+    cursor.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('ai_trade_current_day', '0'))
+    cursor.execute("INSERT OR REPLACE INTO global_settings (key, value) VALUES (?, ?)", ('ai_trade_last_generation_time', ''))
+    conn.commit()
+    conn.close()
+
+def transfer_to_ai_trade(user_id: int, amount: float) -> bool:
+    """Returns True if transfer is successful, False if insufficient token_balance or below minimum."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("BEGIN TRANSACTION")
+        cursor.execute("SELECT token_balance FROM users WHERE user_id = ?", (user_id,))
+        res = cursor.fetchone()
+        if not res:
+            return False
+            
+        current_token_balance = res[0] or 0.0
+        
+        # Ensure we leave at least 50 USDT on the token balance for commissions
+        if current_token_balance - amount < 50.0:
+            return False
+            
+        if current_token_balance >= amount and amount > 0:
+            cursor.execute("UPDATE users SET token_balance = token_balance - ?, ai_trade_balance = ai_trade_balance + ? WHERE user_id = ?", (amount, amount, user_id))
+            conn.commit()
+            return True
+        return False
+    except Exception as e:
+        print(f"❌ DB Transfer Error: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def get_claimable_ai_profit(user_id: int) -> float:
+    """Returns pending profit if within 20 mins of generation, else 0."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT pending_ai_profit FROM users WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row or row[0] <= 0:
+            return 0.0
+        
+        pending_profit = row[0]
+        
+        cursor.execute("SELECT value FROM global_settings WHERE key = 'ai_trade_last_generation_time'")
+        time_row = cursor.fetchone()
+        if not time_row or not time_row[0]:
+            return 0.0
+            
+        last_gen = datetime.fromisoformat(time_row[0])
+        mins_passed = (datetime.now() - last_gen).total_seconds() / 60.0
+        
+        if mins_passed <= 20:
+            return pending_profit
+        return 0.0
+    except Exception as e:
+        print(f"Error checking claimable profit: {e}")
+        return 0.0
+    finally:
+        conn.close()
+
+def claim_ai_profit(user_id: int) -> bool:
+    """Claims the pending profit directly to token_balance. Fails if outside the 20min window."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        claimable = get_claimable_ai_profit(user_id)
+        if claimable <= 0:
+            return False
+            
+        cursor.execute("BEGIN TRANSACTION")
+        cursor.execute("UPDATE users SET token_balance = token_balance + ?, pending_ai_profit = 0 WHERE user_id = ?", (claimable, user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error claiming profit: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
 
 # ── copy trading connections ──
 
@@ -782,10 +914,20 @@ def get_all_active_user_ids() -> list[int]:
 
 def get_user_profile(user_id: int) -> dict | None:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()
-    cursor.execute("SELECT join_date, status, subscription_expiry, referral_code, token_balance, account_balance, risk_per_trade_pct FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT join_date, status, subscription_expiry, referral_code, token_balance, account_balance, risk_per_trade_pct, ai_trade_balance, ai_trade_daily_profit FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone(); conn.close()
     if not res: return None
-    return {"join_date": res[0], "status": res[1], "expiry": res[2], "ref_code": res[3], "balance": res[4] or 0, "account_balance": res[5] or 1000, "risk_pct": res[6] or 1}
+    return {
+        "join_date": res[0], 
+        "status": res[1], 
+        "expiry": res[2], 
+        "ref_code": res[3], 
+        "balance": res[4] or 0.0, 
+        "account_balance": res[5] or 1000.0, 
+        "risk_pct": res[6] or 1.0,
+        "ai_trade_balance": res[7] or 0.0,
+        "ai_trade_daily_profit": res[8] or 0.0
+    }
 
 def get_user_risk_settings(user_id: int) -> dict:
     conn = sqlite3.connect(DB_NAME); cursor = conn.cursor()

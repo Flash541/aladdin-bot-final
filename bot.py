@@ -38,6 +38,7 @@ PAYMENT_AMOUNT = 49
 USDT_CONTRACT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"
 ASK_PROMO_COUNT, ASK_PROMO_DURATION = range(2)
 ASK_BROADCAST_MESSAGE, CONFIRM_BROADCAST = range(9, 11)
+ASK_AITRADE_PERCENT = 12
 
 
 ASK_AMOUNT, ASK_WALLET = range(2)  
@@ -1828,7 +1829,8 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         ["User Stats 👥", "Withdrawals 🏧"], 
         ["Generate Promos 🎟️", "Broadcast 📢"], 
-        ["Top Up UNC 💰", "Back to Main Menu ⬅️"]
+        ["Top Up UNC 💰", "AI Trade % 🤖"],
+        ["Back to Main Menu ⬅️"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👑 Welcome to the Admin Panel!", reply_markup=reply_markup)
@@ -1988,6 +1990,52 @@ async def generate_promos_duration(update: Update, context: ContextTypes.DEFAULT
     
     context.user_data.clear()
     return ConversationHandler.END
+
+
+# --- AI TRADE PERCENTAGE SETTINGS ---
+async def ask_aitrade_percent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from database import get_ai_trade_monthly_percent
+    current_pct = get_ai_trade_monthly_percent()
+    await update.message.reply_text(
+        f"Текущий процент AI Trade: <b>{current_pct}%</b>\n\n"
+        "Введите новый процент распределения (в месяц), например <code>15</code> или <code>15.5</code>.\n"
+        "Для отмены нажмите 'Отмена'.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=ReplyKeyboardMarkup([["Cancel ❌"]], resize_keyboard=True)
+    )
+    return ASK_AITRADE_PERCENT
+
+async def save_aitrade_percent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text in ["Cancel ❌", "Отмена"]:
+        keyboard = [
+            ["User Stats 👥", "Withdrawals 🏧"], 
+            ["Generate Promos 🎟️", "Broadcast 📢"], 
+            ["Top Up UNC 💰", "AI Trade % 🤖"],
+            ["Back to Main Menu ⬅️"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("Действие отменено.", reply_markup=reply_markup)
+        return ConversationHandler.END
+        
+    try:
+        from database import set_ai_trade_monthly_percent
+        percent = float(text)
+        if percent < 0: raise ValueError
+        set_ai_trade_monthly_percent(percent)
+        
+        keyboard = [
+            ["User Stats 👥", "Withdrawals 🏧"], 
+            ["Generate Promos 🎟️", "Broadcast 📢"], 
+            ["Top Up UNC 💰", "AI Trade % 🤖"],
+            ["Back to Main Menu ⬅️"]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(f"✅ Успешно! Новый месячный процент AI Trade: {percent}%.\n\nКод автоматически сгенерировал 30-дневный рандомизированный график начислений на весь месяц. Забрать её можно будет каждый день с помощью 'Claim Profit' в WebApp.", reply_markup=reply_markup)
+        return ConversationHandler.END
+    except ValueError:
+        await update.message.reply_text("❌ Неверный формат. Пожалуйста, введите число (например, 15 или 12.5):")
+        return ASK_AITRADE_PERCENT
 
 # --- ОБНОВЛЕННЫЙ text_handler для активации по промокоду ---
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2352,6 +2400,14 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel_risk)]
     )
     
+    aitrade_percent_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^AI Trade % 🤖$"), ask_aitrade_percent)],
+        states={
+            ASK_AITRADE_PERCENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_aitrade_percent)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+
     # Promo code generation conversation handler
     promo_conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex('^Generate Promos 🎟️$'), generate_promos_start)],
@@ -2467,13 +2523,14 @@ def main():
     application.add_handler(CommandHandler("admin", admin_command))
     # application.add_handler(connect_conv_handler)
     application.add_handler(broadcast_conv_handler)
+    application.add_handler(aitrade_percent_conv)
     application.add_handler(unc_topup_conv_handler)
     application.add_handler(start_conv_handler)
     # application.add_handler(withdraw_conv_handler)
-    # application.add_handler(lang_conv_handler)
-    # application.add_handler(risk_conv_handler)
-    # application.add_handler(promo_conv_handler)
-    # application.add_handler(edit_reserve_conv_handler)
+    application.add_handler(lang_conv_handler)
+    application.add_handler(risk_conv_handler)
+    application.add_handler(promo_conv_handler)
+    application.add_handler(edit_reserve_conv_handler)
     # application.add_handler(broadcast_conv_handler)
     # application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
